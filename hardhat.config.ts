@@ -12,12 +12,10 @@ dotenv.config()
 
 const {
   ENVIRONMENT,
-  COINMARKETCAP_API_KEY,
   DEV_PRIVATE_KEY,
   PROD_PRIVATE_KEY,
   DEFENDER_TEAM_API_KEY,
   DEFENDER_TEAM_API_SECRET_KEY,
-  POLYGONSCAN_API_KEY,
   POLYGON_PROVIDER_URL,
   MUMBAI_PROVIDER_URL,
 } = process.env
@@ -39,25 +37,10 @@ const BASE_CONFIG = {
     gasPrice: 100,
     token: 'MATIC',
     currency: 'USD',
-    coinmarketcap: COINMARKETCAP_API_KEY,
   },
   spdxLicenseIdentifier: {
     overwrite: false,
     runOnCompile: true,
-  },
-  etherscan: {
-    apiKey: {
-      polygon: POLYGONSCAN_API_KEY,
-      polygonMumbai: POLYGONSCAN_API_KEY,
-    },
-  },
-  networks: {
-    hardhat: {
-      forking: {
-        url: POLYGON_PROVIDER_URL,
-        blockNumber: 39293348,
-      },
-    },
   },
 }
 
