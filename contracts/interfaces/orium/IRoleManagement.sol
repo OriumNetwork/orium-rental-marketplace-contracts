@@ -6,14 +6,14 @@ struct Role {
     bytes32 role;
     string name;
     string desc;
-    bytes32 data;
+    bytes data;
 }
 
 interface IRoleManagement {
-    event RoleCreated(address indexed _creator, bytes32 indexed _role, string _name, string _desc, bytes32 _data);
+    event RoleCreated(address indexed _creator, bytes32 indexed _role, string _name, string _desc, bytes _data);
     event RoleDestroyed(address indexed _destroyer, bytes32 indexed _role);
 
-    function createRole(bytes32 _role, string calldata _name, string calldata _desc, bytes32 _data) external;
+    function createRole(bytes32 _role, string calldata _name, string calldata _desc, bytes calldata _data) external;
 
     function destroyRole(bytes32 _role) external;
 
