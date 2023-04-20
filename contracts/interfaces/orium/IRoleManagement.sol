@@ -14,8 +14,5 @@ interface IRoleManagement {
     event RoleDestroyed(address indexed _destroyer, bytes32 indexed _role);
 
     function createRole(bytes32 _role, string calldata _name, string calldata _desc, bytes calldata _data) external;
-
     function destroyRole(bytes32 _role) external;
-
-    function listRoles() external view returns (Role[] memory);
 }

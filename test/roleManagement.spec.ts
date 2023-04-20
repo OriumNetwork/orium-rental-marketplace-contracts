@@ -47,7 +47,7 @@ describe('Role Management', () => {
       await expect(contract.destroyRole(hash)).to.emit(contract, 'RoleDestroyed').withArgs(account.address, hash)
     })
 
-    it('should create three roles, delete one, and list all', async () => {
+    it('should create three roles and delete one', async () => {
       const hash = randomHash()
       const name = randomString()
       const desc = randomString()
@@ -70,19 +70,6 @@ describe('Role Management', () => {
       await expect(contract.createRole(hash3, name3, desc3, hash3))
         .to.emit(contract, 'RoleCreated')
         .withArgs(account.address, hash3, name3, desc3, hash3)
-
-      const roles = await contract.listRoles()
-      expect(roles).to.have.lengthOf(2)
-
-      expect(roles[0]).to.have.property('role', hash)
-      expect(roles[0]).to.have.property('name', name)
-      expect(roles[0]).to.have.property('desc', desc)
-      expect(roles[0]).to.have.property('data', HashZero)
-
-      expect(roles[1]).to.have.property('role', hash3)
-      expect(roles[1]).to.have.property('name', name3)
-      expect(roles[1]).to.have.property('desc', desc3)
-      expect(roles[1]).to.have.property('data', hash3)
     })
   })
 })
