@@ -10,11 +10,7 @@ import 'hardhat-contract-sizer'
 
 dotenv.config()
 
-const {
-  ENVIRONMENT,
-  DEFENDER_TEAM_API_KEY,
-  DEFENDER_TEAM_API_SECRET_KEY,
-} = process.env
+const { ENVIRONMENT, DEFENDER_TEAM_API_KEY, DEFENDER_TEAM_API_SECRET_KEY } = process.env
 
 const BASE_CONFIG = {
   solidity: {

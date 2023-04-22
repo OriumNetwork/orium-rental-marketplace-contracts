@@ -6,12 +6,15 @@ import "./RoleManagement.sol";
 import "./interfaces/orium/IERC721Roles.sol";
 
 contract ERC721Roles is RoleManagement, IERC721Roles {
-
     // role => tokenId => account => expirationDate
     mapping(bytes32 => mapping(uint256 => mapping(address => uint64))) public roleAssignments;
 
     function grantRole(
-        bytes32 _role, address _account, uint256 _tokenId, uint64 _expirationDate, bytes calldata _data
+        bytes32 _role,
+        address _account,
+        uint256 _tokenId,
+        uint64 _expirationDate,
+        bytes calldata _data
     ) external virtual override {
         require(_expirationDate > block.timestamp, "ERC721Roles: expiration date must be in the future");
         roleAssignments[_role][_tokenId][_account] = _expirationDate;
@@ -24,15 +27,14 @@ contract ERC721Roles is RoleManagement, IERC721Roles {
     }
 
     function roleExpirationDate(
-        bytes32 _role, address _account, uint256 _tokenId
+        bytes32 _role,
+        address _account,
+        uint256 _tokenId
     ) public view virtual override returns (uint64) {
         return roleAssignments[_role][_tokenId][_account];
     }
 
-    function hasRole(
-        bytes32 _role, address _account, uint256 _tokenId
-    ) external view virtual override returns (bool) {
+    function hasRole(bytes32 _role, address _account, uint256 _tokenId) external view virtual override returns (bool) {
         return roleExpirationDate(_role, _account, _tokenId) > block.timestamp;
     }
-
 }

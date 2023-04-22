@@ -34,8 +34,9 @@ describe('ERC721 Roles', () => {
       const role = randomHash()
       const tokenId = randomInteger()
       const expirationDate = Math.round(Date.now() / 1000)
-      await expect(contract.grantRole(role, account.address, tokenId, expirationDate, HashZero))
-        .revertedWith('ERC721Roles: expiration date must be in the future')
+      await expect(contract.grantRole(role, account.address, tokenId, expirationDate, HashZero)).revertedWith(
+        'ERC721Roles: expiration date must be in the future',
+      )
     })
   })
 
@@ -65,5 +66,4 @@ describe('ERC721 Roles', () => {
       expect(hasRole).to.be.true
     })
   })
-
 })
