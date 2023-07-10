@@ -68,6 +68,7 @@ interface IERC721RolesRegistry {
     /// @param _tokenId The ERC-721 token identifier.
     function hasRole(
         bytes32 _role,
+        address _owner,
         address _account,
         address _nftAddress,
         uint256 _tokenId
@@ -80,6 +81,7 @@ interface IERC721RolesRegistry {
     /// @param _tokenId The ERC-721 token identifier.
     function roleData(
         bytes32 _role,
+        address _owner,
         address _account,
         address _nftAddress,
         uint256 _tokenId

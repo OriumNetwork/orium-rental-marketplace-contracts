@@ -5,7 +5,7 @@ pragma solidity 0.8.9;
 import "./interfaces/orium/IRoleManagement.sol";
 
 contract RoleManagement is IRoleManagement {
-    mapping(bytes32 => Role) public roles;
+   mapping(address => mapping(bytes32 => Role)) public roles;
 
     function createRole(
         bytes32 _role,
@@ -21,12 +21,12 @@ contract RoleManagement is IRoleManagement {
     }
 
     function _addRole(bytes32 _role, string memory _name, string memory _desc, bytes memory _data) internal {
-        roles[_role] = Role(_role, _name, _desc, _data);
+        roles[msg.sender][_role] = Role(_role, _name, _desc, _data);
         emit RoleCreated(msg.sender, _role, _name, _desc, _data);
     }
 
     function _destroyRole(bytes32 _role) internal {
-        delete roles[_role];
+        delete roles[msg.sender][_role];
         emit RoleDestroyed(msg.sender, _role);
     }
 }
