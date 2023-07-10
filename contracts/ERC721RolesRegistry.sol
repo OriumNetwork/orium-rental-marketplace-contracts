@@ -79,14 +79,8 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
         uint64 _expirationDate,
         bytes calldata _data
     ) external onlyOwner(_nftAddress, _tokenId) validExpirationDate(_expirationDate) {
-        address _currentUser  = roleUserAssignments[msg.sender][_nftAddress][_tokenId][_role];
-
-        if(_currentUser != address(0)){
-            delete roleAssignments[msg.sender][_currentUser][_nftAddress][_tokenId][_role];
-            emit RoleRevoked(_role, _account, _nftAddress, _tokenId);
-        }
-
         roleAssignments[msg.sender][_account][_nftAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
+        roleUserAssignments[msg.sender][_nftAddress][_tokenId][_role] = _account;
         emit RoleGranted(_role, _account, _expirationDate, _nftAddress, _tokenId, _data);
     }
 
