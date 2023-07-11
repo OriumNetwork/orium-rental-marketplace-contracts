@@ -37,7 +37,7 @@ describe('Roles Registry', () => {
   })
 
   describe('Role registry', async () => {
-    it.only('should create a role with data', async () => {
+    it('should create a role with data', async () => {
       const user = (await ethers.getSigners())[1]
       const beneficiaries = [account.address]
       const shares = [1000]
@@ -66,6 +66,47 @@ describe('Roles Registry', () => {
       )
 
       expect(returnedData.data_).to.equal(data)
+    })
+    it.only('should create a role that not support multiple users', async () => {
+      const userOne = (await ethers.getSigners())[1]
+      const userTwo = (await ethers.getSigners())[2]
+
+      const tokenId = 1
+      await mockERC721.mint(account.address, tokenId)
+
+      const ONE_DAY = 60 * 60 * 24
+      const blockNumber = await hre.ethers.provider.getBlockNumber()
+      const block = await hre.ethers.provider.getBlock(blockNumber)
+
+      const expirationDate = block.timestamp + ONE_DAY
+
+      await expect(
+        rolesRegistry
+          .connect(account)
+          .grantRole(role, userOne.address, mockERC721.address, tokenId, expirationDate, HashZero),
+      )
+        .to.emit(rolesRegistry, 'RoleGranted')
+        .withArgs(role, userOne.address, expirationDate, mockERC721.address, tokenId, HashZero)
+
+      await expect(
+        rolesRegistry
+          .connect(account)
+          .grantRole(role, userTwo.address, mockERC721.address, tokenId, expirationDate, HashZero),
+      )
+        .to.emit(rolesRegistry, 'RoleGranted')
+        .withArgs(role, userTwo.address, expirationDate, mockERC721.address, tokenId, HashZero)
+
+      const supportMultipleUsers = false
+      expect(
+        await rolesRegistry.hasRole(
+          role,
+          account.address,
+          userOne.address,
+          mockERC721.address,
+          tokenId,
+          supportMultipleUsers,
+        ),
+      ).to.be.equal(false)
     })
   })
 })

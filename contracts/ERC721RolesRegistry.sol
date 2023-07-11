@@ -16,8 +16,7 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
     mapping(address => mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => RoleData))))) public roleAssignments;
 
     // owner => nftAddress => tokenId => role => user
-    mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => address)))) public roleUserAssignments;
-
+    mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => address)))) public roleLastAssingment;
     modifier onlyOwner(address nftAddress, uint256 tokenId) {
         require(IERC721(nftAddress).ownerOf(tokenId) == msg.sender, "ERC721RolesRegistry: msg.sender is not owner of the NFT");
         _;
@@ -50,14 +49,19 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
         emit RoleRevoked(_role, _account, _nftAddress, _tokenId);
     }
 
-    function hasRole(
+     function hasRole(
         bytes32 _role,
         address _owner,
         address _account,
         address _nftAddress,
-        uint256 _tokenId
+        uint256 _tokenId,
+        bool _supportsMultipleUsers
     ) external view returns (bool) {
+        if(_supportsMultipleUsers){
         return roleAssignments[_owner][_account][_nftAddress][_tokenId][_role].expirationDate > block.timestamp;
+        } else {
+        return roleLastAssingment[_owner][_nftAddress][_tokenId][_role] == _account;
+        }
     }
 
     function roleData(
@@ -69,38 +73,5 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
     ) external view returns (uint64 expirationDate_, bytes memory data_) {
         RoleData storage roleDate = roleAssignments[_owner][_account][_nftAddress][_tokenId][_role];
         return (roleDate.expirationDate, roleDate.data);
-    }
-
-     function grantRoleUser(
-        bytes32 _role,
-        address _account,
-        address _nftAddress,
-        uint256 _tokenId,
-        uint64 _expirationDate,
-        bytes calldata _data
-    ) external onlyOwner(_nftAddress, _tokenId) validExpirationDate(_expirationDate) {
-        roleAssignments[msg.sender][_account][_nftAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
-        roleUserAssignments[msg.sender][_nftAddress][_tokenId][_role] = _account;
-        emit RoleGranted(_role, _account, _expirationDate, _nftAddress, _tokenId, _data);
-    }
-
-    function revokeRoleUser(
-        bytes32 _role,
-        address _account,
-        address _nftAddress,
-        uint256 _tokenId
-    ) external onlyOwner(_nftAddress, _tokenId) {
-        delete roleUserAssignments[msg.sender][_nftAddress][_tokenId][_role];
-        delete roleAssignments[msg.sender][_account][_nftAddress][_tokenId][_role];
-        emit RoleRevoked(_role, _account, _nftAddress, _tokenId);
-    }
-
-    function roleUser(
-        bytes32 _role,
-        address _owner,
-        address _nftAddress,
-        uint256 _tokenId
-    ) external view returns (address) {
-        return roleUserAssignments[_owner][_nftAddress][_tokenId][_role];
     }
 }
