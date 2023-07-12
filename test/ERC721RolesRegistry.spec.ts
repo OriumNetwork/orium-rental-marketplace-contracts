@@ -107,6 +107,17 @@ describe('Roles Registry', () => {
           supportMultipleUsers,
         ),
       ).to.be.equal(false)
+
+      expect(
+        await rolesRegistry.hasRole(
+          role,
+          account.address,
+          userTwo.address,
+          mockERC721.address,
+          tokenId,
+          supportMultipleUsers,
+        ),
+      ).to.be.equal(true)
     })
   })
 })
