@@ -20,6 +20,7 @@ describe('Roles Registry', () => {
   const role = randomHash()
 
   before(async function () {
+    // eslint-disable-next-line prettier/prettier
     [deployer, roleCreator, userOne, userTwo] = await ethers.getSigners()
   })
 
