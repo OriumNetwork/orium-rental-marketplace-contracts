@@ -20,7 +20,7 @@ describe('Roles Registry', () => {
   const role = randomHash()
 
   before(async function () {
-    ;[deployer, roleCreator, userOne, userTwo] = await ethers.getSigners()
+    [deployer, roleCreator, userOne, userTwo] = await ethers.getSigners()
   })
 
   beforeEach(async () => {
