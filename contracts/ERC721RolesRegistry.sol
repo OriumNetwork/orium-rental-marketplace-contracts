@@ -16,7 +16,7 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
     mapping(address => mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => RoleData))))) public roleAssignments;
 
     // owner => nftAddress => tokenId => role => user
-    mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => address)))) public roleLastAssingment;
+    mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => address)))) public lastRoleAssignment;
     modifier onlyOwner(address nftAddress, uint256 tokenId) {
         require(IERC721(nftAddress).ownerOf(tokenId) == msg.sender, "ERC721RolesRegistry: msg.sender is not owner of the NFT");
         _;
@@ -36,7 +36,7 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
         bytes calldata _data
     ) external onlyOwner(_nftAddress, _tokenId) validExpirationDate(_expirationDate) {
         roleAssignments[msg.sender][_account][_nftAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
-        roleLastAssingment[msg.sender][_nftAddress][_tokenId][_role] = _account;
+        lastRoleAssignment[msg.sender][_nftAddress][_tokenId][_role] = _account;
         emit RoleGranted(_role, _account, _expirationDate, _nftAddress, _tokenId, _data);
     }
 
@@ -47,7 +47,7 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
         uint256 _tokenId
     ) external onlyOwner(_nftAddress, _tokenId) {
         delete roleAssignments[msg.sender][_account][_nftAddress][_tokenId][_role];
-        delete roleLastAssingment[msg.sender][_nftAddress][_tokenId][_role];
+        delete lastRoleAssignment[msg.sender][_nftAddress][_tokenId][_role];
         emit RoleRevoked(_role, _account, _nftAddress, _tokenId);
     }
 
@@ -62,7 +62,7 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
         if(_supportsMultipleUsers){
         return roleAssignments[_owner][_account][_nftAddress][_tokenId][_role].expirationDate > block.timestamp;
         } else {
-        return roleLastAssingment[_owner][_nftAddress][_tokenId][_role] == _account;
+        return lastRoleAssignment[_owner][_nftAddress][_tokenId][_role] == _account && roleAssignments[_owner][_account][_nftAddress][_tokenId][_role].expirationDate > block.timestamp;
         }
     }
 
