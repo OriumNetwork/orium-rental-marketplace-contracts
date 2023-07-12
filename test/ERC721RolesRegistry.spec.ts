@@ -67,7 +67,7 @@ describe('Roles Registry', () => {
 
       expect(returnedData.data_).to.equal(data)
     })
-    it.only('should create a role that not support multiple users', async () => {
+    it('should create a role that not support multiple users', async () => {
       const userOne = (await ethers.getSigners())[1]
       const userTwo = (await ethers.getSigners())[2]
 
