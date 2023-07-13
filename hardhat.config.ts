@@ -10,15 +10,7 @@ import 'hardhat-contract-sizer'
 
 dotenv.config()
 
-const {
-  ENVIRONMENT,
-  DEV_PRIVATE_KEY,
-  PROD_PRIVATE_KEY,
-  DEFENDER_TEAM_API_KEY,
-  DEFENDER_TEAM_API_SECRET_KEY,
-  POLYGON_PROVIDER_URL,
-  MUMBAI_PROVIDER_URL,
-} = process.env
+const { ENVIRONMENT, DEFENDER_TEAM_API_KEY, DEFENDER_TEAM_API_SECRET_KEY } = process.env
 
 const BASE_CONFIG = {
   solidity: {
@@ -49,24 +41,6 @@ const PROD_CONFIG = {
   defender: {
     apiKey: DEFENDER_TEAM_API_KEY,
     apiSecret: DEFENDER_TEAM_API_SECRET_KEY,
-  },
-  networks: {
-    hardhat: {
-      forking: {
-        url: POLYGON_PROVIDER_URL,
-        blockNumber: 39293348,
-      },
-    },
-    mumbai: {
-      chainId: 80001,
-      url: MUMBAI_PROVIDER_URL,
-      accounts: [DEV_PRIVATE_KEY],
-    },
-    polygon: {
-      chainId: 137,
-      url: POLYGON_PROVIDER_URL,
-      accounts: [PROD_PRIVATE_KEY],
-    },
   },
 }
 
