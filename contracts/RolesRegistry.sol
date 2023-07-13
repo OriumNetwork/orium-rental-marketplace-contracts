@@ -57,9 +57,9 @@ contract RolesRegistry is IRolesRegistry {
         bool isValid = roleAssignments[_owner][_account][_nftAddress][_tokenId][_role].expirationDate > block.timestamp;
 
         if(_supportsMultipleAssignments){
-        return isValid;
+            return isValid;
         } else {
-        return isValid && lastRoleAssignment[_owner][_nftAddress][_tokenId][_role] == _account;
+            return isValid && lastRoleAssignment[_owner][_nftAddress][_tokenId][_role] == _account;
         }
     }
 
