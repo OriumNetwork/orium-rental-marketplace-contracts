@@ -67,14 +67,14 @@ interface IRolesRegistry {
     /// @param _account The user that receives the role.
     /// @param _nftAddress The ERC721 token address.
     /// @param _tokenId The ERC-721 token identifier.
-    /// @param _supportsMultipleUsers if false, will return true only if owner is the last role grantee
+    /// @param _supportsMultipleAssignments if false, will return true only if owner is the last role grantee
     function hasRole(
         bytes32 _role,
         address _owner,
         address _account,
         address _nftAddress,
         uint256 _tokenId,
-        bool _supportsMultipleUsers
+        bool _supportsMultipleAssignments
     ) external view returns (bool);
 
     /// @notice Returns the custom data and expiration date of a role assignment.

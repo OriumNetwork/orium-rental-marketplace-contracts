@@ -46,18 +46,20 @@ contract RolesRegistry is IRolesRegistry {
         emit RoleRevoked(_role, _account, _nftAddress, _tokenId);
     }
 
-     function hasRole(
+    function hasRole(
         bytes32 _role,
         address _owner,
         address _account,
         address _nftAddress,
         uint256 _tokenId,
-        bool _supportsMultipleUsers
+        bool _supportsMultipleAssignments
     ) external view returns (bool) {
-        if(_supportsMultipleUsers){
-        return roleAssignments[_owner][_account][_nftAddress][_tokenId][_role].expirationDate > block.timestamp;
+        bool isValid = roleAssignments[_owner][_account][_nftAddress][_tokenId][_role].expirationDate > block.timestamp;
+
+        if(_supportsMultipleAssignments){
+        return isValid;
         } else {
-        return lastRoleAssignment[_owner][_nftAddress][_tokenId][_role] == _account && roleAssignments[_owner][_account][_nftAddress][_tokenId][_role].expirationDate > block.timestamp;
+        return isValid && lastRoleAssignment[_owner][_nftAddress][_tokenId][_role] == _account;
         }
     }
 
@@ -68,7 +70,7 @@ contract RolesRegistry is IRolesRegistry {
         address _nftAddress,
         uint256 _tokenId
     ) external view returns (uint64 expirationDate_, bytes memory data_) {
-        RoleData storage roleDate = roleAssignments[_owner][_account][_nftAddress][_tokenId][_role];
-        return (roleDate.expirationDate, roleDate.data);
+        RoleData memory _roleData = roleAssignments[_owner][_account][_nftAddress][_tokenId][_role];
+        return (_roleData.expirationDate, _roleData.data);
     }
 }
