@@ -3,7 +3,7 @@
 pragma solidity 0.8.9;
 
 /// @notice The ERC-721 Roles Registry interface enables granting and revoking temporary roles for ERC-721 tokens.
-interface IERC721RolesRegistry {
+interface IRolesRegistry {
 
     /// @notice Emitted when a role is assigned to a user.
     /// @param _role The role identifier.
@@ -63,23 +63,29 @@ interface IERC721RolesRegistry {
 
     /// @notice Checks if a user has a role.
     /// @param _role The role identifier.
+    /// @param _owner The role creator
     /// @param _account The user that receives the role.
     /// @param _nftAddress The ERC721 token address.
     /// @param _tokenId The ERC-721 token identifier.
+    /// @param _supportsMultipleAssignments if false, will return true only if owner is the last role grantee
     function hasRole(
         bytes32 _role,
+        address _owner,
         address _account,
         address _nftAddress,
-        uint256 _tokenId
+        uint256 _tokenId,
+        bool _supportsMultipleAssignments
     ) external view returns (bool);
 
     /// @notice Returns the custom data and expiration date of a role assignment.
     /// @param _role The role identifier.
+    /// @param _owner The role creator
     /// @param _account The user that receives the role.
     /// @param _nftAddress The ERC721 token address.
     /// @param _tokenId The ERC-721 token identifier.
     function roleData(
         bytes32 _role,
+        address _owner,
         address _account,
         address _nftAddress,
         uint256 _tokenId
