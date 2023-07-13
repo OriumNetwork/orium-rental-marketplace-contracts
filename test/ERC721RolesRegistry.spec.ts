@@ -25,7 +25,7 @@ describe('Roles Registry', () => {
   })
 
   beforeEach(async () => {
-    const RoleRegistryFactory = await ethers.getContractFactory('ERC721RolesRegistry')
+    const RoleRegistryFactory = await ethers.getContractFactory('RolesRegistry')
     rolesRegistry = await RoleRegistryFactory.deploy()
 
     const MockERC721Factory = await ethers.getContractFactory('MockERC721')
@@ -55,13 +55,6 @@ describe('Roles Registry', () => {
           .to.emit(rolesRegistry, 'RoleGranted')
           .withArgs(role, userOne.address, expirationDate, mockERC721.address, tokenId, data)
       })
-      it('should NOT grant role if not nft owner', async () => {
-        await expect(
-          rolesRegistry
-            .connect(userOne)
-            .grantRole(role, userOne.address, mockERC721.address, tokenId, expirationDate, HashZero),
-        ).to.be.revertedWith('ERC721RolesRegistry: msg.sender is not owner of the NFT')
-      })
       it('should NOT grant role if expiration date is in the past', async () => {
         const blockNumber = await hre.ethers.provider.getBlockNumber()
         const block = await hre.ethers.provider.getBlock(blockNumber)
@@ -71,7 +64,7 @@ describe('Roles Registry', () => {
           rolesRegistry
             .connect(roleCreator)
             .grantRole(role, userOne.address, mockERC721.address, tokenId, expirationDateInThePast, HashZero),
-        ).to.be.revertedWith('ERC721RolesRegistry: expiration date must be in the future')
+        ).to.be.revertedWith('RolesRegistry: expiration date must be in the future')
       })
     })
 
@@ -80,11 +73,6 @@ describe('Roles Registry', () => {
         await expect(rolesRegistry.connect(roleCreator).revokeRole(role, userOne.address, mockERC721.address, tokenId))
           .to.emit(rolesRegistry, 'RoleRevoked')
           .withArgs(role, userOne.address, mockERC721.address, tokenId)
-      })
-      it('should NOT revoke role if not nft owner', async () => {
-        await expect(
-          rolesRegistry.connect(userOne).revokeRole(role, userOne.address, mockERC721.address, tokenId),
-        ).to.be.revertedWith('ERC721RolesRegistry: msg.sender is not owner of the NFT')
       })
     })
 

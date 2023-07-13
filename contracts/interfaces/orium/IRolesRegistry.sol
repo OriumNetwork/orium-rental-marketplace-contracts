@@ -3,7 +3,7 @@
 pragma solidity 0.8.9;
 
 /// @notice The ERC-721 Roles Registry interface enables granting and revoking temporary roles for ERC-721 tokens.
-interface IERC721RolesRegistry {
+interface IRolesRegistry {
 
     /// @notice Emitted when a role is assigned to a user.
     /// @param _role The role identifier.

@@ -2,28 +2,23 @@
 
 pragma solidity 0.8.9;
 
-import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { IERC721RolesRegistry } from "./interfaces/orium/IERC721RolesRegistry.sol";
+import { IRolesRegistry } from "./interfaces/orium/IRolesRegistry.sol";
 
 struct RoleData {
     uint64 expirationDate;
     bytes data;
 }
 
-contract ERC721RolesRegistry is IERC721RolesRegistry {
+contract RolesRegistry is IRolesRegistry {
 
     // owner => user => nftAddress => tokenId => role => struct(expirationDate, data)
     mapping(address => mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => RoleData))))) public roleAssignments;
 
     // owner => nftAddress => tokenId => role => user
     mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => address)))) public lastRoleAssignment;
-    modifier onlyOwner(address nftAddress, uint256 tokenId) {
-        require(IERC721(nftAddress).ownerOf(tokenId) == msg.sender, "ERC721RolesRegistry: msg.sender is not owner of the NFT");
-        _;
-    }
 
     modifier validExpirationDate(uint64 _expirationDate) {
-        require(_expirationDate > block.timestamp, "ERC721RolesRegistry: expiration date must be in the future");
+        require(_expirationDate > block.timestamp, "RolesRegistry: expiration date must be in the future");
         _;
     }
 
@@ -34,7 +29,7 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
         uint256 _tokenId,
         uint64 _expirationDate,
         bytes calldata _data
-    ) external onlyOwner(_nftAddress, _tokenId) validExpirationDate(_expirationDate) {
+    ) external validExpirationDate(_expirationDate) {
         roleAssignments[msg.sender][_account][_nftAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
         lastRoleAssignment[msg.sender][_nftAddress][_tokenId][_role] = _account;
         emit RoleGranted(_role, _account, _expirationDate, _nftAddress, _tokenId, _data);
@@ -45,7 +40,7 @@ contract ERC721RolesRegistry is IERC721RolesRegistry {
         address _account,
         address _nftAddress,
         uint256 _tokenId
-    ) external onlyOwner(_nftAddress, _tokenId) {
+    ) external {
         delete roleAssignments[msg.sender][_account][_nftAddress][_tokenId][_role];
         delete lastRoleAssignment[msg.sender][_nftAddress][_tokenId][_role];
         emit RoleRevoked(_role, _account, _nftAddress, _tokenId);
