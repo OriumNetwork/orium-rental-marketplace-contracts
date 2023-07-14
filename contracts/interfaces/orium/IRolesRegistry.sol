@@ -70,7 +70,7 @@ interface IRolesRegistry {
     /// @param _supportsMultipleAssignments if false, will return true only if account is the last role grantee
     function hasRole(
         bytes32 _role,
-		address _granter,
+        address _granter,
         address _grantee,
         address _tokenAddress,
         uint256 _tokenId,
