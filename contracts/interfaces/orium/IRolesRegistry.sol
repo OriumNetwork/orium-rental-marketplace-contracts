@@ -35,14 +35,14 @@ interface IRolesRegistry {
 
     /// @notice Grants a role to a user.
     /// @param _role The role identifier.
-    /// @param _account The user that receives the role assignment.
+    /// @param _grantee The user that receives the role assignment.
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _expirationDate The expiration date of the role assignment.
     /// @param _data Any additional data about the role assignment.
     function grantRole(
         bytes32 _role,
-        address _account,
+        address _grantee,
         address _tokenAddress,
         uint256 _tokenId,
         uint64 _expirationDate,
