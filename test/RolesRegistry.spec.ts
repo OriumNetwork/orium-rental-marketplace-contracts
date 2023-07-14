@@ -21,7 +21,7 @@ describe('Roles Registry', () => {
 
   before(async function () {
     // eslint-disable-next-line prettier/prettier
-    ;[deployer, roleCreator, userOne, userTwo] = await ethers.getSigners()
+    [deployer, roleCreator, userOne, userTwo] = await ethers.getSigners()
   })
 
   beforeEach(async () => {
@@ -53,7 +53,7 @@ describe('Roles Registry', () => {
             .grantRole(role, userOne.address, mockERC721.address, tokenId, expirationDate, data),
         )
           .to.emit(rolesRegistry, 'RoleGranted')
-          .withArgs(role, roleCreator.address, userOne.address, expirationDate, mockERC721.address, tokenId, data)
+          .withArgs(role, userOne.address, expirationDate, mockERC721.address, tokenId, data)
       })
       it('should NOT grant role if expiration date is in the past', async () => {
         const blockNumber = await hre.ethers.provider.getBlockNumber()
@@ -72,7 +72,7 @@ describe('Roles Registry', () => {
       it('should revoke role', async () => {
         await expect(rolesRegistry.connect(roleCreator).revokeRole(role, userOne.address, mockERC721.address, tokenId))
           .to.emit(rolesRegistry, 'RoleRevoked')
-          .withArgs(role, roleCreator.address, userOne.address, mockERC721.address, tokenId)
+          .withArgs(role, userOne.address, mockERC721.address, tokenId)
       })
     })
 
@@ -84,7 +84,7 @@ describe('Roles Registry', () => {
             .grantRole(role, userOne.address, mockERC721.address, tokenId, expirationDate, HashZero),
         )
           .to.emit(rolesRegistry, 'RoleGranted')
-          .withArgs(role, roleCreator.address, userOne.address, expirationDate, mockERC721.address, tokenId, HashZero)
+          .withArgs(role, userOne.address, expirationDate, mockERC721.address, tokenId, HashZero)
 
         await expect(
           rolesRegistry
@@ -92,7 +92,7 @@ describe('Roles Registry', () => {
             .grantRole(role, userTwo.address, mockERC721.address, tokenId, expirationDate, HashZero),
         )
           .to.emit(rolesRegistry, 'RoleGranted')
-          .withArgs(role, roleCreator.address, userTwo.address, expirationDate, mockERC721.address, tokenId, HashZero)
+          .withArgs(role, userTwo.address, expirationDate, mockERC721.address, tokenId, HashZero)
       })
 
       describe('Single User Roles', async () => {
@@ -203,7 +203,7 @@ describe('Roles Registry', () => {
             .grantRole(role, userOne.address, mockERC721.address, tokenId, expirationDate, customData),
         )
           .to.emit(rolesRegistry, 'RoleGranted')
-          .withArgs(role, roleCreator.address, userOne.address, expirationDate, mockERC721.address, tokenId, customData)
+          .withArgs(role, userOne.address, expirationDate, mockERC721.address, tokenId, customData)
 
         const returnedData = await rolesRegistry.roleData(
           role,

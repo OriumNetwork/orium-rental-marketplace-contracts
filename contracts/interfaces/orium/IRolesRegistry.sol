@@ -7,7 +7,6 @@ interface IRolesRegistry {
 
     /// @notice Emitted when a role is assigned to a user.
     /// @param _role The role identifier.
-    /// @param _granter The role creator
     /// @param _grantee The user that receives the role assignment.
     /// @param _expirationDate The expiration date of the role assignment.
     /// @param _tokenAddress The token address.
@@ -15,7 +14,6 @@ interface IRolesRegistry {
     /// @param _data Any additional data about the role assignment.
     event RoleGranted(
         bytes32 _role,
-        address indexed _granter,
         address _grantee,
         uint64  _expirationDate,
         address indexed _tokenAddress,
@@ -25,13 +23,11 @@ interface IRolesRegistry {
 
     /// @notice Revokes a role from a user.
     /// @param _role The role identifier.
-    /// @param _granter The role creator
     /// @param _grantee The user that receives the role revocation.
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     event RoleRevoked(
         bytes32 _role,
-        address indexed _granter,
         address _grantee,
         address indexed _tokenAddress,
         uint256 indexed _tokenId
@@ -55,30 +51,30 @@ interface IRolesRegistry {
 
     /// @notice Revokes a role from a user.
     /// @param _role The role identifier.
-    /// @param _account The user that receives the role revocation.
+    /// @param _grantee The user that receives the role revocation.
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     function revokeRole(
         bytes32 _role,
-        address _account,
+        address _grantee,
         address _tokenAddress,
         uint256 _tokenId
     ) external;
 
     /// @notice Checks if a user has a role.
     /// @param _role The role identifier.
-    /// @param _owner The role creator
-    /// @param _account The user that receives the role.
+    /// @param _granter The role creator
+    /// @param _grantee The user that receives the role.
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _supportsMultipleAssignments if false, will return true only if account is the last role grantee
     function hasRole(
         bytes32 _role,
-		address _owner,
-        address _account,
+		address _granter,
+        address _grantee,
         address _tokenAddress,
         uint256 _tokenId,
-				bool _supportsMultipleAssignments
+		bool _supportsMultipleAssignments
     ) external view returns (bool);
 
     /// @notice Returns the custom data and expiration date of a role assignment.

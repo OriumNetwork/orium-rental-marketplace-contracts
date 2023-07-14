@@ -24,53 +24,53 @@ contract RolesRegistry is IRolesRegistry {
 
     function grantRole(
         bytes32 _role,
-        address _account,
+        address _grantee,
         address _tokenAddress,
         uint256 _tokenId,
         uint64 _expirationDate,
         bytes calldata _data
     ) external validExpirationDate(_expirationDate) {
-        roleAssignments[msg.sender][_account][_tokenAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
-        lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role] = _account;
-        emit RoleGranted(_role, msg.sender, _account, _expirationDate, _tokenAddress, _tokenId, _data);
+        roleAssignments[msg.sender][_grantee][_tokenAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
+        lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role] = _grantee;
+        emit RoleGranted(_role, _grantee, _expirationDate, _tokenAddress, _tokenId, _data);
     }
 
     function revokeRole(
         bytes32 _role,
-        address _account,
+        address _grantee,
         address _tokenAddress,
         uint256 _tokenId
     ) external {
-        delete roleAssignments[msg.sender][_account][_tokenAddress][_tokenId][_role];
+        delete roleAssignments[msg.sender][_grantee][_tokenAddress][_tokenId][_role];
         delete lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role];
-        emit RoleRevoked(_role, msg.sender, _account, _tokenAddress, _tokenId);
+        emit RoleRevoked(_role, _grantee, _tokenAddress, _tokenId);
     }
 
     function hasRole(
         bytes32 _role,
-        address _owner,
-        address _account,
+        address _granter,
+        address _grantee,
         address _tokenAddress,
         uint256 _tokenId,
         bool _supportsMultipleAssignments
     ) external view returns (bool) {
-        bool isValid = roleAssignments[_owner][_account][_tokenAddress][_tokenId][_role].expirationDate > block.timestamp;
+        bool isValid = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role].expirationDate > block.timestamp;
 
         if(_supportsMultipleAssignments){
             return isValid;
         } else {
-            return isValid && lastRoleAssignment[_owner][_tokenAddress][_tokenId][_role] == _account;
+            return isValid && lastRoleAssignment[_granter][_tokenAddress][_tokenId][_role] == _grantee;
         }
     }
 
     function roleData(
         bytes32 _role,
-        address _owner,
-        address _account,
+        address _granter,
+        address _grantee,
         address _tokenAddress,
         uint256 _tokenId
     ) external view returns (uint64 expirationDate_, bytes memory data_) {
-        RoleData memory _roleData = roleAssignments[_owner][_account][_tokenAddress][_tokenId][_role];
+        RoleData memory _roleData = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role];
         return (_roleData.expirationDate, _roleData.data);
     }
 }
