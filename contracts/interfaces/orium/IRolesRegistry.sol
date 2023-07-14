@@ -74,7 +74,7 @@ interface IRolesRegistry {
         address _grantee,
         address _tokenAddress,
         uint256 _tokenId,
-		bool _supportsMultipleAssignments
+        bool _supportsMultipleAssignments
     ) external view returns (bool);
 
     /// @notice Returns the custom data and expiration date of a role assignment.
