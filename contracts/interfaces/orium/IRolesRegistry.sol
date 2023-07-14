@@ -85,7 +85,7 @@ interface IRolesRegistry {
     /// @param _tokenId The token identifier.
     function roleData(
         bytes32 _role,
-		address _granter,
+        address _granter,
         address _grantee,
         address _tokenAddress,
         uint256 _tokenId
