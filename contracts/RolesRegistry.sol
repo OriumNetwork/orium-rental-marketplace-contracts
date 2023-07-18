@@ -4,15 +4,15 @@ pragma solidity 0.8.9;
 
 import { IRolesRegistry } from "./interfaces/orium/IRolesRegistry.sol";
 
-struct RoleData {
-    uint64 expirationDate;
-    bytes data;
-}
-
 contract RolesRegistry is IRolesRegistry {
+    struct RoleData {
+        uint64 expirationDate;
+        bytes data;
+    }
 
     // owner => user => tokenAddress => tokenId => role => struct(expirationDate, data)
-    mapping(address => mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => RoleData))))) public roleAssignments;
+    mapping(address => mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => RoleData)))))
+        public roleAssignments;
 
     // owner => tokenAddress => tokenId => role => user
     mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => address)))) public lastRoleAssignment;
@@ -35,12 +35,7 @@ contract RolesRegistry is IRolesRegistry {
         emit RoleGranted(_role, _grantee, _expirationDate, _tokenAddress, _tokenId, _data);
     }
 
-    function revokeRole(
-        bytes32 _role,
-        address _grantee,
-        address _tokenAddress,
-        uint256 _tokenId
-    ) external {
+    function revokeRole(bytes32 _role, address _grantee, address _tokenAddress, uint256 _tokenId) external {
         delete roleAssignments[msg.sender][_grantee][_tokenAddress][_tokenId][_role];
         delete lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role];
         emit RoleRevoked(_role, _grantee, _tokenAddress, _tokenId);
@@ -54,9 +49,10 @@ contract RolesRegistry is IRolesRegistry {
         uint256 _tokenId,
         bool _supportsMultipleAssignments
     ) external view returns (bool) {
-        bool isValid = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role].expirationDate > block.timestamp;
+        bool isValid = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role].expirationDate >
+            block.timestamp;
 
-        if(_supportsMultipleAssignments){
+        if (_supportsMultipleAssignments) {
             return isValid;
         } else {
             return isValid && lastRoleAssignment[_granter][_tokenAddress][_tokenId][_role] == _grantee;
