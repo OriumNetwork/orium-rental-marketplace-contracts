@@ -5,6 +5,7 @@ pragma solidity 0.8.9;
 import { RolesRegistry } from "./RolesRegistry.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import { ECDSAUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract OriumMarketplace is RolesRegistry, EIP712 {
     string public constant SIGNING_DOMAIN = "Orium-Rental-Marketplace";
@@ -83,5 +84,47 @@ contract OriumMarketplace is RolesRegistry, EIP712 {
                     )
                 )
             );
+    }
+
+    function endRental(address token, uint256 tokenId) external {
+        address owner = IERC721(token).ownerOf(tokenId);
+        address taker = lastRoleAssignment[owner][token][tokenId][USER_ROLE];
+        require(msg.sender == owner || msg.sender == taker, "Only owner or taker can end rental");
+
+        RoleData memory data = roleAssignments[owner][taker][token][tokenId][USER_ROLE];
+
+        require(block.timestamp > data.expirationDate, "Rental hasn't ended");
+
+        // Call some function to mark NFT as available again
+
+        delete lastRoleAssignment[owner][token][tokenId][USER_ROLE];
+        delete roleAssignments[owner][taker][token][tokenId][USER_ROLE];
+    }
+
+    function sublet(address token, uint256 tokenId, address subTenant) external {
+        address owner = IERC721(token).ownerOf(tokenId);
+
+        address taker = lastRoleAssignment[owner][token][tokenId][USER_ROLE];
+        require(msg.sender == taker, "Only taker can sublet");
+
+        RoleData memory data = roleAssignments[owner][taker][token][tokenId][USER_ROLE];
+
+        require(block.timestamp < data.expirationDate, "Rental has ended");
+
+        roleAssignments[msg.sender][subTenant][token][tokenId][USER_ROLE] = RoleData(data.expirationDate, data.data);
+        lastRoleAssignment[msg.sender][token][tokenId][USER_ROLE] = subTenant;
+    }
+
+    function endSublet(address token, uint256 tokenId) external {
+        address owner = IERC721(token).ownerOf(tokenId);
+        address subTenant = lastRoleAssignment[owner][token][tokenId][USER_ROLE];
+        require(msg.sender == subTenant, "Only subtenant can end sublet");
+
+        RoleData memory data = roleAssignments[msg.sender][subTenant][token][tokenId][USER_ROLE];
+
+        require(block.timestamp < data.expirationDate, "Rental has ended");
+
+        delete lastRoleAssignment[msg.sender][token][tokenId][USER_ROLE];
+        delete roleAssignments[msg.sender][subTenant][token][tokenId][USER_ROLE];
     }
 }
