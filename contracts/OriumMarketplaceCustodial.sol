@@ -15,8 +15,13 @@ contract OriumMarketplaceCustodial is RolesRegistry, EIP712 {
     bytes32 public constant TOKEN_OWNER_ROLE = keccak256("TOKEN_OWNER_ROLE");
     bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
 
+    bytes public constant EMPTY_BYTES = "";
+
     /// @dev nonce => isPresigned
     mapping(bytes32 => bool) public preSignedOffer;
+
+    /// @dev maker => nonce => bool
+    mapping(address => mapping(uint256 => bool)) public invalidNonce;
 
     struct RentalOffer {
         address maker;
@@ -36,6 +41,61 @@ contract OriumMarketplaceCustodial is RolesRegistry, EIP712 {
 
     event Deposit(address token, uint256 tokenId, address owner);
     event Withdraw(address token, uint256 tokenId, address owner);
+    /**
+     * @param nonce nonce of the rental offer
+     * @param maker address of the user renting his NFTs
+     * @param taker address of the allowed tenant if private rental or `0x0` if public rental
+     * @param tokenAddress address of the contract of the NFT to rent
+     * @param tokenId tokenId of the NFT to rent
+     * @param feeToken address of the ERC20 token for rental fees
+     * @param feeAmount amount of the upfront rental cost
+     * @param deadline until when the rental offer is valid
+     */
+    event RentalOfferCreated(
+        uint256 indexed nonce,
+        address indexed maker,
+        address taker,
+        address tokenAddress,
+        uint256 tokenId,
+        address feeToken,
+        uint256 feeAmount,
+        uint256 deadline
+    );
+
+    /**
+     * @param nonce nonce of the rental offer
+     * @param maker address of the user renting his NFTs
+     */
+    event RentalOfferCancelled(uint256 indexed nonce, address indexed maker);
+
+    /**
+     * @param nonce nonce of the rental offer
+     * @param lender address of the lender
+     * @param tenant address of the tenant
+     * @param token address of the contract of the NFT rented
+     * @param tokenId tokenId of the rented NFT
+     * @param duration how long the NFT is rented
+     * @param start when the rent begins
+     * @param end when the rent ends
+     */
+    event RentalStarted(
+        uint256 indexed nonce,
+        address indexed lender,
+        address indexed tenant,
+        address token,
+        uint256 tokenId,
+        uint64 duration,
+        uint256 start,
+        uint256 end
+    );
+
+    /**
+     * @param lender address of the lender
+     * @param tenant address of the tenant
+     * @param token address of the contract of the NFT rented
+     * @param tokenId tokenId of the rented NFT
+     */
+    event RentalEnded(address indexed lender, address indexed tenant, address token, uint256 tokenId);
 
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
         require(
@@ -48,7 +108,7 @@ contract OriumMarketplaceCustodial is RolesRegistry, EIP712 {
     constructor() EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {}
 
     function deposit(address _tokenAddress, uint256 _tokenId) external {
-        grantRole(TOKEN_OWNER_ROLE, msg.sender, _tokenAddress, _tokenId, type(uint64).max, abi.encode(""));
+        grantRole(TOKEN_OWNER_ROLE, msg.sender, _tokenAddress, _tokenId, type(uint64).max, EMPTY_BYTES);
 
         emit Deposit(_tokenAddress, _tokenId, msg.sender);
 
@@ -67,10 +127,27 @@ contract OriumMarketplaceCustodial is RolesRegistry, EIP712 {
         require(msg.sender == offer.maker, "Signer and Maker mismatch");
 
         preSignedOffer[hashRentalOffer(offer)] = true;
+
+        emit RentalOfferCreated(
+            offer.nonce,
+            offer.maker,
+            offer.taker,
+            offer.tokenAddress,
+            offer.tokenId,
+            offer.feeToken,
+            offer.feeAmount,
+            offer.expirationDate
+        );
+    }
+
+    function cancelRentalOffer(uint256 nonce) external {
+        invalidNonce[msg.sender][nonce] = true;
+        emit RentalOfferCancelled(nonce, msg.sender);
     }
 
     function rent(RentalOffer calldata offer, SignatureType signatureType, bytes calldata signature) external {
         require(offer.expirationDate >= block.timestamp, "Offer expired");
+        require(!invalidNonce[offer.maker][offer.nonce], "Nonce already used");
 
         address _lastGrantee = lastGrantee(offer.tokenAddress, offer.tokenId, USER_ROLE); //TODO: maybe implement a lastGrantee() view function to EIP?
         require(
@@ -88,43 +165,34 @@ contract OriumMarketplaceCustodial is RolesRegistry, EIP712 {
             revert("Unsupported signature type");
         }
 
-        grantRole(USER_ROLE, msg.sender, offer.tokenAddress, offer.tokenId, offer.expirationDate, abi.encode(""));
+        grantRole(USER_ROLE, msg.sender, offer.tokenAddress, offer.tokenId, offer.expirationDate, EMPTY_BYTES);
+
+        invalidNonce[offer.maker][offer.nonce] = true;
+
+        emit RentalStarted(
+            offer.nonce,
+            offer.maker,
+            msg.sender,
+            offer.tokenAddress,
+            offer.tokenId,
+            offer.expirationDate,
+            block.timestamp,
+            offer.expirationDate
+        );
     }
 
-    function hashRentalOffer(RentalOffer memory offer) public view returns (bytes32) {
-        return
-            _hashTypedDataV4(
-                keccak256(
-                    abi.encode(
-                        keccak256(
-                            "RentalOffer(address maker,address taker,address tokenAddress,uint256 tokenId,address feeToken,uint256 feeAmount,uint256 nonce,uint64 expirationDate)"
-                        ),
-                        offer.maker,
-                        offer.taker,
-                        offer.tokenAddress,
-                        offer.tokenId,
-                        offer.feeToken,
-                        offer.feeAmount,
-                        offer.nonce,
-                        offer.expirationDate
-                    )
-                )
-            );
-    }
+    function endRental(address _tokenAddress, uint256 _tokenId) external {
+        address taker = lastGrantee(_tokenAddress, _tokenId, USER_ROLE);
+        address owner = lastGrantee(_tokenAddress, _tokenId, TOKEN_OWNER_ROLE);
 
-    function endRental(address token, uint256 tokenId) external {
-        address owner = IERC721(token).ownerOf(tokenId);
-        address taker = lastRoleAssignment[owner][token][tokenId][USER_ROLE];
         require(msg.sender == owner || msg.sender == taker, "Only owner or taker can end rental");
 
-        RoleData memory data = roleAssignments[owner][taker][token][tokenId][USER_ROLE];
-
+        RoleData memory data = roleAssignments[owner][taker][_tokenAddress][_tokenId][USER_ROLE];
         require(block.timestamp > data.expirationDate, "Rental hasn't ended");
 
-        // Call some function to mark NFT as available again
+        revokeRole(USER_ROLE, taker, _tokenAddress, _tokenId);
 
-        delete lastRoleAssignment[owner][token][tokenId][USER_ROLE];
-        delete roleAssignments[owner][taker][token][tokenId][USER_ROLE];
+        emit RentalEnded(owner, taker, _tokenAddress, _tokenId);
     }
 
     function sublet(address token, uint256 tokenId, address subTenant) external {
@@ -152,6 +220,27 @@ contract OriumMarketplaceCustodial is RolesRegistry, EIP712 {
 
         delete lastRoleAssignment[msg.sender][token][tokenId][USER_ROLE];
         delete roleAssignments[msg.sender][subTenant][token][tokenId][USER_ROLE];
+    }
+
+    function hashRentalOffer(RentalOffer memory offer) public view returns (bytes32) {
+        return
+            _hashTypedDataV4(
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "RentalOffer(address maker,address taker,address tokenAddress,uint256 tokenId,address feeToken,uint256 feeAmount,uint256 nonce,uint64 expirationDate)"
+                        ),
+                        offer.maker,
+                        offer.taker,
+                        offer.tokenAddress,
+                        offer.tokenId,
+                        offer.feeToken,
+                        offer.feeAmount,
+                        offer.nonce,
+                        offer.expirationDate
+                    )
+                )
+            );
     }
 
     function lastGrantee(address _tokenAddress, uint256 _tokenId, bytes32 _role) public view returns (address) {
