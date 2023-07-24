@@ -2,23 +2,18 @@
 
 pragma solidity 0.8.9;
 
-import { IRolesRegistry } from "./interfaces/orium/IRolesRegistry.sol";
+import { INftRoles } from "./interfaces/INftRoles.sol";
 
-struct RoleData {
-    uint64 expirationDate;
-    bytes data;
-}
-
-contract RolesRegistry is IRolesRegistry {
-
+contract NftRoles is INftRoles {
     // owner => user => tokenAddress => tokenId => role => struct(expirationDate, data)
-    mapping(address => mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => RoleData))))) public roleAssignments;
+    mapping(address => mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => RoleData)))))
+        public roleAssignments;
 
     // owner => tokenAddress => tokenId => role => user
     mapping(address => mapping(address => mapping(uint256 => mapping(bytes32 => address)))) public lastRoleAssignment;
 
     modifier validExpirationDate(uint64 _expirationDate) {
-        require(_expirationDate > block.timestamp, "RolesRegistry: expiration date must be in the future");
+        require(_expirationDate > block.timestamp, "NftRoles: expiration date must be in the future");
         _;
     }
 
@@ -28,22 +23,17 @@ contract RolesRegistry is IRolesRegistry {
         address _tokenAddress,
         uint256 _tokenId,
         uint64 _expirationDate,
-        bytes calldata _data
-    ) external validExpirationDate(_expirationDate) {
+        bytes memory _data
+    ) public validExpirationDate(_expirationDate) {
         roleAssignments[msg.sender][_grantee][_tokenAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
         lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role] = _grantee;
-        emit RoleGranted(_role, _grantee, _expirationDate, _tokenAddress, _tokenId, _data);
+        emit RoleGranted(_role, _tokenAddress, _tokenId, _grantee, _expirationDate, _data);
     }
 
-    function revokeRole(
-        bytes32 _role,
-        address _grantee,
-        address _tokenAddress,
-        uint256 _tokenId
-    ) external {
+    function revokeRole(bytes32 _role, address _grantee, address _tokenAddress, uint256 _tokenId) public {
         delete roleAssignments[msg.sender][_grantee][_tokenAddress][_tokenId][_role];
         delete lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role];
-        emit RoleRevoked(_role, _grantee, _tokenAddress, _tokenId);
+        emit RoleRevoked(_role, _tokenAddress, _tokenId, _grantee);
     }
 
     function hasRole(
@@ -53,10 +43,11 @@ contract RolesRegistry is IRolesRegistry {
         address _tokenAddress,
         uint256 _tokenId,
         bool _supportsMultipleAssignments
-    ) external view returns (bool) {
-        bool isValid = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role].expirationDate > block.timestamp;
+    ) public view returns (bool) {
+        bool isValid = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role].expirationDate >
+            block.timestamp;
 
-        if(_supportsMultipleAssignments){
+        if (_supportsMultipleAssignments) {
             return isValid;
         } else {
             return isValid && lastRoleAssignment[_granter][_tokenAddress][_tokenId][_role] == _grantee;
@@ -69,8 +60,23 @@ contract RolesRegistry is IRolesRegistry {
         address _grantee,
         address _tokenAddress,
         uint256 _tokenId
-    ) external view returns (uint64 expirationDate_, bytes memory data_) {
+    ) public view returns (bytes memory data_) {
         RoleData memory _roleData = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role];
-        return (_roleData.expirationDate, _roleData.data);
+        return (_roleData.data);
+    }
+
+    function roleExpirationDate(
+        bytes32 _role,
+        address _grantor,
+        address _grantee,
+        address _tokenAddress,
+        uint256 _tokenId
+    ) public view returns (uint64 expirationDate_) {
+        RoleData memory _roleData = roleAssignments[_grantor][_grantee][_tokenAddress][_tokenId][_role];
+        return (_roleData.expirationDate);
+    }
+
+    function supportsInterface(bytes4 interfaceId) external view virtual override returns (bool) {
+        return interfaceId == type(INftRoles).interfaceId;
     }
 }
