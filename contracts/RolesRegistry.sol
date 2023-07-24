@@ -28,14 +28,14 @@ contract RolesRegistry is IRolesRegistry {
         address _tokenAddress,
         uint256 _tokenId,
         uint64 _expirationDate,
-        bytes calldata _data
-    ) external validExpirationDate(_expirationDate) {
+        bytes memory _data
+    ) public validExpirationDate(_expirationDate) {
         roleAssignments[msg.sender][_grantee][_tokenAddress][_tokenId][_role] = RoleData(_expirationDate, _data);
         lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role] = _grantee;
         emit RoleGranted(_role, _grantee, _expirationDate, _tokenAddress, _tokenId, _data);
     }
 
-    function revokeRole(bytes32 _role, address _grantee, address _tokenAddress, uint256 _tokenId) external {
+    function revokeRole(bytes32 _role, address _grantee, address _tokenAddress, uint256 _tokenId) public {
         delete roleAssignments[msg.sender][_grantee][_tokenAddress][_tokenId][_role];
         delete lastRoleAssignment[msg.sender][_tokenAddress][_tokenId][_role];
         emit RoleRevoked(_role, _grantee, _tokenAddress, _tokenId);
@@ -48,7 +48,7 @@ contract RolesRegistry is IRolesRegistry {
         address _tokenAddress,
         uint256 _tokenId,
         bool _supportsMultipleAssignments
-    ) external view returns (bool) {
+    ) public view returns (bool) {
         bool isValid = roleAssignments[_granter][_grantee][_tokenAddress][_tokenId][_role].expirationDate >
             block.timestamp;
 
