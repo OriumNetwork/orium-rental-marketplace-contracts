@@ -7,4 +7,4 @@ cache
 coverage
 coverage.json
 .DS_Store
-.vscode/*
+.vscode/
