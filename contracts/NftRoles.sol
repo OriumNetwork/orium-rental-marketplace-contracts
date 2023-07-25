@@ -79,4 +79,9 @@ contract NftRoles is INftRoles {
     function supportsInterface(bytes4 interfaceId) external view virtual override returns (bool) {
         return interfaceId == type(INftRoles).interfaceId;
     }
+
+    // TODO: include this in the reference implementation?
+    function lastGrantee( bytes32 _role, address _grantor, address _tokenAddress, uint256 _tokenId) public view returns (address) {
+        return lastRoleAssignment[_grantor][_tokenAddress][_tokenId][_role];
+    }
 }

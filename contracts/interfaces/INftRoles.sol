@@ -99,4 +99,17 @@ interface INftRoles is IERC165 {
         address _tokenAddress,
         uint256 _tokenId
     ) external view returns (uint64 expirationDate_);
+
+    /// @notice Returns the last grantee of a role.
+    /// @param _role The role identifier.
+    /// @param _grantor The role creator
+    /// @param _tokenAddress The token address.
+    /// @param _tokenId The token identifier.
+    // TODO: include this in the EIP?
+    function lastGrantee(
+        bytes32 _role,
+        address _grantor,
+        address _tokenAddress,
+        uint256 _tokenId
+    ) external view returns (address grantee_);
 }
