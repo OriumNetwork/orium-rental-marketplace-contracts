@@ -235,16 +235,14 @@ contract OriumRentalProtocol is EIP712 {
                 _tokenId
             );
             require(block.timestamp > _expirationDate, "Rental hasn't ended");
-
-            nftRolesRegistry.revokeRole(USER_ROLE, _taker, _tokenAddress, _tokenId);
-        } else {
-            nftRolesRegistry.revokeRole(USER_ROLE, _owner, _tokenAddress, _tokenId);
         }
+
+        nftRolesRegistry.revokeRole(USER_ROLE, _taker, _tokenAddress, _tokenId);
 
         emit RentalEnded(_owner, _taker, _tokenAddress, _tokenId);
     }
 
-    function sublet(address _tokenAddress, uint256 _tokenId, address _subTenant, uint64 _period) external {
+    function sublet(address _tokenAddress, uint256 _tokenId, address _subTenant) external {
         address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), _tokenAddress, _tokenId);
         require(msg.sender == _taker, "Only taker can sublet");
 
@@ -257,17 +255,7 @@ contract OriumRentalProtocol is EIP712 {
         );
         require(block.timestamp < _expirationDate, "Rental has ended");
 
-        uint64 _subletExpirationDate = uint64(block.timestamp + _period);
-        require(_subletExpirationDate < _expirationDate, "Sublet period is too long");
-
-        nftRolesRegistry.grantRole(
-            SUBTENANT_ROLE,
-            _subTenant,
-            _tokenAddress,
-            _tokenId,
-            _subletExpirationDate,
-            EMPTY_BYTES
-        );
+        nftRolesRegistry.grantRole(SUBTENANT_ROLE, _subTenant, _tokenAddress, _tokenId, _expirationDate, EMPTY_BYTES);
 
         emit SubletStarted(_taker, _subTenant, _tokenAddress, _tokenId);
     }
