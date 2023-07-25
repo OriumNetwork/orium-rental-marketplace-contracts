@@ -244,7 +244,9 @@ contract OriumRentalProtocol is EIP712 {
 
     function sublet(address _tokenAddress, uint256 _tokenId, address _subTenant) external {
         address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), _tokenAddress, _tokenId);
-        require(msg.sender == _taker, "Only taker can sublet");
+        address _actualSubTenant = nftRolesRegistry.lastGrantee(SUBTENANT_ROLE, address(this), _tokenAddress, _tokenId);
+
+        require(msg.sender == _taker || msg.sender == _actualSubTenant, "Only taker or subtenant can sublet");
 
         uint64 _expirationDate = nftRolesRegistry.roleExpirationDate(
             USER_ROLE,
@@ -255,14 +257,20 @@ contract OriumRentalProtocol is EIP712 {
         );
         require(block.timestamp < _expirationDate, "Rental has ended");
 
+        address _tenant = msg.sender == _taker ? _taker : _actualSubTenant;
+
+        /// If a subtenant already exists, its role will be overwritten
         nftRolesRegistry.grantRole(SUBTENANT_ROLE, _subTenant, _tokenAddress, _tokenId, _expirationDate, EMPTY_BYTES);
 
-        emit SubletStarted(_taker, _subTenant, _tokenAddress, _tokenId);
+        emit SubletStarted(_tenant, _subTenant, _tokenAddress, _tokenId);
     }
 
     function endSublet(address token, uint256 tokenId) external {
         address _subTenant = nftRolesRegistry.lastGrantee(SUBTENANT_ROLE, address(this), token, tokenId);
-        require(msg.sender == _subTenant, "Only subtenant can end sublet");
+        address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), token, tokenId);
+
+        require(_subTenant != address(0), "Subtenant not found");
+        require(msg.sender == _subTenant || msg.sender == _taker, "Only subtenant or taker can end sublet");
 
         nftRolesRegistry.revokeRole(SUBTENANT_ROLE, _subTenant, token, tokenId);
 
