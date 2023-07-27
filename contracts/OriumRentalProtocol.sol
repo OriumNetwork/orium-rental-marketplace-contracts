@@ -77,9 +77,7 @@ contract OriumRentalProtocol is EIP712 {
      * @param tenant address of the tenant
      * @param token address of the contract of the NFT rented
      * @param tokenId tokenId of the rented NFT
-     * @param duration how long the NFT is rented
-     * @param start when the rent begins
-     * @param end when the rent ends
+     * @param expirationDate when the rent ends
      */
     event RentalStarted(
         uint256 indexed nonce,
@@ -87,9 +85,7 @@ contract OriumRentalProtocol is EIP712 {
         address indexed tenant,
         address token,
         uint256 tokenId,
-        uint64 duration,
-        uint256 start,
-        uint256 end
+        uint256 expirationDate
     );
 
     /**
@@ -119,12 +115,14 @@ contract OriumRentalProtocol is EIP712 {
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
         require(
             nftRolesRegistry.hasRole(TOKEN_OWNER_ROLE, address(this), msg.sender, _tokenAddress, _tokenId, false),
-            "Caller is not a token owner"
+            "OriumRentalProtocol: Caller does not have the required permission"
         );
         _;
     }
 
-    constructor(address _rolesRegistry) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {}
+    constructor(address _rolesRegistry) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {
+        nftRolesRegistry = INftRoles(_rolesRegistry);
+    }
 
     function deposit(address _tokenAddress, uint256 _tokenId) external {
         nftRolesRegistry.grantRole(
@@ -167,13 +165,18 @@ contract OriumRentalProtocol is EIP712 {
     }
 
     function cancelRentalOffer(uint256 nonce) external {
+        require(!invalidNonce[msg.sender][nonce], "OriumRentalProtocol: Nonce already used"); // Avoid multiple cancellations
         invalidNonce[msg.sender][nonce] = true;
         emit RentalOfferCancelled(nonce, msg.sender);
     }
 
     function rent(RentalOffer calldata offer, SignatureType signatureType, bytes calldata signature) external {
-        require(offer.expirationDate >= block.timestamp, "Offer expired");
-        require(!invalidNonce[offer.maker][offer.nonce], "Nonce already used");
+        require(offer.expirationDate >= block.timestamp, "OriumRentalProtocol: Offer expired");
+        require(!invalidNonce[offer.maker][offer.nonce], "OriumRentalProtocol: Nonce already used");
+        require(
+            msg.sender == offer.taker || offer.taker == address(0),
+            "OriumRentalProtocol: Caller is not allowed to rent this NFT"
+        );
 
         address _lastGrantee = nftRolesRegistry.lastGrantee(
             USER_ROLE,
@@ -209,22 +212,14 @@ contract OriumRentalProtocol is EIP712 {
 
         invalidNonce[offer.maker][offer.nonce] = true;
 
-        emit RentalStarted(
-            offer.nonce,
-            offer.maker,
-            _taker,
-            offer.tokenAddress,
-            offer.tokenId,
-            offer.expirationDate,
-            block.timestamp,
-            offer.expirationDate
-        );
+        emit RentalStarted(offer.nonce, offer.maker, _taker, offer.tokenAddress, offer.tokenId, offer.expirationDate);
     }
 
     function endRental(address _tokenAddress, uint256 _tokenId) external {
         address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), _tokenAddress, _tokenId);
         address _owner = nftRolesRegistry.lastGrantee(TOKEN_OWNER_ROLE, address(this), _tokenAddress, _tokenId);
         require(msg.sender == _owner || msg.sender == _taker, "Only owner or taker can end rental");
+        require(_taker != address(0), "OriumRentalProtocol: NFT is not rented");
 
         if (msg.sender == _owner) {
             uint64 _expirationDate = nftRolesRegistry.roleExpirationDate(
@@ -234,7 +229,7 @@ contract OriumRentalProtocol is EIP712 {
                 _tokenAddress,
                 _tokenId
             );
-            require(block.timestamp > _expirationDate, "Rental hasn't ended");
+            require(block.timestamp > _expirationDate, "OriumRentalProtocol: Rental hasn't ended yet");
         }
 
         nftRolesRegistry.revokeRole(USER_ROLE, _taker, _tokenAddress, _tokenId);
@@ -246,7 +241,10 @@ contract OriumRentalProtocol is EIP712 {
         address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), _tokenAddress, _tokenId);
         address _actualSubTenant = nftRolesRegistry.lastGrantee(SUBTENANT_ROLE, address(this), _tokenAddress, _tokenId);
 
-        require(msg.sender == _taker || msg.sender == _actualSubTenant, "Only taker or subtenant can sublet");
+        require(
+            msg.sender == _taker || msg.sender == _actualSubTenant,
+            "OriumRentalProtocol: Only taker or subtenant can sublet"
+        );
 
         uint64 _expirationDate = nftRolesRegistry.roleExpirationDate(
             USER_ROLE,
@@ -255,7 +253,7 @@ contract OriumRentalProtocol is EIP712 {
             _tokenAddress,
             _tokenId
         );
-        require(block.timestamp < _expirationDate, "Rental has ended");
+        require(block.timestamp < _expirationDate, "OriumRentalProtocol: Rental has ended");
 
         address _tenant = msg.sender == _taker ? _taker : _actualSubTenant;
 
@@ -269,8 +267,11 @@ contract OriumRentalProtocol is EIP712 {
         address _subTenant = nftRolesRegistry.lastGrantee(SUBTENANT_ROLE, address(this), token, tokenId);
         address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), token, tokenId);
 
-        require(_subTenant != address(0), "Subtenant not found");
-        require(msg.sender == _subTenant || msg.sender == _taker, "Only subtenant or taker can end sublet");
+        require(_subTenant != address(0), "OriumRentalProtocol: Subtenant not found");
+        require(
+            msg.sender == _subTenant || msg.sender == _taker,
+            "OriumRentalProtocol: Only subtenant or taker can end sublet"
+        );
 
         nftRolesRegistry.revokeRole(SUBTENANT_ROLE, _subTenant, token, tokenId);
 
