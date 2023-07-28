@@ -3,11 +3,13 @@
 pragma solidity 0.8.9;
 
 import { INftRoles } from "./interfaces/INftRoles.sol";
-import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import { ECDSAUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract OriumRentalProtocol is EIP712 {
+contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgradeable {
     string public constant SIGNING_DOMAIN = "Orium-Rental-Marketplace";
     string public constant SIGNATURE_VERSION = "1";
 
@@ -24,7 +26,8 @@ contract OriumRentalProtocol is EIP712 {
     /// @dev maker => nonce => bool
     mapping(address => mapping(uint256 => bool)) public invalidNonce;
 
-    INftRoles public nftRolesRegistry;
+    /// @dev tokenAddress => registryAddress
+    mapping(address => address) public tokenAddressToRegistry;
 
     struct RentalOffer {
         address maker;
@@ -114,18 +117,27 @@ contract OriumRentalProtocol is EIP712 {
 
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
         require(
-            nftRolesRegistry.hasRole(TOKEN_OWNER_ROLE, address(this), msg.sender, _tokenAddress, _tokenId, false),
+            INftRoles(tokenAddressToRegistry[_tokenAddress]).hasRole(
+                TOKEN_OWNER_ROLE,
+                address(this),
+                msg.sender,
+                _tokenAddress,
+                _tokenId,
+                false
+            ),
             "OriumRentalProtocol: Caller does not have the required permission"
         );
         _;
     }
 
-    constructor(address _rolesRegistry) EIP712(SIGNING_DOMAIN, SIGNATURE_VERSION) {
-        nftRolesRegistry = INftRoles(_rolesRegistry);
+    function initialize(address _owner) public initializer {
+        __EIP712_init(SIGNING_DOMAIN, SIGNATURE_VERSION);
+        __Ownable_init();
+        transferOwnership(_owner);
     }
 
     function deposit(address _tokenAddress, uint256 _tokenId) external {
-        nftRolesRegistry.grantRole(
+        INftRoles(tokenAddressToRegistry[_tokenAddress]).grantRole(
             TOKEN_OWNER_ROLE,
             msg.sender,
             _tokenAddress,
@@ -140,7 +152,12 @@ contract OriumRentalProtocol is EIP712 {
     }
 
     function withdraw(address _tokenAddress, uint256 _tokenId) external onlyTokenOwner(_tokenAddress, _tokenId) {
-        nftRolesRegistry.revokeRole(TOKEN_OWNER_ROLE, msg.sender, _tokenAddress, _tokenId);
+        INftRoles(tokenAddressToRegistry[_tokenAddress]).revokeRole(
+            TOKEN_OWNER_ROLE,
+            msg.sender,
+            _tokenAddress,
+            _tokenId
+        );
 
         emit Withdraw(_tokenAddress, _tokenId, msg.sender);
 
@@ -178,14 +195,21 @@ contract OriumRentalProtocol is EIP712 {
             "OriumRentalProtocol: Caller is not allowed to rent this NFT"
         );
 
-        address _lastGrantee = nftRolesRegistry.lastGrantee(
+        address _lastGrantee = INftRoles(tokenAddressToRegistry[offer.tokenAddress]).lastGrantee(
             USER_ROLE,
             address(this),
             offer.tokenAddress,
             offer.tokenId
         );
         require(
-            !nftRolesRegistry.hasRole(USER_ROLE, address(this), _lastGrantee, offer.tokenAddress, offer.tokenId, false),
+            !INftRoles(tokenAddressToRegistry[offer.tokenAddress]).hasRole(
+                USER_ROLE,
+                address(this),
+                _lastGrantee,
+                offer.tokenAddress,
+                offer.tokenId,
+                false
+            ),
             "Nft is already rented"
         );
 
@@ -201,7 +225,7 @@ contract OriumRentalProtocol is EIP712 {
 
         address _taker = offer.taker == address(0) ? msg.sender : offer.taker;
 
-        nftRolesRegistry.grantRole(
+        INftRoles(tokenAddressToRegistry[offer.tokenAddress]).grantRole(
             USER_ROLE,
             _taker,
             offer.tokenAddress,
@@ -216,13 +240,23 @@ contract OriumRentalProtocol is EIP712 {
     }
 
     function endRental(address _tokenAddress, uint256 _tokenId) external {
-        address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), _tokenAddress, _tokenId);
-        address _owner = nftRolesRegistry.lastGrantee(TOKEN_OWNER_ROLE, address(this), _tokenAddress, _tokenId);
+        address _taker = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+            USER_ROLE,
+            address(this),
+            _tokenAddress,
+            _tokenId
+        );
+        address _owner = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+            TOKEN_OWNER_ROLE,
+            address(this),
+            _tokenAddress,
+            _tokenId
+        );
         require(msg.sender == _owner || msg.sender == _taker, "Only owner or taker can end rental");
         require(_taker != address(0), "OriumRentalProtocol: NFT is not rented");
 
         if (msg.sender == _owner) {
-            uint64 _expirationDate = nftRolesRegistry.roleExpirationDate(
+            uint64 _expirationDate = INftRoles(tokenAddressToRegistry[_tokenAddress]).roleExpirationDate(
                 USER_ROLE,
                 address(this),
                 _taker,
@@ -232,21 +266,31 @@ contract OriumRentalProtocol is EIP712 {
             require(block.timestamp > _expirationDate, "OriumRentalProtocol: Rental hasn't ended yet");
         }
 
-        nftRolesRegistry.revokeRole(USER_ROLE, _taker, _tokenAddress, _tokenId);
+        INftRoles(tokenAddressToRegistry[_tokenAddress]).revokeRole(USER_ROLE, _taker, _tokenAddress, _tokenId);
 
         emit RentalEnded(_owner, _taker, _tokenAddress, _tokenId);
     }
 
     function sublet(address _tokenAddress, uint256 _tokenId, address _subTenant) external {
-        address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), _tokenAddress, _tokenId);
-        address _actualSubTenant = nftRolesRegistry.lastGrantee(SUBTENANT_ROLE, address(this), _tokenAddress, _tokenId);
+        address _taker = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+            USER_ROLE,
+            address(this),
+            _tokenAddress,
+            _tokenId
+        );
+        address _actualSubTenant = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+            SUBTENANT_ROLE,
+            address(this),
+            _tokenAddress,
+            _tokenId
+        );
 
         require(
             msg.sender == _taker || msg.sender == _actualSubTenant,
             "OriumRentalProtocol: Only taker or subtenant can sublet"
         );
 
-        uint64 _expirationDate = nftRolesRegistry.roleExpirationDate(
+        uint64 _expirationDate = INftRoles(tokenAddressToRegistry[_tokenAddress]).roleExpirationDate(
             USER_ROLE,
             address(this),
             _taker,
@@ -258,14 +302,31 @@ contract OriumRentalProtocol is EIP712 {
         address _tenant = msg.sender == _taker ? _taker : _actualSubTenant;
 
         /// If a subtenant already exists, its role will be overwritten
-        nftRolesRegistry.grantRole(SUBTENANT_ROLE, _subTenant, _tokenAddress, _tokenId, _expirationDate, EMPTY_BYTES);
+        INftRoles(tokenAddressToRegistry[_tokenAddress]).grantRole(
+            SUBTENANT_ROLE,
+            _subTenant,
+            _tokenAddress,
+            _tokenId,
+            _expirationDate,
+            EMPTY_BYTES
+        );
 
         emit SubletStarted(_tenant, _subTenant, _tokenAddress, _tokenId);
     }
 
-    function endSublet(address token, uint256 tokenId) external {
-        address _subTenant = nftRolesRegistry.lastGrantee(SUBTENANT_ROLE, address(this), token, tokenId);
-        address _taker = nftRolesRegistry.lastGrantee(USER_ROLE, address(this), token, tokenId);
+    function endSublet(address _tokenAddress, uint256 _tokenId) external {
+        address _subTenant = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+            SUBTENANT_ROLE,
+            address(this),
+            _tokenAddress,
+            _tokenId
+        );
+        address _taker = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+            USER_ROLE,
+            address(this),
+            _tokenAddress,
+            _tokenId
+        );
 
         require(_subTenant != address(0), "OriumRentalProtocol: Subtenant not found");
         require(
@@ -273,9 +334,14 @@ contract OriumRentalProtocol is EIP712 {
             "OriumRentalProtocol: Only subtenant or taker can end sublet"
         );
 
-        nftRolesRegistry.revokeRole(SUBTENANT_ROLE, _subTenant, token, tokenId);
+        INftRoles(tokenAddressToRegistry[_tokenAddress]).revokeRole(
+            SUBTENANT_ROLE,
+            _subTenant,
+            _tokenAddress,
+            _tokenId
+        );
 
-        emit SubletEnded(msg.sender, _subTenant, token, tokenId);
+        emit SubletEnded(msg.sender, _subTenant, _tokenAddress, _tokenId);
     }
 
     function hashRentalOffer(RentalOffer memory offer) public view returns (bytes32) {
@@ -297,5 +363,10 @@ contract OriumRentalProtocol is EIP712 {
                     )
                 )
             );
+    }
+
+    function setRolesRegistry(address _tokenAddress, address _registryAddress) external onlyOwner {
+        //TODO: make this in batch?
+        tokenAddressToRegistry[_tokenAddress] = _registryAddress;
     }
 }

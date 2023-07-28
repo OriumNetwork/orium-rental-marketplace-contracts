@@ -1,4 +1,4 @@
-import { ethers } from 'hardhat'
+import { ethers, upgrades } from 'hardhat'
 import { Contract } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
@@ -13,6 +13,7 @@ describe('Orium Rental Protocol', async () => {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let deployer: SignerWithAddress
+  let owner: SignerWithAddress
   let userOne: SignerWithAddress
   let userTwo: SignerWithAddress
   let userThree: SignerWithAddress
@@ -23,7 +24,7 @@ describe('Orium Rental Protocol', async () => {
 
   before(async function () {
     // prettier-ignore
-    [deployer, userOne, userTwo, userThree, userFour] = await ethers.getSigners()
+    [deployer, owner, userOne, userTwo, userThree, userFour] = await ethers.getSigners()
   })
 
   beforeEach(async () => {
@@ -34,7 +35,9 @@ describe('Orium Rental Protocol', async () => {
     mockERC721 = await MockERC721Factory.deploy('Mock ERC721', 'mERC721')
 
     const OriumRentalProtocolFactory = await ethers.getContractFactory('OriumRentalProtocol')
-    oriumRentalProtocol = await OriumRentalProtocolFactory.deploy(rolesRegistry.address)
+    oriumRentalProtocol = await upgrades.deployProxy(OriumRentalProtocolFactory, [owner.address])
+
+    await oriumRentalProtocol.connect(owner).setRolesRegistry(mockERC721.address, rolesRegistry.address)
 
     await mockERC721.mint(userOne.address, tokenId)
     await mockERC721.connect(userOne).setApprovalForAll(oriumRentalProtocol.address, true)
