@@ -49,6 +49,7 @@ contract ImmutableVault {
 
     // TODO: _rolesRegistry can be exploited to deposit a token on behalf of someone else
     function depositOnBehafOf(address _tokenAddress, uint256 _tokenId, address _from) external {
+        require(isApprovedForAll[_from][msg.sender] || isApproved[_from][msg.sender][_tokenAddress][_tokenId], "ImmutableVault: sender is not approved");
         require(_from == IERC721(_tokenAddress).ownerOf(_tokenId), "ImmutableVault: sender is not the token owner");
 
         ownerOf[_tokenAddress][_tokenId] = _from;
