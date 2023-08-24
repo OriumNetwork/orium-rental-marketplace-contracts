@@ -2,7 +2,16 @@ import { ethers, upgrades } from 'hardhat'
 import { Contract } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
-import { EMPTY_BYTES, MAX_UINT64, ONE_DAY, SUBTENANT_ROLE, TOKEN_OWNER_ROLE, USER_ROLE } from '../utils/constants'
+import {
+  EMPTY_BYTES,
+  MAX_UINT64,
+  ONE_DAY,
+  PROPERTY_MANAGER,
+  PROPERTY_TENANT,
+  SUBTENANT_ROLE,
+  TOKEN_OWNER_ROLE,
+  USER_ROLE,
+} from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { SignatureType } from '../utils/types'
 
@@ -28,6 +37,8 @@ describe('Orium Rental Protocol', async () => {
   })
 
   beforeEach(async () => {
+    console.log('PROPERTY_MANAGER: ', PROPERTY_MANAGER)
+    console.log('PROPERTY_TENANT: ', PROPERTY_TENANT)
     const RoleRegistryFactory = await ethers.getContractFactory('NftRoles')
     rolesRegistry = await RoleRegistryFactory.deploy()
 

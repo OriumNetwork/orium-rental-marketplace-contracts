@@ -2,23 +2,24 @@
 
 pragma solidity 0.8.9;
 
-import { INftRoles } from "./interfaces/INftRoles.sol";
+import { IRolesRegistry } from "./interfaces/IRolesRegistry.sol";
 import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import { ECDSAUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { IImmutableVault } from "./interfaces/IImmutableVault.sol";
 
 contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgradeable {
     string public constant SIGNING_DOMAIN = "Orium-Rental-Marketplace";
     string public constant SIGNATURE_VERSION = "1";
-
     bytes32 public constant MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
     bytes32 public constant TOKEN_OWNER_ROLE = keccak256("TOKEN_OWNER_ROLE");
     bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
     bytes32 public constant SUBTENANT_ROLE = keccak256("SUBTENANT_ROLE");
-
     bytes public constant EMPTY_BYTES = "";
+
+    address public vaultAddress;
 
     /// @dev nonce => isPresigned
     mapping(bytes32 => bool) public preSignedOffer;
@@ -117,13 +118,12 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
         require(
-            INftRoles(tokenAddressToRegistry[_tokenAddress]).hasRole(
+            IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).hasUniqueRole(
                 TOKEN_OWNER_ROLE,
-                address(this),
-                msg.sender,
                 _tokenAddress,
                 _tokenId,
-                false
+                address(this),
+                msg.sender
             ),
             "OriumRentalProtocol: Caller does not have the required permission"
         );
@@ -137,11 +137,11 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
     }
 
     function deposit(address _tokenAddress, uint256 _tokenId) external {
-        INftRoles(tokenAddressToRegistry[_tokenAddress]).grantRole(
+        IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).grantRole(
             TOKEN_OWNER_ROLE,
-            msg.sender,
             _tokenAddress,
             _tokenId,
+            msg.sender,
             type(uint64).max,
             EMPTY_BYTES
         );
@@ -152,11 +152,11 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
     }
 
     function withdraw(address _tokenAddress, uint256 _tokenId) external onlyTokenOwner(_tokenAddress, _tokenId) {
-        INftRoles(tokenAddressToRegistry[_tokenAddress]).revokeRole(
+        IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).revokeRole(
             TOKEN_OWNER_ROLE,
-            msg.sender,
             _tokenAddress,
-            _tokenId
+            _tokenId,
+            msg.sender
         );
 
         emit Withdraw(_tokenAddress, _tokenId, msg.sender);
@@ -166,6 +166,16 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
     function preSignRentalOffer(RentalOffer calldata offer) external onlyTokenOwner(offer.tokenAddress, offer.tokenId) {
         require(msg.sender == offer.maker, "Signer and Maker mismatch");
+        require(IERC721(offer.tokenAddress).ownerOf(offer.tokenId) == address(this), "NFT not deposited");
+
+        if (IERC721(offer.tokenAddress).ownerOf(offer.tokenId) != vaultAddress) {
+            IImmutableVault(vaultAddress).deposit(
+                offer.tokenAddress,
+                offer.tokenId,
+                tokenAddressToRegistry[offer.tokenAddress],
+                offer.maker
+            );
+        }
 
         preSignedOffer[hashRentalOffer(offer)] = true;
 
@@ -195,20 +205,19 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             "OriumRentalProtocol: Caller is not allowed to rent this NFT"
         );
 
-        address _lastGrantee = INftRoles(tokenAddressToRegistry[offer.tokenAddress]).lastGrantee(
+        address _lastGrantee = IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).lastGrantee(
             USER_ROLE,
             address(this),
             offer.tokenAddress,
             offer.tokenId
         );
         require(
-            !INftRoles(tokenAddressToRegistry[offer.tokenAddress]).hasRole(
+            !IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).hasUniqueRole(
                 USER_ROLE,
-                address(this),
-                _lastGrantee,
                 offer.tokenAddress,
                 offer.tokenId,
-                false
+                address(this),
+                _lastGrantee
             ),
             "Nft is already rented"
         );
@@ -225,11 +234,11 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
         address _taker = offer.taker == address(0) ? msg.sender : offer.taker;
 
-        INftRoles(tokenAddressToRegistry[offer.tokenAddress]).grantRole(
+        IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).grantRole(
             USER_ROLE,
-            _taker,
             offer.tokenAddress,
             offer.tokenId,
+            _taker,
             offer.expirationDate,
             EMPTY_BYTES
         );
@@ -240,13 +249,13 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
     }
 
     function endRental(address _tokenAddress, uint256 _tokenId) external {
-        address _taker = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+        address _taker = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
             USER_ROLE,
             address(this),
             _tokenAddress,
             _tokenId
         );
-        address _owner = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+        address _owner = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
             TOKEN_OWNER_ROLE,
             address(this),
             _tokenAddress,
@@ -256,29 +265,29 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         require(_taker != address(0), "OriumRentalProtocol: NFT is not rented");
 
         if (msg.sender == _owner) {
-            uint64 _expirationDate = INftRoles(tokenAddressToRegistry[_tokenAddress]).roleExpirationDate(
+            uint64 _expirationDate = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).roleExpirationDate(
                 USER_ROLE,
-                address(this),
-                _taker,
                 _tokenAddress,
-                _tokenId
+                _tokenId,
+                address(this),
+                _taker
             );
             require(block.timestamp > _expirationDate, "OriumRentalProtocol: Rental hasn't ended yet");
         }
 
-        INftRoles(tokenAddressToRegistry[_tokenAddress]).revokeRole(USER_ROLE, _taker, _tokenAddress, _tokenId);
+        IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).revokeRole(USER_ROLE, _tokenAddress, _tokenId, _taker);
 
         emit RentalEnded(_owner, _taker, _tokenAddress, _tokenId);
     }
 
     function sublet(address _tokenAddress, uint256 _tokenId, address _subTenant) external {
-        address _taker = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+        address _taker = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
             USER_ROLE,
             address(this),
             _tokenAddress,
             _tokenId
         );
-        address _actualSubTenant = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+        address _actualSubTenant = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
             SUBTENANT_ROLE,
             address(this),
             _tokenAddress,
@@ -290,23 +299,23 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             "OriumRentalProtocol: Only taker or subtenant can sublet"
         );
 
-        uint64 _expirationDate = INftRoles(tokenAddressToRegistry[_tokenAddress]).roleExpirationDate(
+        uint64 _expirationDate = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).roleExpirationDate(
             USER_ROLE,
-            address(this),
-            _taker,
             _tokenAddress,
-            _tokenId
+            _tokenId,
+            address(this),
+            _taker
         );
         require(block.timestamp < _expirationDate, "OriumRentalProtocol: Rental has ended");
 
         address _tenant = msg.sender == _taker ? _taker : _actualSubTenant;
 
         /// If a subtenant already exists, its role will be overwritten
-        INftRoles(tokenAddressToRegistry[_tokenAddress]).grantRole(
+        IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).grantRole(
             SUBTENANT_ROLE,
-            _subTenant,
             _tokenAddress,
             _tokenId,
+            _subTenant,
             _expirationDate,
             EMPTY_BYTES
         );
@@ -315,13 +324,13 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
     }
 
     function endSublet(address _tokenAddress, uint256 _tokenId) external {
-        address _subTenant = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+        address _subTenant = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
             SUBTENANT_ROLE,
             address(this),
             _tokenAddress,
             _tokenId
         );
-        address _taker = INftRoles(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+        address _taker = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
             USER_ROLE,
             address(this),
             _tokenAddress,
@@ -334,11 +343,11 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             "OriumRentalProtocol: Only subtenant or taker can end sublet"
         );
 
-        INftRoles(tokenAddressToRegistry[_tokenAddress]).revokeRole(
+        IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).revokeRole(
             SUBTENANT_ROLE,
-            _subTenant,
             _tokenAddress,
-            _tokenId
+            _tokenId,
+            _subTenant
         );
 
         emit SubletEnded(msg.sender, _subTenant, _tokenAddress, _tokenId);
