@@ -166,13 +166,12 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
     function preSignRentalOffer(RentalOffer calldata offer) external onlyTokenOwner(offer.tokenAddress, offer.tokenId) {
         require(msg.sender == offer.maker, "Signer and Maker mismatch");
-        require(IERC721(offer.tokenAddress).ownerOf(offer.tokenId) == address(this), "NFT not deposited");
 
         if (IERC721(offer.tokenAddress).ownerOf(offer.tokenId) != vaultAddress) {
-            IImmutableVault(vaultAddress).deposit(
+            require(msg.sender == IERC721(offer.tokenAddress).ownerOf(offer.tokenId), "OriumRentalProtocol: Sender is not the owner of the NFT");
+            IImmutableVault(vaultAddress).depositOnBehafOf(
                 offer.tokenAddress,
                 offer.tokenId,
-                tokenAddressToRegistry[offer.tokenAddress],
                 offer.maker
             );
         }
@@ -207,16 +206,17 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
         address _lastGrantee = IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).lastGrantee(
             USER_ROLE,
-            address(this),
+            vaultAddress,
             offer.tokenAddress,
             offer.tokenId
         );
+        
         require(
             !IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).hasUniqueRole(
                 USER_ROLE,
                 offer.tokenAddress,
                 offer.tokenId,
-                address(this),
+                vaultAddress,
                 _lastGrantee
             ),
             "Nft is already rented"
