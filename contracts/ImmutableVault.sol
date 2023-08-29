@@ -4,206 +4,158 @@ pragma solidity 0.8.9;
 
 import { IRolesRegistry } from "./interfaces/IRolesRegistry.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract ImmutableVault {
-    bytes32 public TOKEN_OWNER_ROLE = keccak256("TOKEN_OWNER_ROLE");
-    bytes32 public DELEGATOR_ROLE = keccak256("DELEGATOR_ROLE");
-    uint64 constant MAX_UINT64 = type(uint64).max;
-    bytes constant EMPTY_BYTES = "";
+contract ImmutableVault is AccessControl {
+    bytes32 public MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
+    address rolesRegistry;
 
-    mapping(address => mapping(uint256 => address)) public registryOf;
+    // tokenAddress => tokenId => owner
     mapping(address => mapping(uint256 => address)) public ownerOf;
 
-    // approved mappings
-    mapping(address => mapping(address => bool)) public isApprovedForAll;
-    mapping(address => mapping(address => mapping(address => mapping(uint256 => bool)))) public isApproved;
+    // owner => tokenAddress => tokenId => deadline
+    mapping(address => mapping(address => mapping(uint256 => uint64))) public deadlines;
 
-    mapping(address => uint256) public userNonce;
+    // owner => tokenAddress => tokenId => highestExpirationDate
+    mapping(address => mapping(address => mapping(uint256 => uint64))) public highestExpirationDate;
+
+    event Deposit(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner, uint64 deadline);
+    event Withdraw(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner);
+    event ExtendTokenDeadline(address indexed tokenAddress, uint256 indexed tokenId, uint64 newDeadline);
+    event RolesRegistrySet(address indexed rolesRegistry);
 
     modifier onlyOwner(address _tokenAddress, uint256 _tokenId) {
-        require(ownerOf[_tokenAddress][_tokenId] == msg.sender, "ImmutableVault: sender is not the token owner");
+        require(msg.sender == ownerOf[_tokenAddress][_tokenId], "ImmutableVault: sender is not the token owner");
         _;
     }
 
-    modifier onlyOwnerOrApproved(address _tokenAddress, uint256 _tokenId) {
-        require(
-            ownerOf[_tokenAddress][_tokenId] == msg.sender ||
-                isApprovedForAll[ownerOf[_tokenAddress][_tokenId]][msg.sender] ||
-                isApproved[ownerOf[_tokenAddress][_tokenId]][msg.sender][_tokenAddress][_tokenId],
-            "ImmutableVault: sender is not the token owner or approved"
-        );
-        _;
+    constructor(address _operator, address _rolesRegistry) {
+        _setupRole(DEFAULT_ADMIN_ROLE, _operator);
+        _setRolesRegistry(_rolesRegistry);
     }
 
-    function deposit(address _tokenAddress, uint256 _tokenId) external {
-        require(
-            msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
-            "ImmutableVault: sender is not the token owner"
-        );
-
-        ownerOf[_tokenAddress][_tokenId] = msg.sender;
-
-        IERC721(_tokenAddress).transferFrom(msg.sender, address(this), _tokenId);
+    /// @notice Deposit a token
+    /// @param _tokenAddress Address of the token to deposit
+    /// @param _tokenId ID of the token to deposit
+    /// @param _deadline Deadline for the token to be grant roles
+    function deposit(address _tokenAddress, uint256 _tokenId, uint64 _deadline) external {
+        _deposit(msg.sender, _tokenAddress, _tokenId, _deadline);
     }
 
-    // TODO: _rolesRegistry can be exploited to deposit a token on behalf of someone else
-    // 1 - NFT.approveForAll(vault)
-    // 2 - vault.ApproveForAll(marketplace)
-    // 3 - marketplace.createRentalOffer(vault)
+    /// @notice Deposit a token on behalf of someone else
+    /// @dev This function is only callable by some account which has MARKETPLACE_ROLE
+    /// @param _tokenAddress Address of the token to deposit
+    /// @param _tokenId ID of the token to deposit
+    /// @param _deadline Deadline for the token to be grant roles
+    function depositOnBehafOf(
+        address _tokenAddress,
+        uint256 _tokenId,
+        uint64 _deadline
+    ) external onlyRole(MARKETPLACE_ROLE) {
+        _deposit(IERC721(_tokenAddress).ownerOf(_tokenId), _tokenAddress, _tokenId, _deadline);
+    }
 
-    // 1 - marketplace.createRentalOffer(vault)
-    function depositOnBehafOf(address _tokenAddress, uint256 _tokenId) external {
-        // require(isApprovedForAll[_from][msg.sender] || isApproved[_from][msg.sender][_tokenAddress][_tokenId], "ImmutableVault: sender is not approved");
-
-        address _tokenOwner = IERC721(_tokenAddress).ownerOf(_tokenId);
+    /// @notice Read documentation above
+    function _deposit(address _tokenOwner, address _tokenAddress, uint256 _tokenId, uint64 _deadline) internal {
         ownerOf[_tokenAddress][_tokenId] = _tokenOwner;
+        deadlines[_tokenOwner][_tokenAddress][_tokenId] = _deadline;
 
+        emit Deposit(_tokenAddress, _tokenId, _tokenOwner, _deadline);
+
+        // Check-Effects-Interaction-Effects pattern
         IERC721(_tokenAddress).transferFrom(_tokenOwner, address(this), _tokenId);
     }
 
-    /// @notice Deposit a token on behalf of someone else
-    /// @param _tokenAddress Address of the token to deposit
-    /// @param _tokenId ID of the token to deposit
-    /// @param _deadline Deadline for the signature
-    /// @param _msg Message signed by the token owner allowing the deposit on their behalf
-    function depositPermitAndApprove(
-        address _tokenAddress,
-        uint256 _tokenId,
-        uint64 _deadline,
-        bytes calldata _msg
-    ) external {
-        address _tokenOwner = IERC721(_tokenAddress).ownerOf(_tokenId);
-        bytes32 _functionSignature = keccak256(
-            "depositPermitAndApproveForAll(address spender,address tokenAddress,uint256 tokenId,uint256 nonce,uint256 deadline,bytes msg)"
-        );
-        address _signer = _recoverSigner(
-            _functionSignature,
-            _tokenAddress,
-            _tokenId,
-            userNonce[_tokenOwner],
-            _deadline,
-            _msg
-        );
-        require(_signer == _tokenOwner, "ImmutableVault: invalid signature");
-
-        /// Permit will approve the msg.sender for only this token
-        isApproved[_tokenOwner][msg.sender][_tokenAddress][_tokenId] = true;
-
-        ownerOf[_tokenAddress][_tokenId] = msg.sender;
-
-        IERC721(_tokenAddress).transferFrom(msg.sender, address(this), _tokenId);
-    }
-
-    /// @notice Deposit a token on behalf of someone else
-    /// @param _tokenAddress Address of the token to deposit
-    /// @param _tokenId ID of the token to deposit
-    /// @param _deadline Deadline for the signature
-    /// @param _msg Message signed by the token owner allowing the deposit on their behalf
-    function depositPermit(address _tokenAddress, uint256 _tokenId, uint64 _deadline, bytes calldata _msg) external {
-        address _tokenOwner = IERC721(_tokenAddress).ownerOf(_tokenId);
-
-        bytes32 _functionSignature = keccak256(
-            "depositPermit(address spender,address tokenAddress,uint256 tokenId,uint256 nonce,uint256 deadline,bytes msg)"
-        );
-        address _signer = _recoverSigner(
-            _functionSignature,
-            _tokenAddress,
-            _tokenId,
-            userNonce[_tokenOwner],
-            _deadline,
-            _msg
-        );
-        require(_signer == _tokenOwner, "ImmutableVault: invalid signature");
-
-        ownerOf[_tokenAddress][_tokenId] = msg.sender;
-
-        IERC721(_tokenAddress).transferFrom(msg.sender, address(this), _tokenId);
-    }
-
-    function _recoverSigner(
-        bytes32 _functionSignature,
-        address _tokenAddress,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint64 _deadline,
-        bytes calldata _msg
-    ) internal view returns (address) {
-        bytes32 _hash = keccak256(
-            abi.encodePacked(_functionSignature, msg.sender, _tokenAddress, _tokenId, _nonce, _deadline)
-        );
-
-        return _recoverSignerFromHash(_hash, _msg);
-    }
-
-    function _recoverSignerFromHash(bytes32 _hash, bytes memory _msg) internal pure returns (address) {
-        bytes32 _hashWithPrefix = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _hash));
-
-        bytes32 _r;
-        bytes32 _s;
-        uint8 _v;
-
-        if (_msg.length != 65) {
-            return address(0);
-        }
-
-        assembly {
-            _r := mload(add(_msg, 32))
-            _s := mload(add(_msg, 64))
-            _v := byte(0, mload(add(_msg, 96)))
-        }
-
-        if (_v < 27) {
-            _v += 27;
-        }
-
-        if (_v != 27 && _v != 28) {
-            return address(0);
-        }
-
-        return ecrecover(_hashWithPrefix, _v, _r, _s);
-    }
-
-    function nonceOf(address _user) external view returns (uint256) {
-        return userNonce[_user];
-    }
-
+    /// @notice Withdraw a token
+    /// @param _tokenAddress Address of the token to withdraw
+    /// @param _tokenId ID of the token to withdraw
     function withdraw(address _tokenAddress, uint256 _tokenId) external onlyOwner(_tokenAddress, _tokenId) {
         require(ownerOf[_tokenAddress][_tokenId] == msg.sender, "ImmutableVault: sender is not the token owner");
-        
+        require(
+            highestExpirationDate[msg.sender][_tokenAddress][_tokenId] < block.timestamp,
+            "ImmutableVault: token has an active role grant"
+        );
+
         delete ownerOf[_tokenAddress][_tokenId];
+        delete deadlines[msg.sender][_tokenAddress][_tokenId];
+        delete highestExpirationDate[msg.sender][_tokenAddress][_tokenId];
+
+        emit Withdraw(_tokenAddress, _tokenId, msg.sender);
 
         IERC721(_tokenAddress).transferFrom(address(this), msg.sender, _tokenId);
     }
 
+    /// @notice Grant a role to a token
+    /// @dev This function is only callable by some account which has MARKETPLACE_ROLE
+    /// @param _role The role identifier.
+    /// @param _tokenAddress The token address.
+    /// @param _tokenId The token identifier.
+    /// @param _grantee The address to grant the role to.
+    /// @param _expirationDate The expiration date of the role grant.
     function grantRole(
         bytes32 _role,
         address _tokenAddress,
         uint256 _tokenId,
         address _grantee,
         uint64 _expirationDate,
-        bytes calldata _data,
-        address _rolesRegistry
-    ) external onlyOwnerOrApproved(_tokenAddress, _tokenId) {
-        IRolesRegistry(_rolesRegistry).grantRole(_role, _tokenAddress, _tokenId, _grantee, _expirationDate, _data);
-    }
-    // expirations[tokenAddress][tokenId] => expirationDate (highest one)
-    // 
+        bytes calldata _data
+    ) external onlyRole(MARKETPLACE_ROLE) {
+        require(
+            deadlines[ownerOf[_tokenAddress][_tokenId]][_tokenAddress][_tokenId] >= _expirationDate,
+            "ImmutableVault: token expired"
+        );
 
+        if (_expirationDate > highestExpirationDate[ownerOf[_tokenAddress][_tokenId]][_tokenAddress][_tokenId]) {
+            highestExpirationDate[ownerOf[_tokenAddress][_tokenId]][_tokenAddress][_tokenId] = _expirationDate;
+        }
+
+        IRolesRegistry(rolesRegistry).grantRole(_role, _tokenAddress, _tokenId, _grantee, _expirationDate, _data);
+    }
+
+    /// @notice Revoke a role from a token
+    /// @dev This function is only callable by some account which has MARKETPLACE_ROLE
+    /// @param _role The role identifier.
+    /// @param _tokenAddress The token address.
+    /// @param _tokenId The token identifier.
+    /// @param _grantee The address to revoke the role from.
     function revokeRole(
         bytes32 _role,
         address _tokenAddress,
         uint256 _tokenId,
-        address _grantee,
-        address _rolesRegistry
-    ) external onlyOwnerOrApproved(_tokenAddress, _tokenId) {
-        IRolesRegistry(_rolesRegistry).revokeRole(_role, _tokenAddress, _tokenId, _grantee);
+        address _grantee
+    ) external onlyRole(MARKETPLACE_ROLE) {
+        // TODO: update highestExpirationDate if needed?
+        IRolesRegistry(rolesRegistry).revokeRole(_role, _tokenAddress, _tokenId, _grantee);
     }
 
-    function setApprovalForAll(address _operator, bool _approved) external {
-        isApprovedForAll[msg.sender][_operator] = _approved;
+    /// @notice Set the roles registry
+    /// @dev This function is only callable by some account which has DEFAULT_ADMIN_ROLE
+    /// @param _rolesRegistry The address of the roles registry.
+    function setRolesRegistry(address _rolesRegistry) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setRolesRegistry(_rolesRegistry);
     }
 
-    function setApproval(address _operator, address _tokenAddress, uint256 _tokenId, bool _approved) external {
-        isApproved[msg.sender][_operator][_tokenAddress][_tokenId] = _approved;
+    /// @notice Read documentation above
+    function _setRolesRegistry(address _rolesRegistry) internal {
+        rolesRegistry = _rolesRegistry;
+        emit RolesRegistrySet(_rolesRegistry);
+    }
+
+    /// @notice Extend the deadline for a token
+    /// @dev This function is only callable by the token owner
+    /// @param _tokenAddress The token address.
+    /// @param _tokenId The token identifier.
+    /// @param _newDeadline The new deadline.
+    function extendTokenDeadline(
+        address _tokenAddress,
+        uint256 _tokenId,
+        uint64 _newDeadline
+    ) external onlyOwner(_tokenAddress, _tokenId) {
+        require(
+            _newDeadline > deadlines[msg.sender][_tokenAddress][_tokenId],
+            "ImmutableVault: new deadline must be greater than the current one"
+        );
+        deadlines[msg.sender][_tokenAddress][_tokenId] = _newDeadline;
+        emit ExtendTokenDeadline(_tokenAddress, _tokenId, _newDeadline);
     }
 }
