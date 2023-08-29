@@ -10,7 +10,7 @@ import 'hardhat-contract-sizer'
 
 dotenv.config()
 
-const { ENVIRONMENT, DEFENDER_TEAM_API_KEY, DEFENDER_TEAM_API_SECRET_KEY } = process.env
+const { ENVIRONMENT, DEFENDER_TEAM_API_KEY, DEFENDER_TEAM_API_SECRET_KEY, MUMBAI_PROVIDER_URL } = process.env
 
 const BASE_CONFIG = {
   solidity: {
@@ -18,6 +18,14 @@ const BASE_CONFIG = {
     optimizer: {
       enabled: true,
       runs: 200,
+    },
+  },
+  networks: {
+    hardhat: {
+      forking: {
+        url: MUMBAI_PROVIDER_URL,
+        blockNumber: 39322273,
+      },
     },
   },
   mocha: {
