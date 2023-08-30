@@ -28,7 +28,6 @@ contract ImmutableVault is AccessControl {
     struct Grant {
         bytes32 role;
         address grantee;
-        uint64 expirationDate;
         bytes data;
     }
 
@@ -110,40 +109,40 @@ contract ImmutableVault is AccessControl {
         uint256 _nonce,
         address _tokenAddress,
         uint256 _tokenId,
+        uint64 _expirationDate,
         Grant[] memory _grants
     ) external onlyRole(MARKETPLACE_ROLE) {
         address _tokenOwner = ownerOf[_tokenAddress][_tokenId];
+        require(
+            nonceExpirationDate[_tokenOwner][_nonce] < block.timestamp,
+            "ImmutableVault: token has an active grant"
+        );
+        require(
+            deadlines[_tokenOwner][_tokenAddress][_tokenId] >= _expirationDate,
+            "ImmutableVault: token deadline is before the grant expiration date"
+        );
 
         for (uint256 i = 0; i < _grants.length; i++) {
-            _grantRole(_nonce, _tokenOwner, _tokenAddress, _tokenId, _grants[i]);
+            _grantRole(_tokenAddress, _tokenId,_expirationDate, _grants[i]);
             grants[_tokenOwner][_nonce].push(_grants[i]);
         }
 
         nonces[_tokenOwner] = _nonce;
+        nonceExpirationDate[_tokenOwner][_nonce] = _expirationDate;
     }
 
     function _grantRole(
-        uint256 _nonce,
-        address _tokenOwner,
         address _tokenAddress,
         uint256 _tokenId,
+        uint64 _expirationDate,
         Grant memory _grant
     ) internal {
-        require(
-            deadlines[_tokenOwner][_tokenAddress][_tokenId] >= _grant.expirationDate,
-            "ImmutableVault: token deadline is before the grant expiration date"
-        );
-
-        if (_grant.expirationDate > nonceExpirationDate[_tokenOwner][_nonce]) {
-            nonceExpirationDate[_tokenOwner][_nonce] = _grant.expirationDate;
-        }
-
         IRolesRegistry(rolesRegistry).grantRole(
             _grant.role,
             _tokenAddress,
             _tokenId,
             _grant.grantee,
-            _grant.expirationDate,
+            _expirationDate,
             _grant.data
         );
     }
