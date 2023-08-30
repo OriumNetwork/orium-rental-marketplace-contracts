@@ -16,8 +16,23 @@ contract ImmutableVault is AccessControl {
     // owner => tokenAddress => tokenId => deadline
     mapping(address => mapping(address => mapping(uint256 => uint64))) public deadlines;
 
-    // owner => tokenAddress => tokenId => highestExpirationDate
-    mapping(address => mapping(address => mapping(uint256 => uint64))) public highestExpirationDate;
+    // owner => nonce => highestExpirationDate
+    mapping(address => mapping(uint256 => uint64)) public highestExpirationDate;
+
+    // owner => nonce => grant
+    mapping(address => mapping(uint256 => Grant[])) public grants;
+
+    // owner => currentNonce
+    mapping(address => uint256) public nonces;
+
+    struct Grant {
+        bytes32 role;
+        address tokenAddress;
+        uint256 tokenId;
+        address grantee;
+        uint64 expirationDate;
+        bytes data;
+    }
 
     event Deposit(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner, uint64 deadline);
     event Withdraw(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner);
@@ -71,14 +86,16 @@ contract ImmutableVault is AccessControl {
     /// @param _tokenId ID of the token to withdraw
     function withdraw(address _tokenAddress, uint256 _tokenId) external onlyOwner(_tokenAddress, _tokenId) {
         require(ownerOf[_tokenAddress][_tokenId] == msg.sender, "ImmutableVault: sender is not the token owner");
+
+        uint256 _currentNonce = nonces[msg.sender];
         require(
-            highestExpirationDate[msg.sender][_tokenAddress][_tokenId] < block.timestamp,
+            highestExpirationDate[msg.sender][_currentNonce] < block.timestamp,
             "ImmutableVault: token has an active role grant"
         );
 
         delete ownerOf[_tokenAddress][_tokenId];
         delete deadlines[msg.sender][_tokenAddress][_tokenId];
-        delete highestExpirationDate[msg.sender][_tokenAddress][_tokenId];
+        delete highestExpirationDate[msg.sender][_currentNonce];
 
         emit Withdraw(_tokenAddress, _tokenId, msg.sender);
 
@@ -87,29 +104,52 @@ contract ImmutableVault is AccessControl {
 
     /// @notice Grant a role to a token
     /// @dev This function is only callable by some account which has MARKETPLACE_ROLE
-    /// @param _role The role identifier.
-    /// @param _tokenAddress The token address.
-    /// @param _tokenId The token identifier.
-    /// @param _grantee The address to grant the role to.
-    /// @param _expirationDate The expiration date of the role grant.
-    function grantRole(
-        bytes32 _role,
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _grantee,
-        uint64 _expirationDate,
-        bytes calldata _data
-    ) external onlyRole(MARKETPLACE_ROLE) {
+    function batchGrantRole(uint256 _nonce, Grant[] memory _grants) external onlyRole(MARKETPLACE_ROLE) {
+        for (uint256 i = 0; i < _grants.length; i++) {
+            _grantRole(_grants[i], _nonce);
+
+            address _tokenOwner = ownerOf[_grants[i].tokenAddress][_grants[i].tokenId];
+            grants[_tokenOwner][_nonce].push(_grants[i]);
+            nonces[_tokenOwner] = _nonce;
+        }
+    }
+
+    function _grantRole(Grant memory _grant, uint256 _nonce) internal {
+        address _tokenOwner = ownerOf[_grant.tokenAddress][_grant.tokenId];
+
         require(
-            deadlines[ownerOf[_tokenAddress][_tokenId]][_tokenAddress][_tokenId] >= _expirationDate,
+            deadlines[_tokenOwner][_grant.tokenAddress][_grant.tokenId] >= _grant.expirationDate,
             "ImmutableVault: token expired"
         );
 
-        if (_expirationDate > highestExpirationDate[ownerOf[_tokenAddress][_tokenId]][_tokenAddress][_tokenId]) {
-            highestExpirationDate[ownerOf[_tokenAddress][_tokenId]][_tokenAddress][_tokenId] = _expirationDate;
+        if (_grant.expirationDate > highestExpirationDate[_tokenOwner][_nonce]) {
+            highestExpirationDate[_tokenOwner][_nonce] = _grant.expirationDate;
         }
 
-        IRolesRegistry(rolesRegistry).grantRole(_role, _tokenAddress, _tokenId, _grantee, _expirationDate, _data);
+        IRolesRegistry(rolesRegistry).grantRole(
+            _grant.role,
+            _grant.tokenAddress,
+            _grant.tokenId,
+            _grant.grantee,
+            _grant.expirationDate,
+            _grant.data
+        );
+    }
+
+    function batchRevokeRole(
+        address _tokenAddress,
+        uint256 _tokenId,
+        uint256 _nonce
+    ) external onlyRole(MARKETPLACE_ROLE) {
+        address _tokenOwner = ownerOf[_tokenAddress][_tokenId];
+        Grant[] memory _grants = grants[_tokenOwner][_nonce];
+        
+        for (uint256 i = 0; i < _grants.length; i++) {
+            _revokeRole(_grants[i].role, _grants[i].tokenAddress, _grants[i].tokenId, _grants[i].grantee);
+        }
+
+        delete grants[_tokenOwner][_nonce]; // free storage and refund gas
+        delete highestExpirationDate[_tokenOwner][_nonce]; // free storage and refund gas
     }
 
     /// @notice Revoke a role from a token
@@ -118,13 +158,7 @@ contract ImmutableVault is AccessControl {
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _grantee The address to revoke the role from.
-    function revokeRole(
-        bytes32 _role,
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _grantee
-    ) external onlyRole(MARKETPLACE_ROLE) {
-        // TODO: update highestExpirationDate if needed?
+    function _revokeRole(bytes32 _role, address _tokenAddress, uint256 _tokenId, address _grantee) internal {
         IRolesRegistry(rolesRegistry).revokeRole(_role, _tokenAddress, _tokenId, _grantee);
     }
 
