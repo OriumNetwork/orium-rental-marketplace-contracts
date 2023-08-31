@@ -127,7 +127,7 @@ contract ImmutableVault is AccessControl {
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _roleAssignments The role assignment struct.
-    function batchRoleAssignmentRole(
+    function batchGrantRole(
         uint256 _nonce,
         address _tokenAddress,
         uint256 _tokenId,
