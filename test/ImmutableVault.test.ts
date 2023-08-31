@@ -29,7 +29,7 @@ describe('Immutable Vault', () => {
     rolesRegistry = await ethers.getContractAt('IRolesRegistry', RolesRegistryAddress)
 
     const ImmutableVaultFactory = await ethers.getContractFactory('ImmutableVault')
-    vault = await ImmutableVaultFactory.deploy(multisig.address, rolesRegistry.address)
+    vault = await ImmutableVaultFactory.deploy(multisig.address, rolesRegistry.address, marketplace.address)
     await vault.deployed()
 
     const MockERC721Factory = await ethers.getContractFactory('MockERC721')
@@ -37,29 +37,44 @@ describe('Immutable Vault', () => {
     await mockERC721.deployed()
 
     await mockERC721.mint(nftOwner.address, tokenId)
-    // await vault.connect(multisig).grantRole(await vault.MARKETPLACE_ROLE(), marketplace.address)
+    await mockERC721.connect(nftOwner).approve(vault.address, tokenId)
   })
 
   describe('Main functions', async () => {
     let expirationDate: number
+    let deadline: number
 
     beforeEach(async () => {
       const blockNumber = await hre.ethers.provider.getBlockNumber()
       const block = await hre.ethers.provider.getBlock(blockNumber)
       expirationDate = block.timestamp + ONE_DAY
+      deadline = block.timestamp + ONE_DAY * 30
     })
 
     describe('Deposit NFT', async () => {
       it('Should deposit NFT', async () => {
-        await mockERC721.connect(nftOwner).approve(vault.address, tokenId)
         await expect(vault.connect(nftOwner).deposit(mockERC721.address, tokenId, expirationDate))
           .to.emit(vault, 'Deposit')
           .withArgs(mockERC721.address, tokenId, nftOwner.address, expirationDate)
-          .to.emit(vault, 'Transfer')
+        expect(await mockERC721.ownerOf(tokenId)).to.be.equal(vault.address)
       })
-      it('Should not deposit NFT if not approved', async () => {
-        await expect(vault.connect(nftOwner).deposit(mockERC721.address, tokenId, expirationDate)).to.be.revertedWith(
-          'ERC721: caller is not token owner or approved',
+      it('Should not deposit NFT if not owner', async () => {
+        await expect(vault.deposit(mockERC721.address, tokenId, expirationDate)).to.be.revertedWith(
+          'ERC721: transfer from incorrect owner',
+        )
+      })
+    })
+    describe('Deposit NFT on Behaf of', async () => {
+      it('Should deposit NFT on behalf of', async () => {
+        await expect(vault.connect(marketplace).depositOnBehalfOf(mockERC721.address, tokenId, expirationDate))
+          .to.emit(vault, 'Deposit')
+          .withArgs(mockERC721.address, tokenId, nftOwner.address, expirationDate)
+      })
+      it('Should not deposit NFT on behalf of if not marketplace', async () => {
+        await expect(
+          vault.connect(nftOwner).depositOnBehalfOf(mockERC721.address, tokenId, expirationDate),
+        ).to.be.revertedWith(
+          `AccessControl: account ${nftOwner.address.toLowerCase()} is missing role ${await vault.MARKETPLACE_ROLE()}`,
         )
       })
     })
