@@ -13,7 +13,7 @@ contract ImmutableVault is AccessControl {
     bytes32 public MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
     address rolesRegistry;
 
-    // tokenAddress => tokenId => owner
+    // tokenAddress => tokenId => nftInfo(owner, deadline, roleAssignments, nonce)
     mapping(address => mapping(uint256 => NftInfo)) public nftInfo;
 
     // tokenAddress => tokenId => nonce => highestExpirationDate
