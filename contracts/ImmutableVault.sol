@@ -33,7 +33,7 @@ contract ImmutableVault is AccessControl {
 
     event Deposit(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner, uint64 deadline);
     event Withdraw(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner);
-    event ExtendedTokenDeadline(address indexed tokenAddress, uint256 indexed tokenId, uint64 newDeadline);
+    event ExtendDeadline(address indexed tokenAddress, uint256 indexed tokenId, uint64 newDeadline);
 
     modifier onlyOwner(address _tokenAddress, uint256 _tokenId) {
         require(msg.sender == nftInfo[_tokenAddress][_tokenId].owner, "ImmutableVault: sender is not the token owner");
@@ -216,7 +216,7 @@ contract ImmutableVault is AccessControl {
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _newDeadline The new deadline.
-    function extendTokenDeadline(
+    function extendDeadline(
         address _tokenAddress,
         uint256 _tokenId,
         uint64 _newDeadline
@@ -226,6 +226,6 @@ contract ImmutableVault is AccessControl {
             "ImmutableVault: new deadline must be greater than the current one"
         );
         nftInfo[_tokenAddress][_tokenId].deadline = _newDeadline;
-        emit ExtendedTokenDeadline(_tokenAddress, _tokenId, _newDeadline);
+        emit ExtendDeadline(_tokenAddress, _tokenId, _newDeadline);
     }
 }
