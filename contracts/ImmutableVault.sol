@@ -83,21 +83,7 @@ contract ImmutableVault is AccessControl {
     /// @param _tokenAddress Address of the token to withdraw
     /// @param _tokenId ID of the token to withdraw
     function withdraw(address _tokenAddress, uint256 _tokenId) external onlyOwner(_tokenAddress, _tokenId) {
-        require(msg.sender == nftInfo[_tokenAddress][_tokenId].owner, "ImmutableVault: sender is not the token owner");
-
-        uint256 _currentNonce = nftInfo[_tokenAddress][_tokenId].nonce;
-
-        require(
-            nonceExpirationDate[_tokenAddress][_tokenId][_currentNonce] < block.timestamp,
-            "ImmutableVault: token has an active role role assignment"
-        );
-
-        delete nftInfo[_tokenAddress][_tokenId];
-        delete nonceExpirationDate[_tokenAddress][_tokenId][_currentNonce];
-
-        emit Withdraw(_tokenAddress, _tokenId, msg.sender);
-
-        IERC721(_tokenAddress).transferFrom(address(this), msg.sender, _tokenId);
+        _withdraw(msg.sender, _tokenAddress, _tokenId);
     }
 
     /// @notice Withdraw a token on behalf of someone else
@@ -105,12 +91,19 @@ contract ImmutableVault is AccessControl {
     /// @param _tokenAddress Address of the token to withdraw
     /// @param _tokenId ID of the token to withdraw
     function withdrawOnBehalfOf(address _tokenAddress, uint256 _tokenId) external onlyRole(MARKETPLACE_ROLE) {
-        uint256 _currentNonce = nftInfo[_tokenAddress][_tokenId].nonce;
         address _tokenOwner = nftInfo[_tokenAddress][_tokenId].owner;
+        _withdraw(_tokenOwner, _tokenAddress, _tokenId);
+    }
+
+    /// @notice Read documentation above
+    function _withdraw(address _tokenOwner, address _tokenAddress, uint256 _tokenId) internal {
+        require(_tokenOwner == nftInfo[_tokenAddress][_tokenId].owner, "ImmutableVault: sender is not the token owner");
+
+        uint256 _currentNonce = nftInfo[_tokenAddress][_tokenId].nonce;
 
         require(
             nonceExpirationDate[_tokenAddress][_tokenId][_currentNonce] < block.timestamp,
-            "ImmutableVault: token has an active role role assignment"
+            "ImmutableVault: token has an active role assignment"
         );
 
         delete nftInfo[_tokenAddress][_tokenId];
@@ -139,10 +132,13 @@ contract ImmutableVault is AccessControl {
             _roleAssignments.length == _data.length,
             "ImmutableVault: role assignment roles and data length mismatch"
         );
+
+        uint256 _currentNonce = nftInfo[_tokenAddress][_tokenId].nonce;
         require(
-            nonceExpirationDate[_tokenAddress][_tokenId][_nonce] < block.timestamp,
+            nonceExpirationDate[_tokenAddress][_tokenId][_currentNonce] < block.timestamp,
             "ImmutableVault: token has an active role assignment"
         );
+
         require(
             nftInfo[_tokenAddress][_tokenId].deadline >= _expirationDate,
             "ImmutableVault: token deadline is before the role assignment expiration date"
