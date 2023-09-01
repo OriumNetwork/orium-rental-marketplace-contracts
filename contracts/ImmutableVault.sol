@@ -13,9 +13,6 @@ contract ImmutableVault is AccessControl {
     bytes32 public MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
     address public rolesRegistry;
 
-    // tokenAddress => tokenId => nftInfo(owner, deadline, roleAssignments, nonce)
-    mapping(address => mapping(uint256 => NftInfo)) public nftInfo;
-
     struct RoleAssignment {
         bytes32 role;
         address grantee;
@@ -27,6 +24,9 @@ contract ImmutableVault is AccessControl {
         RoleAssignment[] roleAssignments;
         uint256 expirationDate;
     }
+
+    // tokenAddress => tokenId => nftInfo(owner, deadline, roleAssignments, nonce)
+    mapping(address => mapping(uint256 => NftInfo)) public nftInfo;
 
     event Deposit(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner, uint64 deadline);
     event Withdraw(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner);
