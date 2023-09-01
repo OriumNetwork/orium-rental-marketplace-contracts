@@ -11,13 +11,10 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 /// @author Orium Network Team - security@orium.network
 contract ImmutableVault is AccessControl {
     bytes32 public MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
-    address rolesRegistry;
+    address public rolesRegistry;
 
     // tokenAddress => tokenId => nftInfo(owner, deadline, roleAssignments, nonce)
     mapping(address => mapping(uint256 => NftInfo)) public nftInfo;
-
-    // tokenAddress => tokenId => nonce => highestExpirationDate
-    mapping(address => mapping(uint256 => mapping(uint256 => uint64))) public nonceExpirationDate;
 
     struct RoleAssignment {
         bytes32 role;
@@ -28,14 +25,14 @@ contract ImmutableVault is AccessControl {
         address owner;
         uint64 deadline;
         RoleAssignment[] roleAssignments;
-        uint256 nonce;
+        uint256 expirationDate;
     }
 
     event Deposit(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner, uint64 deadline);
     event Withdraw(address indexed tokenAddress, uint256 indexed tokenId, address indexed owner);
     event ExtendDeadline(address indexed tokenAddress, uint256 indexed tokenId, uint64 newDeadline);
 
-    modifier onlyOwner(address _tokenAddress, uint256 _tokenId) {
+    modifier onlyNftOwner(address _tokenAddress, uint256 _tokenId) {
         require(msg.sender == nftInfo[_tokenAddress][_tokenId].owner, "ImmutableVault: sender is not the token owner");
         _;
     }
@@ -50,7 +47,7 @@ contract ImmutableVault is AccessControl {
     /// @notice Deposit a token
     /// @param _tokenAddress Address of the token to deposit
     /// @param _tokenId ID of the token to deposit
-    /// @param _deadline Deadline for the token to be role assignment roles
+    /// @param _deadline The maximum date a role assignment can last
     function deposit(address _tokenAddress, uint256 _tokenId, uint64 _deadline) external {
         _deposit(msg.sender, _tokenAddress, _tokenId, _deadline);
     }
@@ -59,7 +56,7 @@ contract ImmutableVault is AccessControl {
     /// @dev This function is only callable by some account which has MARKETPLACE_ROLE
     /// @param _tokenAddress Address of the token to deposit
     /// @param _tokenId ID of the token to deposit
-    /// @param _deadline Deadline for the token to be role assignment roles
+    /// @param _deadline The maximum date a role assignment can last
     function depositOnBehalfOf(
         address _tokenAddress,
         uint256 _tokenId,
@@ -82,7 +79,7 @@ contract ImmutableVault is AccessControl {
     /// @notice Withdraw a token
     /// @param _tokenAddress Address of the token to withdraw
     /// @param _tokenId ID of the token to withdraw
-    function withdraw(address _tokenAddress, uint256 _tokenId) external onlyOwner(_tokenAddress, _tokenId) {
+    function withdraw(address _tokenAddress, uint256 _tokenId) external onlyNftOwner(_tokenAddress, _tokenId) {
         _withdraw(msg.sender, _tokenAddress, _tokenId);
     }
 
@@ -97,17 +94,17 @@ contract ImmutableVault is AccessControl {
 
     /// @notice Read documentation above
     function _withdraw(address _tokenOwner, address _tokenAddress, uint256 _tokenId) internal {
-        require(_tokenOwner == nftInfo[_tokenAddress][_tokenId].owner, "ImmutableVault: sender is not the token owner");
-
-        uint256 _currentNonce = nftInfo[_tokenAddress][_tokenId].nonce;
+        require(
+            _tokenOwner == nftInfo[_tokenAddress][_tokenId].owner,
+            "ImmutableVault: _tokenOwner is not the token owner"
+        );
 
         require(
-            nonceExpirationDate[_tokenAddress][_tokenId][_currentNonce] < block.timestamp,
+            nftInfo[_tokenAddress][_tokenId].expirationDate < block.timestamp,
             "ImmutableVault: token has an active role assignment"
         );
 
         delete nftInfo[_tokenAddress][_tokenId];
-        delete nonceExpirationDate[_tokenAddress][_tokenId][_currentNonce];
 
         emit Withdraw(_tokenAddress, _tokenId, _tokenOwner);
 
@@ -115,17 +112,15 @@ contract ImmutableVault is AccessControl {
     }
 
     /// @notice RoleAssignment a role to a token
-    /// @dev This function is only callable by some account which has MARKETPLACE_ROLE
-    /// @param _nonce The nonce of the token owner.
+    /// @dev This function is only callable by accounts with `MARKETPLACE_ROLE`
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _roleAssignments The role assignment struct.
     function batchGrantRole(
-        uint256 _nonce,
         address _tokenAddress,
         uint256 _tokenId,
         uint64 _expirationDate,
-        RoleAssignment[] memory _roleAssignments,
+        RoleAssignment[] calldata _roleAssignments,
         bytes[] memory _data
     ) external onlyRole(MARKETPLACE_ROLE) {
         require(
@@ -133,9 +128,8 @@ contract ImmutableVault is AccessControl {
             "ImmutableVault: role assignment roles and data length mismatch"
         );
 
-        uint256 _currentNonce = nftInfo[_tokenAddress][_tokenId].nonce;
         require(
-            nonceExpirationDate[_tokenAddress][_tokenId][_currentNonce] < block.timestamp,
+            nftInfo[_tokenAddress][_tokenId].expirationDate < block.timestamp,
             "ImmutableVault: token has an active role assignment"
         );
 
@@ -149,8 +143,7 @@ contract ImmutableVault is AccessControl {
             nftInfo[_tokenAddress][_tokenId].roleAssignments.push(_roleAssignments[i]);
         }
 
-        nftInfo[_tokenAddress][_tokenId].nonce = _nonce;
-        nonceExpirationDate[_tokenAddress][_tokenId][_nonce] = _expirationDate;
+        nftInfo[_tokenAddress][_tokenId].expirationDate = _expirationDate;
     }
 
     /// @notice RoleAssignment internal function
@@ -180,11 +173,9 @@ contract ImmutableVault is AccessControl {
     /// @dev This function is only callable by some account which has MARKETPLACE_ROLE
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
-    /// @param _nonce The nonce of the token owner.
     function batchRevokeRole(
         address _tokenAddress,
-        uint256 _tokenId,
-        uint256 _nonce
+        uint256 _tokenId
     ) external onlyRole(MARKETPLACE_ROLE) {
         address _tokenOwner = nftInfo[_tokenAddress][_tokenId].owner;
         RoleAssignment[] memory _roleAssignments = nftInfo[_tokenOwner][_tokenId].roleAssignments;
@@ -194,7 +185,7 @@ contract ImmutableVault is AccessControl {
         }
 
         delete nftInfo[_tokenOwner][_tokenId].roleAssignments; // free storage and refund gas
-        delete nonceExpirationDate[_tokenAddress][_tokenId][_nonce]; // free storage and refund gas
+        delete nftInfo[_tokenAddress][_tokenId].expirationDate; // free storage and refund gas
     }
 
     /// @notice Revoke a role from a token
@@ -216,7 +207,7 @@ contract ImmutableVault is AccessControl {
         address _tokenAddress,
         uint256 _tokenId,
         uint64 _newDeadline
-    ) external onlyOwner(_tokenAddress, _tokenId) {
+    ) external onlyNftOwner(_tokenAddress, _tokenId) {
         require(
             _newDeadline > nftInfo[_tokenAddress][_tokenId].deadline,
             "ImmutableVault: new deadline must be greater than the current one"

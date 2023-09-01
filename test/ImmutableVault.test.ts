@@ -3,7 +3,6 @@ import { Contract } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
 import { EMPTY_BYTES, ONE_DAY, RolesRegistryAddress, USER_ROLE } from '../utils/constants'
-import { randomBytes } from 'crypto'
 
 describe('Immutable Vault', () => {
   let vault: Contract
@@ -111,13 +110,12 @@ describe('Immutable Vault', () => {
         )
       })
       it('Should not withdraw NFT on behalf of if there is token has an active role assignment', async () => {
-        const nonce = `0x${randomBytes(32).toString('hex')}`
         const roleAssigment = [{ role: USER_ROLE, grantee: borrower.address }]
         const data = [EMPTY_BYTES]
 
         await vault
           .connect(marketplace)
-          .batchGrantRole(nonce, mockERC721.address, tokenId, expirationDate, roleAssigment, data)
+          .batchGrantRole(mockERC721.address, tokenId, expirationDate, roleAssigment, data)
         await expect(vault.connect(marketplace).withdrawOnBehalfOf(mockERC721.address, tokenId)).to.be.revertedWith(
           'ImmutableVault: token has an active role assignment',
         )
