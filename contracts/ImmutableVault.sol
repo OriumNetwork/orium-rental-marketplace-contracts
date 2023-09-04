@@ -177,14 +177,13 @@ contract ImmutableVault is AccessControl {
         address _tokenAddress,
         uint256 _tokenId
     ) external onlyRole(MARKETPLACE_ROLE) {
-        address _tokenOwner = nftInfo[_tokenAddress][_tokenId].owner;
-        RoleAssignment[] memory _roleAssignments = nftInfo[_tokenOwner][_tokenId].roleAssignments;
+        RoleAssignment[] memory _roleAssignments = nftInfo[_tokenAddress][_tokenId].roleAssignments;
 
         for (uint256 i = 0; i < _roleAssignments.length; i++) {
             _revokeRole(_roleAssignments[i].role, _tokenAddress, _tokenId, _roleAssignments[i].grantee);
         }
 
-        delete nftInfo[_tokenOwner][_tokenId].roleAssignments; // free storage and refund gas
+        delete nftInfo[_tokenAddress][_tokenId].roleAssignments; // free storage and refund gas
         delete nftInfo[_tokenAddress][_tokenId].expirationDate; // free storage and refund gas
     }
 
