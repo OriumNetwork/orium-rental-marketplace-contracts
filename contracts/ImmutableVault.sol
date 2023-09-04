@@ -8,7 +8,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 
 /// @title ImmutableVault
 /// @dev This contract is used by the marketplace to store tokens and role assignment roles to them.
-/// @author Orium Network Team - security@orium.network
+/// @author Orium Network Team - developers@orium.network
 contract ImmutableVault is AccessControl {
     bytes32 public MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
     address public rolesRegistry;
