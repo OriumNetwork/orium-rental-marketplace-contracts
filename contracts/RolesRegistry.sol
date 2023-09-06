@@ -41,6 +41,7 @@ contract RolesRegistry is IERC7432 {
     }
 
     function revokeRole(bytes32 _role, address _tokenAddress, uint256 _tokenId, address _grantee) external {
+        require(msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId), "RolesRegistry: sender must be owner");
         delete roleAssignments[_grantee][_tokenAddress][_tokenId][_role];
         delete lastRoleAssignment[_tokenAddress][_tokenId][_role];
         emit RoleRevoked(msg.sender, _role, _tokenAddress, _tokenId, _grantee);
@@ -50,7 +51,7 @@ contract RolesRegistry is IERC7432 {
         bytes32 _role,
         address _tokenAddress,
         uint256 _tokenId,
-        address _grantor,
+        address _grantor, // TODO: not being used. Remove?
         address _grantee
     ) external view returns (bool) {
         return roleAssignments[_grantee][_tokenAddress][_tokenId][_role].expirationDate > block.timestamp;
@@ -60,7 +61,7 @@ contract RolesRegistry is IERC7432 {
         bytes32 _role,
         address _tokenAddress,
         uint256 _tokenId,
-        address _grantor,
+        address _grantor, // TODO: not being used. Remove?
         address _grantee
     ) external view returns (bool) {
         bool isValid = roleAssignments[_grantee][_tokenAddress][_tokenId][_role].expirationDate >
@@ -73,7 +74,7 @@ contract RolesRegistry is IERC7432 {
         bytes32 _role,
         address _tokenAddress,
         uint256 _tokenId,
-        address _grantor,
+        address _grantor, // TODO: not being used. Remove?
         address _grantee
     ) external view returns (bytes memory data_) {
         RoleData memory _roleData = roleAssignments[_grantee][_tokenAddress][_tokenId][_role];
@@ -84,7 +85,7 @@ contract RolesRegistry is IERC7432 {
         bytes32 _role,
         address _tokenAddress,
         uint256 _tokenId,
-        address _grantor,
+        address _grantor,// TODO: not being used. Remove?
         address _grantee
     ) external view returns (uint64 expirationDate_){
         RoleData memory _roleData = roleAssignments[_grantee][_tokenAddress][_tokenId][_role];
