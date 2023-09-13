@@ -15,14 +15,13 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
     bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
     bytes public constant EMPTY_BYTES = "";
 
+    address public rolesRegistry;
+
     /// @dev nonce => isPresigned
     mapping(bytes32 => bool) public preSignedOffer;
 
     /// @dev maker => nonce => bool
     mapping(address => mapping(uint256 => bool)) public invalidNonce;
-
-    /// @dev tokenAddress => registryAddress
-    mapping(address => address) public tokenAddressToRegistry;
 
     struct RentalOffer {
         address maker;
@@ -100,10 +99,12 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         _;
     }
 
-    function initialize(address _owner) public initializer {
+    function initialize(address _owner, address _rolesRegistry) public initializer {
         __EIP712_init(SIGNING_DOMAIN, SIGNATURE_VERSION);
         __Ownable_init();
         transferOwnership(_owner);
+
+        rolesRegistry = _rolesRegistry;
     }
 
     function preSignRentalOffer(RentalOffer calldata offer) external onlyTokenOwner(offer.tokenAddress, offer.tokenId) {
@@ -138,7 +139,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             "OriumRentalProtocol: Caller is not allowed to rent this NFT"
         );
 
-        address _lastGrantee = IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).lastGrantee(
+        address _lastGrantee = IRolesRegistry(rolesRegistry).lastGrantee(
             USER_ROLE,
             offer.maker,
             offer.tokenAddress,
@@ -146,7 +147,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         );
         
         require(
-            !IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).hasUniqueRole(
+            !IRolesRegistry(rolesRegistry).hasUniqueRole(
                 USER_ROLE,
                 offer.tokenAddress,
                 offer.tokenId,
@@ -168,7 +169,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
         address _taker = offer.taker == address(0) ? msg.sender : offer.taker;
 
-        IRolesRegistry(tokenAddressToRegistry[offer.tokenAddress]).grantRoleFrom(
+        IRolesRegistry(rolesRegistry).grantRoleFrom(
             USER_ROLE,
             offer.tokenAddress,
             offer.tokenId,
@@ -185,7 +186,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
     function endRental(address _tokenAddress, uint256 _tokenId) external {
         address _owner = IERC721(_tokenAddress).ownerOf(_tokenId);
-        address _taker = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).lastGrantee(
+        address _taker = IRolesRegistry(rolesRegistry).lastGrantee(
             USER_ROLE,
             _owner,
             _tokenAddress,
@@ -196,7 +197,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         require(_taker != address(0), "OriumRentalProtocol: NFT is not rented");
 
         if (msg.sender == _owner) {
-            uint64 _expirationDate = IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).roleExpirationDate(
+            uint64 _expirationDate = IRolesRegistry(rolesRegistry).roleExpirationDate(
                 USER_ROLE,
                 _tokenAddress,
                 _tokenId,
@@ -206,7 +207,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             require(block.timestamp > _expirationDate, "OriumRentalProtocol: Rental hasn't ended yet");
         }
 
-        IRolesRegistry(tokenAddressToRegistry[_tokenAddress]).revokeRoleFrom(USER_ROLE, _tokenAddress, _tokenId, _owner, _taker);
+        IRolesRegistry(rolesRegistry).revokeRoleFrom(USER_ROLE, _tokenAddress, _tokenId, _owner, _taker);
 
         emit RentalEnded(_owner, _taker, _tokenAddress, _tokenId);
     }
@@ -232,8 +233,8 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             );
     }
 
-    function setRolesRegistry(address _tokenAddress, address _registryAddress) external onlyOwner {
-        //TODO: make this in batch?
-        tokenAddressToRegistry[_tokenAddress] = _registryAddress;
+    function setRolesRegistry(address _rolesRegistry) external onlyOwner {
+        //TODO: we keep this function? 
+        rolesRegistry = _rolesRegistry;
     }
 }
