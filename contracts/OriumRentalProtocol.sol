@@ -109,7 +109,10 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
     function preSignRentalOffer(RentalOffer calldata offer) external onlyTokenOwner(offer.tokenAddress, offer.tokenId) {
         require(msg.sender == offer.maker, "Signer and Maker mismatch");
-        require(msg.sender == IERC721(offer.tokenAddress).ownerOf(offer.tokenId), "OriumRentalProtocol: Sender is not the owner of the NFT");
+        require(
+            msg.sender == IERC721(offer.tokenAddress).ownerOf(offer.tokenId),
+            "OriumRentalProtocol: Sender is not the owner of the NFT"
+        );
 
         preSignedOffer[hashRentalOffer(offer)] = true;
 
@@ -139,32 +142,14 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             "OriumRentalProtocol: Caller is not allowed to rent this NFT"
         );
 
-        address _lastGrantee = IRolesRegistry(rolesRegistry).lastGrantee(
-            USER_ROLE,
-            offer.maker,
-            offer.tokenAddress,
-            offer.tokenId
-        );
-        
-        require(
-            !IRolesRegistry(rolesRegistry).hasUniqueRole(
-                USER_ROLE,
-                offer.tokenAddress,
-                offer.tokenId,
-                offer.maker,
-                _lastGrantee
-            ),
-            "Nft is already rented"
-        );
-
         if (signatureType == SignatureType.PRE_SIGNED) {
-            require(preSignedOffer[hashRentalOffer(offer)] == true, "Presigned offer not found");
+            require(preSignedOffer[hashRentalOffer(offer)] == true, "OriumRentalProtocol: Presigned offer not found");
         } else if (signatureType == SignatureType.EIP_712) {
             bytes32 _hash = hashRentalOffer(offer);
             address signer = ECDSAUpgradeable.recover(_hash, signature);
-            require(signer == offer.maker, "Signer is not maker");
+            require(signer == offer.maker, "OriumRentalProtocol: Signer is not maker");
         } else {
-            revert("Unsupported signature type");
+            revert("OriumRentalProtocol: Unsupported signature type");
         }
 
         address _taker = offer.taker == address(0) ? msg.sender : offer.taker;
@@ -186,14 +171,10 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
 
     function endRental(address _tokenAddress, uint256 _tokenId) external {
         address _owner = IERC721(_tokenAddress).ownerOf(_tokenId);
-        address _taker = IRolesRegistry(rolesRegistry).lastGrantee(
-            USER_ROLE,
-            _owner,
-            _tokenAddress,
-            _tokenId
-        );
+        address _taker = IRolesRegistry(rolesRegistry).lastGrantee(USER_ROLE, _owner, _tokenAddress, _tokenId);
+        require(IRolesRegistry(rolesRegistry).hasUniqueRole(USER_ROLE, _tokenAddress, _tokenId, _owner, _taker), "OriumRentalProtocol: Invalid role");
 
-        require(msg.sender == _taker, "Only owner or taker can end rental");
+        require(msg.sender == _taker, "OriumRentalProtocol: Only taker can end rental");
         require(_taker != address(0), "OriumRentalProtocol: NFT is not rented");
 
         if (msg.sender == _owner) {
@@ -234,7 +215,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
     }
 
     function setRolesRegistry(address _rolesRegistry) external onlyOwner {
-        //TODO: we keep this function? 
+        //TODO: we keep this function?
         rolesRegistry = _rolesRegistry;
     }
 }
