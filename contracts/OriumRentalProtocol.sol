@@ -18,7 +18,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     uint256 public constant MAX_PERCENTAGE = 100 ether;
     /// @dev 2.5 ether is 2.5%
     uint256 public constant DEFAULT_FEE_PERCENTAGE = 2.5 ether;
-    /// @dev rolesRegistry is a ERC7432 contract
+    /// @dev rolesRegistry is a ERC-7432 contract
     address public rolesRegistry;
     /// @dev deadline is set in seconds
     uint256 public maxDeadline;
