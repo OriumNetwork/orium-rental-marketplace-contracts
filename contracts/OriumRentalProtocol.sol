@@ -4,20 +4,17 @@ pragma solidity 0.8.9;
 
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, PausableUpgradeable {
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+contract OriumRentalProtocol is Initializable, OwnableUpgradeable, PausableUpgradeable {
     uint256 public constant MAX_PERCENTAGE = 100 ether; // 100%
     uint256 public constant DEFAULT_FEE_PERCENTAGE = 2.5 ether; // 2.5%
 
     address public rolesRegistry;
     uint256 public maxDeadline;
 
-    /// @dev nonce => isPresigned
-    mapping(bytes32 => bool) public preSignedOffer;
 
     /// @dev tokenAddress => feePercentageInWei
     mapping(address => uint256) public feesPerCollection;
@@ -31,23 +28,14 @@ contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, Pausabl
         address treasury;
     }
 
-    modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
-        require(
-            msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
-            "OriumRentalProtocol: Caller does not have the required permission"
-        );
-        _;
-    }
-
     function initialize(address _owner, address _rolesRegistry, uint256 _maxDeadline) public initializer {
-        __AccessControl_init();
         __Pausable_init();
+        __Ownable_init();
 
         rolesRegistry = _rolesRegistry;
         maxDeadline = _maxDeadline;
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _owner);
-        _setupRole(PAUSER_ROLE, _owner);
+        transferOwnership(_owner);
     }
 
     function _chargeFee(address _tokenAddress, address _lender, address _feeToken, uint256 _feeAmount) internal {
@@ -86,18 +74,18 @@ contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, Pausabl
         return (_amount * _percentage) / MAX_PERCENTAGE;
     }
 
-    function pause() external onlyRole(PAUSER_ROLE) {
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external onlyRole(PAUSER_ROLE) {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
     function setMarketplaceFeeForCollection(
         address _tokenAddress,
         uint256 _feePercentageInWei
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyOwner {
         require(
             _feePercentageInWei <= MAX_PERCENTAGE,
             "OriumRentalProtocol: Fee percentage cannot be greater than 100%"
@@ -105,10 +93,10 @@ contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, Pausabl
         feesPerCollection[_tokenAddress] = _feePercentageInWei;
     }
 
-    function setCollectionFeeInfo(address _tokenAddress, uint256 _feePercentageInWei, address _treasury) external {
+    function setCollectionFeeInfo(address _creator, address _tokenAddress, uint256 _feePercentageInWei, address _treasury) external {
         require(
-            msg.sender == collectionFeeInfo[_tokenAddress].creator || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "OriumRentalProtocol: Only creator or operator can set collection fee"
+            msg.sender == collectionFeeInfo[_tokenAddress].creator || msg.sender == owner(),
+            "OriumRentalProtocol: Only creator or operator can set collection fee info"
         );
         require(
             _feePercentageInWei <= MAX_PERCENTAGE,
@@ -116,13 +104,13 @@ contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, Pausabl
         );
 
         collectionFeeInfo[_tokenAddress] = CollectionFeeInfo({
-            creator: collectionFeeInfo[_tokenAddress].creator,
+            creator: _creator,
             feePercentageInWei: _feePercentageInWei,
             treasury: _treasury
         });
     }
 
-    function setMaxDeadline(uint256 _maxDeadline) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setMaxDeadline(uint256 _maxDeadline) external onlyOwner {
         maxDeadline = _maxDeadline;
     }
 }
