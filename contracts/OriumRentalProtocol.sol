@@ -326,4 +326,8 @@ contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, EIP712U
             treasury: _treasury
         });
     }
+
+    function setMaxDeadline(uint256 _maxDeadline) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxDeadline = _maxDeadline;
+    }
 }
