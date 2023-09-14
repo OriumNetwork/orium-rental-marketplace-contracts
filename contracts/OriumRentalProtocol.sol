@@ -9,8 +9,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 /**
- * @title Orium Rental Protocol - Marketplace for renting NFTs
- * @dev This contract is used to manage NFTs rentals, powered by ERC7432 Non-Fungible Token Roles
+ * @title Orium Marketplace - Marketplace for renting NFTs
+ * @dev This contract is used to manage NFTs rentals, powered by ERC-7432 Non-Fungible Token Roles
  * @author Orium Network Team - developers@orium.network
  */
 contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
