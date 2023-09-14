@@ -84,6 +84,38 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         feePerCollection[_tokenAddress] = _feePercentageInWei;
     }
 
+     /**
+     * @notice Sets the royalty info.
+     * @dev If the creator is address(0), the collection will not have a creator fee.
+     * @dev Only owner can associate a collection with a creator.
+     * @param _creator The address of the creator.
+     * @param _tokenAddress The address of the collection.
+     * @param _royaltyPercentageInWei The royalty percentage in wei. If the fee is 0, the creator fee will be disabled.
+     * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
+     */
+    function setCreator(
+        address _creator,
+        address _tokenAddress,
+        uint256 _royaltyPercentageInWei,
+        address _treasury
+    ) external onlyOwner {
+        require(
+            _royaltyPercentageInWei <= MAX_PERCENTAGE,
+            "OriumMarketplace: Royalty percentage cannot be greater than 100%"
+        );
+
+        require(
+            _royaltyPercentageInWei + getMarketplaceFee(_tokenAddress) < MAX_PERCENTAGE,
+            "OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
+        );
+
+        royaltyInfo[_tokenAddress] = RoyaltyInfo({
+            creator: _creator,
+            feePercentageInWei: _royaltyPercentageInWei,
+            treasury: _treasury
+        });
+    }
+
     /**
      * @notice Sets the royalty info.
      * @dev If the creator is address(0), the collection will not have a creator fee.
@@ -100,7 +132,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _treasury
     ) external {
         require(
-            msg.sender == royaltyInfo[_tokenAddress].creator || msg.sender == owner(),
+            msg.sender == royaltyInfo[_tokenAddress].creator,
             "OriumMarketplace: Only creator or operator can set royalty info"
         );
         require(
