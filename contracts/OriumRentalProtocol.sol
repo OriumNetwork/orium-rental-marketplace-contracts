@@ -10,7 +10,8 @@ import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/securit
 
 /**
  * @title Orium Rental Protocol - Marketplace for renting NFTs
- * @author Orium Network - developers@orium.network
+ * @dev This contract is used to manage NFTs rentals, powered by ERC7432 Non-Fungible Token Roles
+ * @author Orium Network Team - developers@orium.network
  */
 contract OriumRentalProtocol is Initializable, OwnableUpgradeable, PausableUpgradeable {
     /// @dev 100 ether is 100%
