@@ -86,32 +86,27 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _feeInfo The fee info. Contains the fee percentage in wei and if the fee is custom.
      */
     function setMarketplaceFeeForCollection(address _tokenAddress, FeeInfo calldata _feeInfo) external onlyOwner {
-        require(_feeInfo.feePercentageInWei <= MAX_PERCENTAGE, "OriumMarketplace: Fee percentage cannot be greater than 100%");
+        uint256 _royaltyPercentage = royaltyInfo[_tokenAddress].feePercentageInWei;
+        require(_royaltyPercentage + _feeInfo.feePercentageInWei < MAX_PERCENTAGE, "OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%");
+        
         feeInfoPerCollection[_tokenAddress] = _feeInfo;
     }
 
     /**
      * @notice Sets the royalty info.
-     * @dev If the creator is address(0), the collection will not have a creator fee.
      * @dev Only owner can associate a collection with a creator.
      * @param _creator The address of the creator.
      * @param _tokenAddress The address of the collection.
-     * @param _royaltyPercentageInWei The royalty percentage in wei. If the fee is 0, the creator fee will be disabled.
-     * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
      */
     function setCreator(
         address _creator,
-        address _tokenAddress,
-        uint256 _royaltyPercentageInWei,
-        address _treasury
+        address _tokenAddress
     ) external onlyOwner {
-        _setRoyalty(_creator, _tokenAddress, _royaltyPercentageInWei, _treasury);
+        _setRoyalty(_creator, _tokenAddress, 0, address(0));
     }
 
     /**
      * @notice Sets the royalty info.
-     * @dev If the creator is address(0), the collection will not have a creator fee.
-     * @dev Only owner can associate a collection with a creator.
      * @param _tokenAddress The address of the collection.
      * @param _royaltyPercentageInWei The royalty percentage in wei. If the fee is 0, the creator fee will be disabled.
      * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
@@ -119,7 +114,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function setRoyaltyInfo(address _tokenAddress, uint256 _royaltyPercentageInWei, address _treasury) external {
         require(
             msg.sender == royaltyInfo[_tokenAddress].creator,
-            "OriumMarketplace: Only creator or operator can set royalty info"
+            "OriumMarketplace: Only creator can set royalty info"
         );
 
         _setRoyalty(msg.sender, _tokenAddress, _royaltyPercentageInWei, _treasury);
@@ -132,12 +127,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _treasury
     ) internal {
         require(
-            _royaltyPercentageInWei <= MAX_PERCENTAGE,
-            "OriumMarketplace: Royalty percentage cannot be greater than 100%"
-        );
-
-        require(
-            _royaltyPercentageInWei + getMarketplaceFee(_tokenAddress) <= MAX_PERCENTAGE,
+            _royaltyPercentageInWei + getMarketplaceFee(_tokenAddress) < MAX_PERCENTAGE,
             "OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
         );
 
