@@ -240,29 +240,14 @@ contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, EIP712U
 
     function endRental(address _tokenAddress, uint256 _tokenId) external {
         address _owner = IERC721(_tokenAddress).ownerOf(_tokenId);
-        address _taker = IRolesRegistry(rolesRegistry).lastGrantee(USER_ROLE, _owner, _tokenAddress, _tokenId);
         require(
-            IRolesRegistry(rolesRegistry).hasUniqueRole(USER_ROLE, _tokenAddress, _tokenId, _owner, _taker),
+            IRolesRegistry(rolesRegistry).hasUniqueRole(USER_ROLE, _tokenAddress, _tokenId, _owner, msg.sender),
             "OriumRentalProtocol: Invalid role"
         );
 
-        require(msg.sender == _taker, "OriumRentalProtocol: Only taker can end rental");
-        require(_taker != address(0), "OriumRentalProtocol: NFT is not rented");
+        IRolesRegistry(rolesRegistry).revokeRoleFrom(USER_ROLE, _tokenAddress, _tokenId, _owner, msg.sender);
 
-        if (msg.sender == _owner) {
-            uint64 _expirationDate = IRolesRegistry(rolesRegistry).roleExpirationDate(
-                USER_ROLE,
-                _tokenAddress,
-                _tokenId,
-                _owner,
-                _taker
-            );
-            require(block.timestamp > _expirationDate, "OriumRentalProtocol: Rental hasn't ended yet");
-        }
-
-        IRolesRegistry(rolesRegistry).revokeRoleFrom(USER_ROLE, _tokenAddress, _tokenId, _owner, _taker);
-
-        emit RentalEnded(_owner, _taker, _tokenAddress, _tokenId);
+        emit RentalEnded(_owner, msg.sender, _tokenAddress, _tokenId);
     }
 
     function hashRentalOffer(RentalOffer memory offer) public view returns (bytes32) {
