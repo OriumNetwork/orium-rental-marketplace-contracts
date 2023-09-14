@@ -24,7 +24,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     uint256 public maxDeadline;
 
     /// @dev tokenAddress => feePercentageInWei
-    mapping(address => uint256) public feePerCollection;
+    mapping(address => FeeInfo) public feeInfoPerCollection;
 
     /// @dev tokenAddress => royaltyInfo
     mapping(address => RoyaltyInfo) public royaltyInfo;
@@ -34,6 +34,12 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address creator;
         uint256 feePercentageInWei;
         address treasury;
+    }
+
+    /// @dev Marketplace fee info.
+    struct FeeInfo {
+        uint256 feePercentageInWei;
+        bool isCustomFee;
     }
 
     /**
@@ -54,7 +60,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     }
 
     function getMarketplaceFee(address _tokenAddress) public view returns (uint256) {
-        return feePerCollection[_tokenAddress] == 0 ? DEFAULT_FEE_PERCENTAGE : feePerCollection[_tokenAddress];
+        return feeInfoPerCollection[_tokenAddress].isCustomFee ? feeInfoPerCollection[_tokenAddress].feePercentageInWei : DEFAULT_FEE_PERCENTAGE;
     }
 
     /**
@@ -77,11 +83,11 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @notice Sets the marketplace fee for a collection.
      * @dev If the fee is 0, the default fee will be used.
      * @param _tokenAddress The address of the collection.
-     * @param _feePercentageInWei The fee percentage in wei.
+     * @param _feeInfo The fee info. Contains the fee percentage in wei and if the fee is custom.
      */
-    function setMarketplaceFeeForCollection(address _tokenAddress, uint256 _feePercentageInWei) external onlyOwner {
-        require(_feePercentageInWei <= MAX_PERCENTAGE, "OriumMarketplace: Fee percentage cannot be greater than 100%");
-        feePerCollection[_tokenAddress] = _feePercentageInWei;
+    function setMarketplaceFeeForCollection(address _tokenAddress, FeeInfo calldata _feeInfo) external onlyOwner {
+        require(_feeInfo.feePercentageInWei <= MAX_PERCENTAGE, "OriumMarketplace: Fee percentage cannot be greater than 100%");
+        feeInfoPerCollection[_tokenAddress] = _feeInfo;
     }
 
     /**
