@@ -9,7 +9,6 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, PausableUpgradeable {
-    bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     uint256 public constant MAX_PERCENTAGE = 100 ether; // 100%
     uint256 public constant DEFAULT_FEE_PERCENTAGE = 2.5 ether; // 2.5%
