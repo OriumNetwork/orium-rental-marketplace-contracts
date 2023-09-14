@@ -6,22 +6,34 @@ import { IRolesRegistry } from "./interfaces/IRolesRegistry.sol";
 import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import { ECDSAUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgradeable {
+contract OriumRentalProtocol is Initializable, AccessControlUpgradeable, EIP712Upgradeable, PausableUpgradeable {
     string public constant SIGNING_DOMAIN = "Orium-Rental-Marketplace";
     string public constant SIGNATURE_VERSION = "1";
-    bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
     bytes public constant EMPTY_BYTES = "";
+    bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    uint256 public constant MAX_PERCENTAGE = 100 ether; // 100%
+    uint256 public constant DEFAULT_FEE_PERCENTAGE = 2.5 ether; // 2.5%
 
     address public rolesRegistry;
+    uint256 public maxDeadline;
 
     /// @dev nonce => isPresigned
     mapping(bytes32 => bool) public preSignedOffer;
 
     /// @dev maker => nonce => bool
     mapping(address => mapping(uint256 => bool)) public invalidNonce;
+
+    /// @dev tokenAddress => feePercentageInWei
+    mapping(address => uint256) public feesPerCollection;
+
+    /// @dev tokenAddress => collectionFeeInfo
+    mapping(address => CollectionFeeInfo) public collectionFeeInfo;
 
     struct RentalOffer {
         address maker;
@@ -33,6 +45,13 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         uint256 nonce;
         uint64 expirationDate;
     }
+
+    struct CollectionFeeInfo {
+        address creator;
+        uint256 feePercentageInWei;
+        address treasury;
+    }
+
     enum SignatureType {
         PRE_SIGNED,
         EIP_712,
@@ -99,12 +118,17 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         _;
     }
 
-    function initialize(address _owner, address _rolesRegistry) public initializer {
+    function initialize(address _owner, address _rolesRegistry, uint256 _maxDeadline) public initializer {
         __EIP712_init(SIGNING_DOMAIN, SIGNATURE_VERSION);
-        __Ownable_init();
-        transferOwnership(_owner);
+
+        __AccessControl_init();
+        __Pausable_init();
 
         rolesRegistry = _rolesRegistry;
+        maxDeadline = _maxDeadline;
+
+        _setupRole(DEFAULT_ADMIN_ROLE, _owner);
+        _setupRole(PAUSER_ROLE, _owner);
     }
 
     function preSignRentalOffer(RentalOffer calldata offer) external onlyTokenOwner(offer.tokenAddress, offer.tokenId) {
@@ -113,6 +137,7 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             msg.sender == IERC721(offer.tokenAddress).ownerOf(offer.tokenId),
             "OriumRentalProtocol: Sender is not the owner of the NFT"
         );
+        require(maxDeadline >= offer.expirationDate, "OriumRentalProtocol: Expiration date is too far in the future");
 
         preSignedOffer[hashRentalOffer(offer)] = true;
 
@@ -134,7 +159,11 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         emit RentalOfferCancelled(nonce, msg.sender);
     }
 
-    function rent(RentalOffer calldata offer, SignatureType signatureType, bytes calldata signature) external {
+    function rent(
+        RentalOffer calldata offer,
+        SignatureType signatureType,
+        bytes calldata signature
+    ) external whenNotPaused {
         require(offer.expirationDate >= block.timestamp, "OriumRentalProtocol: Offer expired");
         require(!invalidNonce[offer.maker][offer.nonce], "OriumRentalProtocol: Nonce already used");
         require(
@@ -150,6 +179,10 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             require(signer == offer.maker, "OriumRentalProtocol: Signer is not maker");
         } else {
             revert("OriumRentalProtocol: Unsupported signature type");
+        }
+
+        if (offer.feeAmount > 0) {
+            _chargeFee(offer);
         }
 
         address _taker = offer.taker == address(0) ? msg.sender : offer.taker;
@@ -169,10 +202,49 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
         emit RentalStarted(offer.nonce, offer.maker, _taker, offer.tokenAddress, offer.tokenId, offer.expirationDate);
     }
 
+    function _chargeFee(RentalOffer memory offer) internal {
+        // Charge the marketplace fee
+        uint256 _marketplaceFeePercentage = feesPerCollection[offer.tokenAddress] == 0
+            ? DEFAULT_FEE_PERCENTAGE
+            : feesPerCollection[offer.tokenAddress];
+        uint256 _marketplaceFee = _valueFromPercentage(_marketplaceFeePercentage, offer.feeAmount);
+        require(
+            IERC20(offer.feeToken).transferFrom(msg.sender, address(this), _marketplaceFee),
+            "OriumRentalProtocol: Marketplace Fee transfer failed"
+        );
+
+        // Charge the fee to the maker
+        uint256 _makerFee = offer.feeAmount - _marketplaceFee;
+        require(
+            IERC20(offer.feeToken).transferFrom(msg.sender, offer.maker, _makerFee),
+            "OriumRentalProtocol: Maker Fee transfer failed"
+        );
+
+        // Charge the fee to the creator
+        address _creator = collectionFeeInfo[offer.tokenAddress].creator;
+        if (_creator == address(0)) return;
+
+        uint256 _creatorFeePercentage = collectionFeeInfo[offer.tokenAddress].feePercentageInWei;
+        if (_creatorFeePercentage == 0) return;
+
+        uint256 _creatorFee = _valueFromPercentage(_creatorFeePercentage, offer.feeAmount);
+        require(
+            IERC20(offer.feeToken).transferFrom(msg.sender, _creator, _creatorFee),
+            "OriumRentalProtocol: Creator Fee transfer failed"
+        );
+    }
+
+    function _valueFromPercentage(uint256 _percentage, uint256 _amount) internal pure returns (uint256) {
+        return (_amount * _percentage) / MAX_PERCENTAGE;
+    }
+
     function endRental(address _tokenAddress, uint256 _tokenId) external {
         address _owner = IERC721(_tokenAddress).ownerOf(_tokenId);
         address _taker = IRolesRegistry(rolesRegistry).lastGrantee(USER_ROLE, _owner, _tokenAddress, _tokenId);
-        require(IRolesRegistry(rolesRegistry).hasUniqueRole(USER_ROLE, _tokenAddress, _tokenId, _owner, _taker), "OriumRentalProtocol: Invalid role");
+        require(
+            IRolesRegistry(rolesRegistry).hasUniqueRole(USER_ROLE, _tokenAddress, _tokenId, _owner, _taker),
+            "OriumRentalProtocol: Invalid role"
+        );
 
         require(msg.sender == _taker, "OriumRentalProtocol: Only taker can end rental");
         require(_taker != address(0), "OriumRentalProtocol: NFT is not rented");
@@ -214,8 +286,44 @@ contract OriumRentalProtocol is Initializable, OwnableUpgradeable, EIP712Upgrade
             );
     }
 
-    function setRolesRegistry(address _rolesRegistry) external onlyOwner {
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
+    function setRolesRegistry(address _rolesRegistry) external onlyRole(DEFAULT_ADMIN_ROLE) {
         //TODO: we keep this function?
         rolesRegistry = _rolesRegistry;
+    }
+
+    function setMarketplaceFeeForCollection(
+        address _tokenAddress,
+        uint256 _feePercentageInWei
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(
+            _feePercentageInWei <= MAX_PERCENTAGE,
+            "OriumRentalProtocol: Fee percentage cannot be greater than 100%"
+        );
+        feesPerCollection[_tokenAddress] = _feePercentageInWei;
+    }
+
+    function setCollectionFeeInfo(address _tokenAddress, uint256 _feePercentageInWei, address _treasury) external {
+        require(
+            msg.sender == collectionFeeInfo[_tokenAddress].creator || hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "OriumRentalProtocol: Only creator or operator can set collection fee"
+        );
+        require(
+            _feePercentageInWei <= MAX_PERCENTAGE,
+            "OriumRentalProtocol: Fee percentage cannot be greater than 100%"
+        );
+
+        collectionFeeInfo[_tokenAddress] = CollectionFeeInfo({
+            creator: collectionFeeInfo[_tokenAddress].creator,
+            feePercentageInWei: _feePercentageInWei,
+            treasury: _treasury
+        });
     }
 }
