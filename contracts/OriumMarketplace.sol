@@ -89,7 +89,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
     /**
      * @notice Sets the marketplace fee for a collection.
-     * @dev If the fee is 0, the default fee will be used.
+     * @dev If no fee is set, the default fee will be used.
      * @param _tokenAddress The address of the collection.
      * @param _feeInfo The fee info. Contains the fee percentage in wei and if the fee is custom.
      */
