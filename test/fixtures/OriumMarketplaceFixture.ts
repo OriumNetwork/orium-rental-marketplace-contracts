@@ -1,13 +1,27 @@
-import { ethers } from 'hardhat'
-
+import { ethers, upgrades } from 'hardhat'
+import { RolesRegistryAddress, THREE_MONTHS } from '../../utils/constants'
+import { Contract } from 'ethers'
+/**
+ * @dev deployer and operator needs to be the first two accounts in the hardhat ethers.getSigners()
+ * list respectively. This should be considered to use this fixture in tests
+ * @returns [marketplace, nft] // TODO: TBD add rolesRegistry to the return
+ */
 export async function deployMarketplaceContracts() {
+  const [, operator] = await ethers.getSigners()
+
+  // const rolesRegistry = await ethers.getContractAt('IRolesRegsitry', RolesRegistryAddress) // TODO: Uncomment when RolesRegistry is deployed
+
   const MarketplaceFactory = await ethers.getContractFactory('OriumMarketplace')
-  const marketplace = await MarketplaceFactory.deploy()
+  const marketplace = await upgrades.deployProxy(MarketplaceFactory, [
+    operator.address,
+    RolesRegistryAddress,
+    THREE_MONTHS,
+  ])
   await marketplace.deployed()
 
   const NftFactory = await ethers.getContractFactory('MockNft')
   const nft = await NftFactory.deploy()
   await nft.deployed()
 
-  return { marketplace, nft }
+  return [marketplace, nft] as Contract[]
 }

@@ -24,7 +24,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     uint256 public maxDeadline;
 
     /// @dev tokenAddress => feePercentageInWei
-    mapping(address => FeeInfo) public feeInfoPerCollection;
+    mapping(address => FeeInfo) public feeInfo;
 
     /// @dev tokenAddress => royaltyInfo
     mapping(address => RoyaltyInfo) public royaltyInfo;
@@ -32,7 +32,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev Royalty info. Used to charge fees for the creator.
     struct RoyaltyInfo {
         address creator;
-        uint256 feePercentageInWei;
+        uint256 royaltyPercentageInWei;
         address treasury;
     }
 
@@ -59,8 +59,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         transferOwnership(_owner);
     }
 
-    function getMarketplaceFee(address _tokenAddress) public view returns (uint256) {
-        return feeInfoPerCollection[_tokenAddress].isCustomFee ? feeInfoPerCollection[_tokenAddress].feePercentageInWei : DEFAULT_FEE_PERCENTAGE;
+    function marketplaceFeeOf(address _tokenAddress) public view returns (uint256) {
+        return feeInfo[_tokenAddress].isCustomFee ? feeInfo[_tokenAddress].feePercentageInWei : DEFAULT_FEE_PERCENTAGE;
     }
 
     /**
@@ -86,22 +86,22 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _feeInfo The fee info. Contains the fee percentage in wei and if the fee is custom.
      */
     function setMarketplaceFeeForCollection(address _tokenAddress, FeeInfo calldata _feeInfo) external onlyOwner {
-        uint256 _royaltyPercentage = royaltyInfo[_tokenAddress].feePercentageInWei;
-        require(_royaltyPercentage + _feeInfo.feePercentageInWei < MAX_PERCENTAGE, "OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%");
-        
-        feeInfoPerCollection[_tokenAddress] = _feeInfo;
+        uint256 _royaltyPercentage = royaltyInfo[_tokenAddress].royaltyPercentageInWei;
+        require(
+            _royaltyPercentage + _feeInfo.feePercentageInWei < MAX_PERCENTAGE,
+            "OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
+        );
+
+        feeInfo[_tokenAddress] = _feeInfo;
     }
 
     /**
      * @notice Sets the royalty info.
      * @dev Only owner can associate a collection with a creator.
-     * @param _creator The address of the creator.
      * @param _tokenAddress The address of the collection.
+cd   * @param _creator The address of the creator.
      */
-    function setCreator(
-        address _creator,
-        address _tokenAddress
-    ) external onlyOwner {
+    function setCreator(address _tokenAddress, address _creator) external onlyOwner {
         _setRoyalty(_creator, _tokenAddress, 0, address(0));
     }
 
@@ -127,13 +127,13 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _treasury
     ) internal {
         require(
-            _royaltyPercentageInWei + getMarketplaceFee(_tokenAddress) < MAX_PERCENTAGE,
+            _royaltyPercentageInWei + marketplaceFeeOf(_tokenAddress) < MAX_PERCENTAGE,
             "OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
         );
 
         royaltyInfo[_tokenAddress] = RoyaltyInfo({
             creator: _creator,
-            feePercentageInWei: _royaltyPercentageInWei,
+            royaltyPercentageInWei: _royaltyPercentageInWei,
             treasury: _treasury
         });
     }

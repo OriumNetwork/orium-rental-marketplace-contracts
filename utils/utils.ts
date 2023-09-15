@@ -1,17 +1,22 @@
-import crypto from 'crypto'
-import { utils } from 'ethers'
+import { BigNumber } from 'ethers'
+import { ethers } from 'hardhat'
 
-function randomString() {
-  return crypto.randomBytes(20).toString('hex')
+/**
+ * @dev Converts decimal to wei
+ * @param amount amount in string format
+ * @param decimals optional field to specify the decimals, default is 18.
+ * @returns
+ */
+export function toWei(amount: string, decimals = 18) {
+  return ethers.utils.parseUnits(amount, decimals)
 }
 
-function randomInteger() {
-  return Math.round(Math.random() * 10000)
+/**
+ * @dev Converts wei to decimal
+ * @param amount BigNumber amount in wei
+ * @param decimals optional field to specify the decimals, default is 18.
+ * @returns amount in string format
+ */
+export function fromWei(amount: BigNumber, decimals = 18) {
+  return ethers.utils.formatUnits(amount, decimals)
 }
-
-function randomHash() {
-  const randomStr = randomString().substring(0, 7)
-  return utils.formatBytes32String(randomStr)
-}
-
-export { randomString, randomHash, randomInteger }
