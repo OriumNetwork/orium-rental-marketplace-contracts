@@ -74,8 +74,12 @@ describe('OriumMarketplace', () => {
     })
     describe('Marketplace Fee', async () => {
       it('Should set the marketplace for a collection', async () => {
-        await expect(marketplace.connect(operator).setMarketplaceFeeForCollection(nft.address, feeInfo))
-          .to.emit(marketplace, 'CollectionFeeSet')
+        await expect(
+          marketplace
+            .connect(operator)
+            .setMarketplaceFeeForCollection(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
+        )
+          .to.emit(marketplace, 'MarketplaceFeeSet')
           .withArgs(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee)
         expect(await marketplace.feeInfo(nft.address)).to.have.deep.members([
           feeInfo.feePercentageInWei,
@@ -85,7 +89,9 @@ describe('OriumMarketplace', () => {
       })
       it('Should NOT set the marketplace fee if caller is not the operator', async () => {
         await expect(
-          marketplace.connect(notOperator).setMarketplaceFeeForCollection(nft.address, feeInfo),
+          marketplace
+            .connect(notOperator)
+            .setMarketplaceFeeForCollection(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
         ).to.be.revertedWith('Ownable: caller is not the owner')
       })
       it("Should NOT set the marketplace fee if marketplace fee + creator royalty it's greater than 100%", async () => {
@@ -106,7 +112,9 @@ describe('OriumMarketplace', () => {
           isCustomFee: true,
         }
         await expect(
-          marketplace.connect(operator).setMarketplaceFeeForCollection(nft.address, feeInfo),
+          marketplace
+            .connect(operator)
+            .setMarketplaceFeeForCollection(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
         ).to.be.revertedWith('OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%')
       })
     })

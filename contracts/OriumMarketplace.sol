@@ -42,7 +42,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         bool isCustomFee;
     }
 
-    event CollectionFeeSet(address indexed tokenAddress, uint256 feePercentageInWei, bool isCustomFee);
+    event MarketplaceFeeSet(address indexed tokenAddress, uint256 feePercentageInWei, bool isCustomFee);
     event CreatorRoyaltySet(
         address indexed tokenAddress,
         address indexed creator,
@@ -91,18 +91,23 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @notice Sets the marketplace fee for a collection.
      * @dev If no fee is set, the default fee will be used.
      * @param _tokenAddress The address of the collection.
-     * @param _feeInfo The fee info. Contains the fee percentage in wei and if the fee is custom.
+     * @param _feePercentageInWei The fee percentage in wei.
+     * @param _isCustomFee If the fee is custom or not.
      */
-    function setMarketplaceFeeForCollection(address _tokenAddress, FeeInfo calldata _feeInfo) external onlyOwner {
+    function setMarketplaceFeeForCollection(
+        address _tokenAddress,
+        uint256 _feePercentageInWei,
+        bool _isCustomFee
+    ) external onlyOwner {
         uint256 _royaltyPercentage = royaltyInfo[_tokenAddress].royaltyPercentageInWei;
         require(
-            _royaltyPercentage + _feeInfo.feePercentageInWei < MAX_PERCENTAGE,
+            _royaltyPercentage + _feePercentageInWei < MAX_PERCENTAGE,
             "OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
         );
 
-        feeInfo[_tokenAddress] = _feeInfo;
+        feeInfo[_tokenAddress] = FeeInfo({ feePercentageInWei: _feePercentageInWei, isCustomFee: _isCustomFee });
 
-        emit CollectionFeeSet(_tokenAddress, _feeInfo.feePercentageInWei, _feeInfo.isCustomFee);
+        emit MarketplaceFeeSet(_tokenAddress, _feePercentageInWei, _isCustomFee);
     }
 
     /**
