@@ -42,6 +42,14 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         bool isCustomFee;
     }
 
+    event CollectionFeeSet(address indexed tokenAddress, uint256 feePercentageInWei, bool isCustomFee);
+    event CreatorRoyaltySet(
+        address indexed tokenAddress,
+        address indexed creator,
+        uint256 royaltyPercentageInWei,
+        address treasury
+    );
+
     /**
      * @notice Initializes the contract.
      * @dev The owner of the contract will be the owner of the protocol.
@@ -93,6 +101,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
 
         feeInfo[_tokenAddress] = _feeInfo;
+
+        emit CollectionFeeSet(_tokenAddress, _feeInfo.feePercentageInWei, _feeInfo.isCustomFee);
     }
 
     /**
@@ -136,6 +146,8 @@ cd   * @param _creator The address of the creator.
             royaltyPercentageInWei: _royaltyPercentageInWei,
             treasury: _treasury
         });
+
+        emit CreatorRoyaltySet(_tokenAddress, _creator, _royaltyPercentageInWei, _treasury);
     }
 
     /**
@@ -144,7 +156,7 @@ cd   * @param _creator The address of the creator.
      * @param _maxDeadline The maximum deadline.
      */
     function setMaxDeadline(uint256 _maxDeadline) external onlyOwner {
-        require(_maxDeadline > 0, "OriumMarketplace: Deadline cannot be 0");
+        require(_maxDeadline > 0, "OriumMarketplace: Max deadline should be greater than 0");
         maxDeadline = _maxDeadline;
     }
 }
