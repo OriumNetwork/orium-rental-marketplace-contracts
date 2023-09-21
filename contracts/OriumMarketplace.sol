@@ -39,7 +39,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev nonce => isPresigned
     mapping(bytes32 => bool) public preSignedOffer;
 
-    /// @dev maker => nonce => bool
+    /// @dev lender => nonce => bool
     mapping(address => mapping(uint256 => bool)) public invalidNonce;
 
     /** ######### Structs ########### **/
@@ -59,15 +59,16 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
     /// @dev Rental offer info.
     struct RentalOffer {
-        address maker;
-        address taker;
+        address lender;
+        address borrower;
         address tokenAddress;
         uint256 tokenId;
-        address feeToken;
+        address feeTokenAddress;
         uint256 feeAmount;
         uint256 nonce;
-        uint64 expirationDate;
+        uint64 deadline;
         bytes32[] roles;
+        bytes[] rolesData;
     }
 
     /** ######### Enums ########### **/
@@ -101,24 +102,27 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     );
     /**
      * @param nonce nonce of the rental offer
-     * @param maker address of the user renting his NFTs
-     * @param taker address of the allowed tenant if private rental or `0x0` if public rental
+     * @param lender address of the user renting his NFTs
+     * @param borrower address of the allowed tenant if private rental or `0x0` if public rental
      * @param tokenAddress address of the contract of the NFT to rent
      * @param tokenId tokenId of the NFT to rent
-     * @param feeToken address of the ERC20 token for rental fees
+     * @param feeTokenAddress address of the ERC20 token for rental fees
      * @param feeAmount amount of the upfront rental cost
      * @param deadline until when the rental offer is valid
+     * @param roles array of roles to be assigned to the borrower
+     * @param rolesData array of data for each role
      */
     event RentalOfferCreated(
         uint256 indexed nonce,
-        address indexed maker,
-        address taker,
+        address indexed lender,
+        address borrower,
         address tokenAddress,
         uint256 tokenId,
-        address feeToken,
+        address feeTokenAddress,
         uint256 feeAmount,
         uint256 deadline,
-        bytes32[] roles
+        bytes32[] roles,
+        bytes[] rolesData
     );
 
     /** ######### Modifiers ########### **/
@@ -132,7 +136,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
         require(
             msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
-            "OriumMarketplace: Caller does not have the required permission"
+            "OriumMarketplace: only token owner can call this function"
         );
         _;
     }
@@ -160,24 +164,28 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /** ######### Setters ########### **/
     /**
      * @notice Creates a rental offer.
-     * @dev The offer is only signed by the maker and exibihited off-chain.
+     * @dev The offer is only signed by the lender and exibihited off-chain.
      * @param _offer The rental offer struct. 
      */
-    function preSignRentalOffer(RentalOffer calldata _offer) external onlyTokenOwner(_offer.tokenAddress, _offer.tokenId) {
-        require(msg.sender == _offer.maker, "OriumMarketplace: Signer and Maker mismatch");
+    function createRentalOffer(RentalOffer calldata _offer) external onlyTokenOwner(_offer.tokenAddress, _offer.tokenId) {
+        require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
+        require(_offer.roles.length == _offer.rolesData.length, "OriumMarketplace: roles and rolesData should have the same length");
+        require(_offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp, "OriumMarketplace: Invalid deadline");
+        require(!invalidNonce[_offer.lender][_offer.nonce], "OriumMarketplace: Invalid nonce");
 
         preSignedOffer[hashRentalOffer(_offer)] = true;
 
         emit RentalOfferCreated(
             _offer.nonce,
-            _offer.maker,
-            _offer.taker,
+            _offer.lender,
+            _offer.borrower,
             _offer.tokenAddress,
             _offer.tokenId,
-            _offer.feeToken,
+            _offer.feeTokenAddress,
             _offer.feeAmount,
-            _offer.expirationDate,
-            _offer.roles
+            _offer.deadline,
+            _offer.roles,
+            _offer.rolesData
         );
     }
 
@@ -194,16 +202,18 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                 keccak256(
                     abi.encode(
                         keccak256(
-                            "RentalOffer(address maker,address taker,address tokenAddress,uint256 tokenId,address feeToken,uint256 feeAmount,uint256 nonce,uint64 expirationDate)"
+                            "RentalOffer(address lender,address borrower,address tokenAddress,uint256 tokenId,address feeTokenAddress,uint256 feeAmount,uint256 nonce,uint64 deadline,bytes32[] roles,bytes[] rolesData)"
                         ),
-                        _offer.maker,
-                        _offer.taker,
+                        _offer.lender,
+                        _offer.borrower,
                         _offer.tokenAddress,
                         _offer.tokenId,
-                        _offer.feeToken,
+                        _offer.feeTokenAddress,
                         _offer.feeAmount,
                         _offer.nonce,
-                        _offer.expirationDate
+                        _offer.deadline,
+                        _offer.roles,
+                        _offer.rolesData
                     )
                 )
             );

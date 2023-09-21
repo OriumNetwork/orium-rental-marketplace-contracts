@@ -4,7 +4,7 @@ import { Contract } from 'ethers'
 /**
  * @dev deployer and operator needs to be the first two accounts in the hardhat ethers.getSigners()
  * list respectively. This should be considered to use this fixture in tests
- * @returns [marketplace, nft] // TODO: TBD add rolesRegistry to the return
+ * @returns [marketplace, nft, paymentToken] // TODO: TBD add rolesRegistry to the return
  */
 export async function deployMarketplaceContracts() {
   const [, operator] = await ethers.getSigners()
@@ -23,5 +23,9 @@ export async function deployMarketplaceContracts() {
   const nft = await NftFactory.deploy()
   await nft.deployed()
 
-  return [marketplace, nft] as Contract[]
+  const PaymentTokenFactory = await ethers.getContractFactory('MockPaymentToken')
+  const paymentToken = await PaymentTokenFactory.deploy()
+  await paymentToken.deployed()
+
+  return [marketplace, nft, paymentToken] as Contract[]
 }
