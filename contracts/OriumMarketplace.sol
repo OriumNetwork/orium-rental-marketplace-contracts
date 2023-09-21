@@ -40,7 +40,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     mapping(bytes32 => bool) public preSignedOffer;
 
     /// @dev lender => nonce => bool
-    mapping(address => mapping(uint256 => bool)) public invalidNonce;
+    mapping(address => mapping(uint256 => uint256)) public nonceDeadline;
 
     /** ######### Structs ########### **/
 
@@ -171,8 +171,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
         require(_offer.roles.length == _offer.rolesData.length, "OriumMarketplace: roles and rolesData should have the same length");
         require(_offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp, "OriumMarketplace: Invalid deadline");
-        require(!invalidNonce[_offer.lender][_offer.nonce], "OriumMarketplace: Invalid nonce");
+        require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumMarketplace: Nonce already used");
 
+        nonceDeadline[_offer.lender][_offer.nonce] = _offer.deadline;
         preSignedOffer[hashRentalOffer(_offer)] = true;
 
         emit RentalOfferCreated(

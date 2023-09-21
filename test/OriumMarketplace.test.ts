@@ -111,11 +111,10 @@ describe('OriumMarketplace', () => {
             'OriumMarketplace: Invalid deadline',
           )
         })
-        it.skip('Should NOT create a rental offer if nonce is already used', async () => {
-          // TODO: remove skip when acceptRentalOffer is implemented
+        it('Should NOT create a rental offer if nonce is already used', async () => {
           await marketplace.connect(lender).createRentalOffer(rentalOffer)
           await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-            'OriumMarketplace: Invalid nonce',
+            'OriumMarketplace: Nonce already used',
           )
         })
       })
