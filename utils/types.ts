@@ -18,7 +18,7 @@ export interface RentalOffer {
   tokenAddress: string
   tokenId: number
   feeTokenAddress: string
-  feeAmount: BigNumber
+  feeAmountPerSecond: BigNumber
   deadline: number
   roles: string[]
   rolesData: string[]

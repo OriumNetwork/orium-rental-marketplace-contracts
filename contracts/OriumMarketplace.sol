@@ -64,7 +64,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address tokenAddress;
         uint256 tokenId;
         address feeTokenAddress;
-        uint256 feeAmount;
+        uint256 feeAmountPerSecond;
         uint256 nonce;
         uint64 deadline;
         bytes32[] roles;
@@ -107,7 +107,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param tokenAddress address of the contract of the NFT to rent
      * @param tokenId tokenId of the NFT to rent
      * @param feeTokenAddress address of the ERC20 token for rental fees
-     * @param feeAmount amount of the upfront rental cost
+     * @param feeAmountPerSecond amount of fee per second
      * @param deadline until when the rental offer is valid
      * @param roles array of roles to be assigned to the borrower
      * @param rolesData array of data for each role
@@ -119,7 +119,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address tokenAddress,
         uint256 tokenId,
         address feeTokenAddress,
-        uint256 feeAmount,
+        uint256 feeAmountPerSecond,
         uint256 deadline,
         bytes32[] roles,
         bytes[] rolesData
@@ -182,7 +182,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _offer.tokenAddress,
             _offer.tokenId,
             _offer.feeTokenAddress,
-            _offer.feeAmount,
+            _offer.feeAmountPerSecond,
             _offer.deadline,
             _offer.roles,
             _offer.rolesData
@@ -209,7 +209,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                         _offer.tokenAddress,
                         _offer.tokenId,
                         _offer.feeTokenAddress,
-                        _offer.feeAmount,
+                        _offer.feeAmountPerSecond,
                         _offer.nonce,
                         _offer.deadline,
                         _offer.roles,
