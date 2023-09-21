@@ -202,7 +202,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                 keccak256(
                     abi.encode(
                         keccak256(
-                            "RentalOffer(address lender,address borrower,address tokenAddress,uint256 tokenId,address feeTokenAddress,uint256 feeAmount,uint256 nonce,uint64 deadline,bytes32[] roles,bytes[] rolesData)"
+                            "RentalOffer(address lender,address borrower,address tokenAddress,uint256 tokenId,address feeTokenAddress,uint256 feeAmountPerSecond,uint256 nonce,uint64 deadline,bytes32[] roles,bytes[] rolesData)"
                         ),
                         _offer.lender,
                         _offer.borrower,
