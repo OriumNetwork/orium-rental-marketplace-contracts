@@ -36,8 +36,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev tokenAddress => royaltyInfo
     mapping(address => RoyaltyInfo) public royaltyInfo;
 
-    /// @dev nonce => isPresigned
-    mapping(bytes32 => bool) public preSignedOffer;
+    /// @dev nonce => hashedOffer => isPresigned
+    mapping(uint256 => mapping(bytes32 => bool)) public preSignedOffer;
 
     /// @dev lender => nonce => bool
     mapping(address => mapping(uint256 => uint256)) public nonceDeadline;
@@ -69,15 +69,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint64 deadline;
         bytes32[] roles;
         bytes[] rolesData;
-    }
-
-    /** ######### Enums ########### **/
-
-    /// @dev Signature Type enum, used to determine how to validate a signature.
-    enum SignatureType {
-        PRE_SIGNED,
-        EIP_712,
-        EIP_1271
     }
 
     /** ######### Events ########### **/
@@ -174,7 +165,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumMarketplace: Nonce already used");
 
         nonceDeadline[_offer.lender][_offer.nonce] = _offer.deadline;
-        preSignedOffer[hashRentalOffer(_offer)] = true;
+        preSignedOffer[_offer.nonce][hashRentalOffer(_offer)] = true;
 
         emit RentalOfferCreated(
             _offer.nonce,
