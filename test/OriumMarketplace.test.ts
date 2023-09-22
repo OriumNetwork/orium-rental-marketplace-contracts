@@ -11,8 +11,9 @@ import { randomBytes } from 'crypto'
 
 describe('OriumMarketplace', () => {
   let marketplace: Contract
-  let nft: Contract
-  let paymentToken: Contract
+  let mockERC721: Contract
+  let mockERC20: Contract
+  let mockERC1155: Contract
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -40,7 +41,7 @@ describe('OriumMarketplace', () => {
   beforeEach(async () => {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [marketplace, nft, paymentToken] = await loadFixture(deployMarketplaceContracts)
+    [marketplace, mockERC721, mockERC20, mockERC1155] = await loadFixture(deployMarketplaceContracts)
   })
 
   describe('Main Functions', async () => {
@@ -50,22 +51,41 @@ describe('OriumMarketplace', () => {
         const tokenId = 1
 
         beforeEach(async () => {
-          await nft.mint(lender.address, tokenId)
+          await mockERC721.mint(lender.address, tokenId)
           const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
           rentalOffer = {
             nonce: `0x${randomBytes(32).toString('hex')}`,
             lender: lender.address,
             borrower: borrower.address,
-            tokenAddress: nft.address,
+            tokenAddress: mockERC721.address,
             tokenId,
-            feeTokenAddress: paymentToken.address,
+            feeTokenAddress: mockERC20.address,
             feeAmountPerSecond: ethers.BigNumber.from(0),
             deadline: blockTimestamp + ONE_DAY,
             roles: [],
             rolesData: [],
           }
         })
-        it('Should create a rental offer', async () => {
+        it('Should create a rental offer for ERC721', async () => {
+          await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+            .to.emit(marketplace, 'RentalOfferCreated')
+            .withArgs(
+              rentalOffer.nonce,
+              rentalOffer.lender,
+              rentalOffer.borrower,
+              rentalOffer.tokenAddress,
+              rentalOffer.tokenId,
+              rentalOffer.feeTokenAddress,
+              rentalOffer.feeAmountPerSecond,
+              rentalOffer.deadline,
+              rentalOffer.roles,
+              rentalOffer.rolesData,
+            )
+        })
+        it('Should create a rental offer for ERC1155', async () => {
+          await mockERC1155.mint(lender.address, tokenId, 1, [])
+          rentalOffer.tokenAddress = mockERC1155.address
+          rentalOffer.tokenId = tokenId
           await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
             .to.emit(marketplace, 'RentalOfferCreated')
             .withArgs(
@@ -117,6 +137,12 @@ describe('OriumMarketplace', () => {
             'OriumMarketplace: Nonce already used',
           )
         })
+        it('Should NOT create a rental offer if NFT is neither ERC721 nor ERC1155', async () => {
+          rentalOffer.tokenAddress = ethers.constants.AddressZero
+          await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+            'OriumMarketplace: token address is not ERC1155 or ERC721',
+          )
+        })
       })
     })
     describe('Core Functions', async () => {
@@ -160,25 +186,25 @@ describe('OriumMarketplace', () => {
           await expect(
             marketplace
               .connect(operator)
-              .setMarketplaceFeeForCollection(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
+              .setMarketplaceFeeForCollection(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
           )
             .to.emit(marketplace, 'MarketplaceFeeSet')
-            .withArgs(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee)
-          expect(await marketplace.feeInfo(nft.address)).to.have.deep.members([
+            .withArgs(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee)
+          expect(await marketplace.feeInfo(mockERC721.address)).to.have.deep.members([
             feeInfo.feePercentageInWei,
             feeInfo.isCustomFee,
           ])
-          expect(await marketplace.marketplaceFeeOf(nft.address)).to.be.equal(feeInfo.feePercentageInWei)
+          expect(await marketplace.marketplaceFeeOf(mockERC721.address)).to.be.equal(feeInfo.feePercentageInWei)
         })
         it('Should NOT set the marketplace fee if caller is not the operator', async () => {
           await expect(
             marketplace
               .connect(notOperator)
-              .setMarketplaceFeeForCollection(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
+              .setMarketplaceFeeForCollection(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
           ).to.be.revertedWith('Ownable: caller is not the owner')
         })
         it("Should NOT set the marketplace fee if marketplace fee + creator royalty it's greater than 100%", async () => {
-          await marketplace.connect(operator).setCreator(nft.address, creator.address)
+          await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
 
           const royaltyInfo: RoyaltyInfo = {
             creator: creator.address,
@@ -188,7 +214,7 @@ describe('OriumMarketplace', () => {
 
           await marketplace
             .connect(creator)
-            .setRoyaltyInfo(nft.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+            .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
 
           const feeInfo: FeeInfo = {
             feePercentageInWei: toWei('95'),
@@ -197,7 +223,7 @@ describe('OriumMarketplace', () => {
           await expect(
             marketplace
               .connect(operator)
-              .setMarketplaceFeeForCollection(nft.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
+              .setMarketplaceFeeForCollection(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
           ).to.be.revertedWith('OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%')
         })
       })
@@ -210,26 +236,26 @@ describe('OriumMarketplace', () => {
               treasury: ethers.constants.AddressZero,
             }
 
-            await expect(marketplace.connect(operator).setCreator(nft.address, creator.address))
+            await expect(marketplace.connect(operator).setCreator(mockERC721.address, creator.address))
               .to.emit(marketplace, 'CreatorRoyaltySet')
-              .withArgs(nft.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+              .withArgs(mockERC721.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
 
-            expect(await marketplace.royaltyInfo(nft.address)).to.have.deep.members([
+            expect(await marketplace.royaltyInfo(mockERC721.address)).to.have.deep.members([
               royaltyInfo.creator,
               royaltyInfo.royaltyPercentageInWei,
               royaltyInfo.treasury,
             ])
           })
           it('Should NOT set the creator royalties if caller is not the operator', async () => {
-            await expect(marketplace.connect(notOperator).setCreator(nft.address, creator.address)).to.be.revertedWith(
-              'Ownable: caller is not the owner',
-            )
+            await expect(
+              marketplace.connect(notOperator).setCreator(mockERC721.address, creator.address),
+            ).to.be.revertedWith('Ownable: caller is not the owner')
           })
         })
 
         describe('Creator', async () => {
           beforeEach(async () => {
-            await marketplace.connect(operator).setCreator(nft.address, creator.address)
+            await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
           })
           it("Should update the creator royalties for a collection if it's already set", async () => {
             const royaltyInfo: RoyaltyInfo = {
@@ -241,10 +267,10 @@ describe('OriumMarketplace', () => {
             await expect(
               marketplace
                 .connect(creator)
-                .setRoyaltyInfo(nft.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
             )
               .to.emit(marketplace, 'CreatorRoyaltySet')
-              .withArgs(nft.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+              .withArgs(mockERC721.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
           })
           it('Should NOT update the creator royalties for a collection if caller is not the creator', async () => {
             const royaltyInfo: RoyaltyInfo = {
@@ -256,7 +282,7 @@ describe('OriumMarketplace', () => {
             await expect(
               marketplace
                 .connect(notOperator)
-                .setRoyaltyInfo(nft.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
             ).to.be.revertedWith('OriumMarketplace: Only creator can set royalty info')
           })
           it("Should NOT update the creator royalties for a collection if creator's royalty percentage + marketplace fee is greater than 100%", async () => {
@@ -269,7 +295,7 @@ describe('OriumMarketplace', () => {
             await expect(
               marketplace
                 .connect(creator)
-                .setRoyaltyInfo(nft.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
             ).to.be.revertedWith('OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%')
           })
         })
