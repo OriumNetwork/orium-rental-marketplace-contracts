@@ -164,7 +164,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /** ######### Setters ########### **/
     /**
      * @notice Creates a rental offer.
-     * @dev The offer is only signed by the lender and exibihited off-chain.
+     * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct. 
      */
     function createRentalOffer(RentalOffer calldata _offer) external onlyTokenOwner(_offer.tokenAddress, _offer.tokenId) {
