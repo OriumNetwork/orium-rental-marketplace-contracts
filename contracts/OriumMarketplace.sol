@@ -3,6 +3,7 @@
 pragma solidity 0.8.9;
 
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -15,7 +16,6 @@ import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cry
  * @author Orium Network Team - developers@orium.network
  */
 contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable, EIP712Upgradeable {
-
     /** ######### Constants ########### **/
 
     /// @dev 100 ether is 100%
@@ -125,10 +125,19 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _tokenId The id of the token.
      */
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
-        require(
-            msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
-            "OriumMarketplace: only token owner can call this function"
-        );
+        if (isERC1155(_tokenAddress)) {
+            require(
+                IERC1155(_tokenAddress).balanceOf(msg.sender, _tokenId) > 0,
+                "OriumMarketplace: only token owner can call this function"
+            );
+        } else if(isERC721(_tokenAddress)) {
+            require(
+                msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
+                "OriumMarketplace: only token owner can call this function"
+            );
+        } else {
+            revert("OriumMarketplace: token address is not ERC1155 or ERC721");
+        }
         _;
     }
 
@@ -156,12 +165,20 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Creates a rental offer.
      * @dev To optimize for gas, only the offer hash is stored on-chain
-     * @param _offer The rental offer struct. 
+     * @param _offer The rental offer struct.
      */
-    function createRentalOffer(RentalOffer calldata _offer) external onlyTokenOwner(_offer.tokenAddress, _offer.tokenId) {
+    function createRentalOffer(
+        RentalOffer calldata _offer
+    ) external onlyTokenOwner(_offer.tokenAddress, _offer.tokenId) {
         require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
-        require(_offer.roles.length == _offer.rolesData.length, "OriumMarketplace: roles and rolesData should have the same length");
-        require(_offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp, "OriumMarketplace: Invalid deadline");
+        require(
+            _offer.roles.length == _offer.rolesData.length,
+            "OriumMarketplace: roles and rolesData should have the same length"
+        );
+        require(
+            _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
+            "OriumMarketplace: Invalid deadline"
+        );
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumMarketplace: Nonce already used");
 
         nonceDeadline[_offer.lender][_offer.nonce] = _offer.deadline;
@@ -186,7 +203,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Gets the rental offer hash.
      * @param _offer The rental offer struct to be hashed.
-    */
+     */
     function hashRentalOffer(RentalOffer memory _offer) public view returns (bytes32) {
         return
             _hashTypedDataV4(
@@ -210,6 +227,14 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             );
     }
 
+    function isERC1155(address _tokenAddress) public view returns (bool) {
+        return IERC721(_tokenAddress).supportsInterface(type(IERC1155).interfaceId);
+    }
+
+    function isERC721(address _tokenAddress) public view returns (bool) {
+        return IERC721(_tokenAddress).supportsInterface(type(IERC721).interfaceId);
+    }
+
     /** ============================ Core Functions  ================================== **/
 
     /** ######### Setters ########### **/
@@ -229,7 +254,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function unpause() external onlyOwner {
         _unpause();
     }
-  
+
     /**
      * @notice Sets the marketplace fee for a collection.
      * @dev If no fee is set, the default fee will be used.
@@ -266,7 +291,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Sets the royalty info.
      * @param _tokenAddress The NFT address.
-     * @param _royaltyPercentageInWei The royalty percentage in wei. 
+     * @param _royaltyPercentageInWei The royalty percentage in wei.
      * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
      */
     function setRoyaltyInfo(address _tokenAddress, uint256 _royaltyPercentageInWei, address _treasury) external {
@@ -277,12 +302,13 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
         _setRoyalty(msg.sender, _tokenAddress, _royaltyPercentageInWei, _treasury);
     }
+
     /**
      * @notice Sets the royalty info.
      * @dev Only owner can associate a collection with a creator.
      * @param _creator The address of the creator.
      * @param _tokenAddress The NFT address.
-     * @param _royaltyPercentageInWei The royalty percentage in wei. 
+     * @param _royaltyPercentageInWei The royalty percentage in wei.
      * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
      */
     function _setRoyalty(
@@ -325,5 +351,4 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function marketplaceFeeOf(address _tokenAddress) public view returns (uint256) {
         return feeInfo[_tokenAddress].isCustomFee ? feeInfo[_tokenAddress].feePercentageInWei : DEFAULT_FEE_PERCENTAGE;
     }
-
 }
