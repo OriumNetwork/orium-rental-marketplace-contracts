@@ -5,11 +5,14 @@ pragma solidity 0.8.9;
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IRolesRegistry } from "./interfaces/IRolesRegistry.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
+import { ECDSAUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
+
 /**
  * @title Orium Marketplace - Marketplace for renting NFTs
  * @dev This contract is used to manage NFTs rentals, powered by ERC-7432 Non-Fungible Token Roles
@@ -39,8 +42,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev nonce => hashedOffer => isPresigned
     mapping(uint256 => mapping(bytes32 => bool)) public preSignedOffer;
 
-    /// @dev lender => nonce => bool
-    mapping(address => mapping(uint256 => uint256)) public nonceDeadline;
+    /// @dev lender => nonce => deadline
+    mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
 
     /** ######### Structs ########### **/
 
@@ -114,6 +117,23 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 deadline,
         bytes32[] roles,
         bytes[] rolesData
+    );
+
+    /**
+     * @param nonce nonce of the rental offer
+     * @param lender address of the lender
+     * @param tenant address of the tenant
+     * @param token address of the contract of the NFT rented
+     * @param tokenId tokenId of the rented NFT
+     * @param expirationDate when the rent ends
+     */
+    event RentalStarted(
+        uint256 indexed nonce,
+        address indexed lender,
+        address indexed tenant,
+        address token,
+        uint256 tokenId,
+        uint64 expirationDate
     );
 
     /** ######### Modifiers ########### **/
@@ -195,6 +215,94 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _offer.deadline,
             _offer.roles,
             _offer.rolesData
+        );
+    }
+
+    function acceptRentalOffer(RentalOffer calldata _offer, SignatureType _signatureType, bytes calldata _signature, uint64 _expirationDate) external {
+        require(nonceDeadline[_offer.lender][_offer.nonce] > 0 && nonceDeadline[_offer.lender][_offer.nonce] >= block.timestamp, "OriumMarketplace: Nonce already used");
+        require(
+            msg.sender == _offer.borrower || _offer.borrower == address(0),
+            "OriumMarketplace: Caller is not allowed to rent this NFT"
+        );
+        require(_expirationDate <= nonceDeadline[_offer.lender][_offer.nonce], "OriumMarketplace: Invalid expiration date");
+
+        if (_signatureType == SignatureType.PRE_SIGNED) {
+            require(preSignedOffer[hashRentalOffer(_offer)] == true, "OriumMarketplace: Presigned offer not found");
+        } else if (_signatureType == SignatureType.EIP_712) {
+            bytes32 _hash = hashRentalOffer(_offer);
+            address signer = ECDSAUpgradeable.recover(_hash, _signature);
+            require(signer == _offer.lender, "OriumMarketplace: Signer is not lender");
+        } else {
+            revert("OriumMarketplace: Unsupported signature type");
+        }
+        
+        uint256 _feeAmount = _offer.feeAmountPerSecond * (_expirationDate - block.timestamp);
+        if(_offer.feeAmountPerSecond > 0) {
+            _transferFees(_offer.feeTokenAddress, _feeAmount, _offer.lender);
+        }
+      
+        for(uint256 i = 0; i < _offer.roles.length; i++) {
+            _grantUniqueRoleChecked(
+                _offer.roles[i],
+                _offer.tokenAddress,
+                _offer.tokenId,
+                _offer.lender,
+                msg.sender, // borrower
+                _offer.deadline,
+                false, // revocable is false by default
+                _offer.rolesData[i]
+            );
+        }
+   
+        emit RentalStarted(_offer.nonce, _offer.lender, msg.sender, _offer.tokenAddress, _offer.tokenId, _expirationDate);
+    }
+
+    function _transferFees(address _feetokenAddress, uint256 _feeAmount, address _lenderAddress) internal {
+            uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_feetokenAddress));
+            if(_marketplaceFeeAmount > 0){
+                require(IERC20(_feetokenAddress).transferFrom(msg.sender, address(this), _marketplaceFeeAmount), "OriumMarketplace: Transfer failed");
+            }
+
+            uint256 _royaltyAmount = _getAmountFromPercentage(_feeAmount, royaltyInfo[_feetokenAddress].royaltyPercentageInWei);
+            if(_royaltyAmount > 0){
+                require(IERC20(_feetokenAddress).transferFrom(msg.sender, royaltyInfo[_feetokenAddress].treasury, _royaltyAmount), "OriumMarketplace: Transfer failed");
+            }
+
+            uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
+            require(IERC20(_feetokenAddress).transferFrom(msg.sender, _lenderAddress, _lenderAmount), "OriumMarketplace: Transfer failed"); // TODO: Change to vesting contract address later
+    }
+
+    function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
+        return (_amount * _percentage) / MAX_PERCENTAGE;
+    }
+
+    function _grantUniqueRoleChecked(
+        bytes32 _role,
+        address _tokenAddress,
+        uint256 _tokenId,
+        address _grantor,
+        address _grantee,
+        uint64 _expirationDate,
+        bool _revocable,
+        bytes memory _data
+    ) internal {
+        address _lastGrantee = IRolesRegistry(rolesRegistry).latestGrantees(
+            _grantor,
+            _tokenAddress,
+            _tokenId,
+            _role
+        );
+        require(!IRolesRegistry(rolesRegistry).hasUniqueRole(_role, _tokenAddress, _tokenId, _grantor, _lastGrantee), "OriumMarketplace: Role has already been granted");
+
+        IRolesRegistry(rolesRegistry).grantRoleFrom(
+            _role,
+            _tokenAddress,
+            _tokenId,
+            _grantor,
+            _grantee,
+            _expirationDate,
+            _revocable,
+            _data
         );
     }
 
