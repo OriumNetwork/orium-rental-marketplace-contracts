@@ -9,7 +9,7 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/O
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
-
+import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 /**
  * @title Orium Marketplace - Marketplace for renting NFTs
  * @dev This contract is used to manage NFTs rentals, powered by ERC-7432 Non-Fungible Token Roles
@@ -228,11 +228,11 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     }
 
     function isERC1155(address _tokenAddress) public view returns (bool) {
-        return IERC721(_tokenAddress).supportsInterface(type(IERC1155).interfaceId);
+        return ERC165Checker.supportsInterface(_tokenAddress, type(IERC1155).interfaceId);
     }
 
     function isERC721(address _tokenAddress) public view returns (bool) {
-        return IERC721(_tokenAddress).supportsInterface(type(IERC721).interfaceId);
+        return ERC165Checker.supportsInterface(_tokenAddress, type(IERC721).interfaceId);
     }
 
     /** ============================ Core Functions  ================================== **/
