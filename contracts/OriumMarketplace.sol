@@ -74,13 +74,13 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /** ######### Events ########### **/
 
     /**
-     * @param tokenAddress The address of the collection.
+     * @param tokenAddress The NFT address.
      * @param feePercentageInWei The fee percentage in wei.
      * @param isCustomFee If the fee is custom or not. Used to allow collections with no fee.
      */
     event MarketplaceFeeSet(address indexed tokenAddress, uint256 feePercentageInWei, bool isCustomFee);
     /**
-     * @param tokenAddress The address of the collection.
+     * @param tokenAddress The NFT address.
      * @param creator The address of the creator.
      * @param royaltyPercentageInWei The royalty percentage in wei.
      * @param treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
@@ -92,16 +92,16 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address treasury
     );
     /**
-     * @param nonce nonce of the rental offer
-     * @param lender address of the user renting his NFTs
-     * @param borrower address of the allowed tenant if private rental or `0x0` if public rental
-     * @param tokenAddress address of the contract of the NFT to rent
-     * @param tokenId tokenId of the NFT to rent
-     * @param feeTokenAddress address of the ERC20 token for rental fees
-     * @param feeAmountPerSecond amount of fee per second
-     * @param deadline until when the rental offer is valid
-     * @param roles array of roles to be assigned to the borrower
-     * @param rolesData array of data for each role
+     * @param nonce The nonce of the rental offer
+     * @param lender The address of the user lending the NFT
+     * @param borrower The address of the user renting the NFT
+     * @param tokenAddress The address of the contract of the NFT to rent
+     * @param tokenId The tokenId of the NFT to rent
+     * @param feeTokenAddress The address of the ERC20 token for rental fees
+     * @param feeAmountPerSecond The amount of fee per second
+     * @param deadline The deadline until when the rental offer is valid
+     * @param roles The array of roles to be assigned to the borrower
+     * @param rolesData The array of data for each role
      */
     event RentalOfferCreated(
         uint256 indexed nonce,
@@ -121,7 +121,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Checks the ownership of the token.
      * @dev Throws if the caller is not the owner of the token.
-     * @param _tokenAddress The address of the collection.
+     * @param _tokenAddress The NFT address.
      * @param _tokenId The id of the token.
      */
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
@@ -185,9 +185,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
     /**
      * @notice Gets the rental offer hash.
-     * @dev The hash is used to validate the signature.
      * @param _offer The rental offer struct to be hashed.
-     */
+    */
     function hashRentalOffer(RentalOffer memory _offer) public view returns (bytes32) {
         return
             _hashTypedDataV4(
@@ -234,7 +233,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Sets the marketplace fee for a collection.
      * @dev If no fee is set, the default fee will be used.
-     * @param _tokenAddress The address of the collection.
+     * @param _tokenAddress The NFT address.
      * @param _feePercentageInWei The fee percentage in wei.
      * @param _isCustomFee If the fee is custom or not.
      */
@@ -257,7 +256,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Sets the royalty info.
      * @dev Only owner can associate a collection with a creator.
-     * @param _tokenAddress The address of the collection.
+     * @param _tokenAddress The NFT address.
      * @param _creator The address of the creator.
      */
     function setCreator(address _tokenAddress, address _creator) external onlyOwner {
@@ -266,7 +265,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
     /**
      * @notice Sets the royalty info.
-     * @param _tokenAddress The address of the collection.
+     * @param _tokenAddress The NFT address.
      * @param _royaltyPercentageInWei The royalty percentage in wei. 
      * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
      */
@@ -282,7 +281,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @notice Sets the royalty info.
      * @dev Only owner can associate a collection with a creator.
      * @param _creator The address of the creator.
-     * @param _tokenAddress The address of the collection.
+     * @param _tokenAddress The NFT address.
      * @param _royaltyPercentageInWei The royalty percentage in wei. 
      * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
      */
@@ -321,7 +320,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Gets the marketplace fee for a collection.
      * @dev If no custom fee is set, the default fee will be used.
-     * @param _tokenAddress The address of the collection.
+     * @param _tokenAddress The NFT address.
      */
     function marketplaceFeeOf(address _tokenAddress) public view returns (uint256) {
         return feeInfo[_tokenAddress].isCustomFee ? feeInfo[_tokenAddress].feePercentageInWei : DEFAULT_FEE_PERCENTAGE;
