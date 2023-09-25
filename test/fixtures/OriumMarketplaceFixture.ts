@@ -4,7 +4,7 @@ import { Contract } from 'ethers'
 /**
  * @dev deployer and operator needs to be the first two accounts in the hardhat ethers.getSigners()
  * list respectively. This should be considered to use this fixture in tests
- * @returns [marketplace, nft] // TODO: TBD add rolesRegistry to the return
+ * @returns [marketplace, mockERC721, mockERC20, mockERC1155]
  */
 export async function deployMarketplaceContracts() {
   const [, operator] = await ethers.getSigners()
@@ -19,9 +19,17 @@ export async function deployMarketplaceContracts() {
   ])
   await marketplace.deployed()
 
-  const NftFactory = await ethers.getContractFactory('MockNft')
-  const nft = await NftFactory.deploy()
-  await nft.deployed()
+  const MockERC721Factory = await ethers.getContractFactory('MockERC721')
+  const mockERC721 = await MockERC721Factory.deploy()
+  await mockERC721.deployed()
 
-  return [marketplace, nft] as Contract[]
+  const MockERC20Factory = await ethers.getContractFactory('MockERC20')
+  const mockERC20 = await MockERC20Factory.deploy()
+  await mockERC20.deployed()
+
+  const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
+  const mockERC1155 = await MockERC1155Factory.deploy()
+  await mockERC1155.deployed()
+
+  return [marketplace, mockERC721, mockERC20, mockERC1155] as Contract[]
 }
