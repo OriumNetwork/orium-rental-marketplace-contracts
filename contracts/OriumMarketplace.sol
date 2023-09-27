@@ -3,15 +3,12 @@
 pragma solidity 0.8.9;
 
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IRolesRegistry } from "./interfaces/IRolesRegistry.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
-import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
-import { ECDSAUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting NFTs
@@ -142,19 +139,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _tokenId The id of the token.
      */
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
-        if (isERC1155(_tokenAddress)) {
-            require(
-                IERC1155(_tokenAddress).balanceOf(msg.sender, _tokenId) > 0,
-                "OriumMarketplace: only token owner can call this function"
-            );
-        } else if (isERC721(_tokenAddress)) {
-            require(
-                msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
-                "OriumMarketplace: only token owner can call this function"
-            );
-        } else {
-            revert("OriumMarketplace: token address is not ERC1155 or ERC721");
-        }
+        require(
+            msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
+            "OriumMarketplace: only token owner can call this function"
+        );
         _;
     }
 
@@ -380,14 +368,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                     )
                 )
             );
-    }
-
-    function isERC1155(address _tokenAddress) public view returns (bool) {
-        return ERC165Checker.supportsInterface(_tokenAddress, type(IERC1155).interfaceId);
-    }
-
-    function isERC721(address _tokenAddress) public view returns (bool) {
-        return ERC165Checker.supportsInterface(_tokenAddress, type(IERC721).interfaceId);
     }
 
     /** ============================ Core Functions  ================================== **/

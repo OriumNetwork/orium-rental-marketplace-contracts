@@ -13,7 +13,6 @@ describe('OriumMarketplace', () => {
   let marketplace: Contract
   let mockERC721: Contract
   let mockERC20: Contract
-  let mockERC1155: Contract
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -41,7 +40,7 @@ describe('OriumMarketplace', () => {
   beforeEach(async () => {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [marketplace, mockERC721, mockERC20, mockERC1155] = await loadFixture(deployMarketplaceContracts)
+    [marketplace, mockERC721, mockERC20] = await loadFixture(deployMarketplaceContracts)
   })
 
   describe('Main Functions', async () => {
@@ -67,25 +66,6 @@ describe('OriumMarketplace', () => {
           }
         })
         it('Should create a rental offer for ERC721', async () => {
-          await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
-            .to.emit(marketplace, 'RentalOfferCreated')
-            .withArgs(
-              rentalOffer.nonce,
-              rentalOffer.lender,
-              rentalOffer.borrower,
-              rentalOffer.tokenAddress,
-              rentalOffer.tokenId,
-              rentalOffer.feeTokenAddress,
-              rentalOffer.feeAmountPerSecond,
-              rentalOffer.deadline,
-              rentalOffer.roles,
-              rentalOffer.rolesData,
-            )
-        })
-        it('Should create a rental offer for ERC1155', async () => {
-          await mockERC1155.mint(lender.address, tokenId, 1, [])
-          rentalOffer.tokenAddress = mockERC1155.address
-          rentalOffer.tokenId = tokenId
           await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
             .to.emit(marketplace, 'RentalOfferCreated')
             .withArgs(
@@ -135,12 +115,6 @@ describe('OriumMarketplace', () => {
           await marketplace.connect(lender).createRentalOffer(rentalOffer)
           await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
             'OriumMarketplace: offer already created',
-          )
-        })
-        it('Should NOT create a rental offer if NFT is neither ERC721 nor ERC1155', async () => {
-          rentalOffer.tokenAddress = ethers.constants.AddressZero
-          await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-            'OriumMarketplace: token address is not ERC1155 or ERC721',
           )
         })
       })
