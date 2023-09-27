@@ -27,6 +27,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
     /// @dev rolesRegistry is a ERC-7432 contract
     address public rolesRegistry;
+
+    /// @dev treasury is the address where the fees will be sent
+    address public treasury;
+
     /// @dev deadline is set in seconds
     uint256 public maxDeadline;
 
@@ -36,8 +40,11 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev tokenAddress => royaltyInfo
     mapping(address => RoyaltyInfo) public royaltyInfo;
 
-    /// @dev lender => hashedOffer => deadline
-    mapping(address => mapping(bytes32 => uint64)) public offerDeadline;
+    /// @dev hashedOffer => deadline
+    mapping(bytes32 => uint64) public offerDeadline;
+
+    /// @dev nonce => deadline
+    mapping(uint256 => uint64) public nonceDeadline;
 
     /** ######### Structs ########### **/
 
@@ -114,18 +121,18 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     );
 
     /**
-     * @param nonce nonce of the rental offer
-     * @param lender address of the lender
-     * @param borrower address of the borrower
-     * @param token address of the contract of the NFT rented
-     * @param tokenId tokenId of the rented NFT
-     * @param expirationDate when the rent ends
+     * @param nonce The nonce of the rental offer
+     * @param lender The address of the lender
+     * @param borrower The address of the borrower
+     * @param tokenAddress The address of the contract of the NFT rented
+     * @param tokenId The tokenId of the rented NFT
+     * @param expirationDate The expiration date of the rental
      */
     event RentalStarted(
         uint256 indexed nonce,
         address indexed lender,
         address indexed borrower,
-        address token,
+        address tokenAddress,
         uint256 tokenId,
         uint64 expirationDate
     );
@@ -152,13 +159,20 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @dev The owner of the contract will be the owner of the protocol.
      * @param _owner the owner of the protocol.
      * @param _rolesRegistry the address of the roles registry.
+     * @param _treasury the address of the treasury.
      * @param _maxDeadline the maximum deadline.
      */
-    function initialize(address _owner, address _rolesRegistry, uint256 _maxDeadline) public initializer {
+    function initialize(
+        address _owner,
+        address _rolesRegistry,
+        address _treasury,
+        uint256 _maxDeadline
+    ) public initializer {
         __Pausable_init();
         __Ownable_init();
 
         rolesRegistry = _rolesRegistry;
+        treasury = _treasury;
         maxDeadline = _maxDeadline;
 
         transferOwnership(_owner);
@@ -175,20 +189,12 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function createRentalOffer(
         RentalOffer calldata _offer
     ) external onlyTokenOwner(_offer.tokenAddress, _offer.tokenId) {
-        require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
-        require(
-            _offer.roles.length == _offer.rolesData.length,
-            "OriumMarketplace: roles and rolesData should have the same length"
-        );
-        require(
-            _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
-            "OriumMarketplace: Invalid deadline"
-        );
-
         bytes32 _offerHash = hashRentalOffer(_offer);
-        require(offerDeadline[_offer.lender][_offerHash] == 0, "OriumMarketplace: offer already created");
 
-        offerDeadline[_offer.lender][_offerHash] = _offer.deadline;
+        _validateCreateRentalOffer(_offer, _offerHash);
+
+        nonceDeadline[_offer.nonce] = _offer.deadline;
+        offerDeadline[_offerHash] = _offer.deadline;
 
         emit RentalOfferCreated(
             _offer.nonce,
@@ -204,16 +210,33 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
     }
 
+    function _validateCreateRentalOffer(RentalOffer calldata _offer, bytes32 _offerHash) internal view {
+        require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
+        require(_offer.roles.length > 0, "OriumMarketplace: roles should not be empty");
+        require(
+            _offer.roles.length == _offer.rolesData.length,
+            "OriumMarketplace: roles and rolesData should have the same length"
+        );
+        require(
+            _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
+            "OriumMarketplace: Invalid deadline"
+        );
+        require(nonceDeadline[_offer.nonce] == 0, "OriumMarketplace: nonce already used");
+        require(offerDeadline[_offerHash] == 0, "OriumMarketplace: offer already created");
+    }
+
     /**
      * @notice Accepts a rental offer.
      * @dev The borrower can be address(0) to allow anyone to rent the NFT.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
-     * @param _expirationDate The period of time the NFT will be rented.
+     * @param _duration The duration of the rental.
      */
-    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) external {
-        _validateOffer(_offer, _expirationDate);
+    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external {
+        uint64 _expirationDate = uint64(block.timestamp + _duration);
 
-        _transferFees(_offer.feeTokenAddress, _offer.feeAmountPerSecond, _expirationDate, _offer.lender);
+        _validateAcceptRentalOffer(_offer, _expirationDate);
+
+        _transferFees(_offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         _batchGrantRole(
             _offer.roles,
@@ -237,22 +260,19 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     }
 
     /**
-     * @dev Validates the rental offer.
+     * @dev Validates the accept rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _expirationDate The period of time the NFT will be rented.
      */
-    function _validateOffer(RentalOffer calldata _offer, uint256 _expirationDate) internal view {
+    function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint256 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
-        require(
-            offerDeadline[_offer.lender][_offerHash] > 0 && offerDeadline[_offer.lender][_offerHash] >= block.timestamp,
-            "OriumMarketplace: offer not created or expired"
-        );
+        require(offerDeadline[_offerHash] > block.timestamp, "OriumMarketplace: offer not created or expired");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,
             "OriumMarketplace: Sender is not allowed to rent this NFT"
         );
         require(
-            _expirationDate <= offerDeadline[_offer.lender][_offerHash],
+            _expirationDate <= offerDeadline[_offerHash],
             "OriumMarketplace: expiration date is greater than offer deadline"
         );
         require(_expirationDate >= block.timestamp, "OriumMarketplace: expiration date is in the past");
@@ -262,22 +282,22 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @dev Transfers the fees to the marketplace, the creator and the lender.
      * @param _feeTokenAddress The address of the ERC20 token for rental fees.
      * @param _feeAmountPerSecond  The amount of fee per second.
-     * @param _expirationDate The period of time the NFT will be rented.
+     * @param _duration The duration of the rental.
      * @param _lenderAddress The address of the lender.
      */
     function _transferFees(
         address _feeTokenAddress,
         uint256 _feeAmountPerSecond,
-        uint64 _expirationDate,
+        uint64 _duration,
         address _lenderAddress
     ) internal {
-        uint256 _feeAmount = _feeAmountPerSecond * (_expirationDate - block.timestamp);
+        uint256 _feeAmount = _feeAmountPerSecond * _duration;
         if (_feeAmount == 0) return;
 
         uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_feeTokenAddress));
         if (_marketplaceFeeAmount > 0) {
             require(
-                IERC20(_feeTokenAddress).transferFrom(msg.sender, address(this), _marketplaceFeeAmount),
+                IERC20(_feeTokenAddress).transferFrom(msg.sender, treasury, _marketplaceFeeAmount),
                 "OriumMarketplace: Transfer failed"
             );
         }
@@ -335,7 +355,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         bool _revocable
     ) internal {
         for (uint256 i = 0; i < _roles.length; i++) {
-            _grantUniqueRoleChecked(
+            _grantUniqueRoleChecked( // Needed to avoid stack too deep error
                 _roles[i],
                 _tokenAddress,
                 _tokenId,
@@ -369,12 +389,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         bool _revocable,
         bytes memory _data
     ) internal {
-        address _lastGrantee = IRolesRegistry(rolesRegistry).latestGrantees(_grantor, _tokenAddress, _tokenId, _role);
-        require(
-            !IRolesRegistry(rolesRegistry).hasUniqueRole(_role, _tokenAddress, _tokenId, _grantor, _lastGrantee),
-            "OriumMarketplace: Role has already been granted"
-        );
-
         IRolesRegistry(rolesRegistry).grantRoleFrom(
             _role,
             _tokenAddress,
@@ -520,6 +534,15 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function setMaxDeadline(uint256 _maxDeadline) external onlyOwner {
         require(_maxDeadline > 0, "OriumMarketplace: Max deadline should be greater than 0");
         maxDeadline = _maxDeadline;
+    }
+
+    /**
+     * @notice Sets the treasury.
+     * @dev Only owner can set the treasury.
+     * @param _treasury The address where the fees will be sent.
+     */
+    function setTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
     }
 
     /** ######### Getters ########### **/

@@ -18,6 +18,7 @@ describe('OriumMarketplace', () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let deployer: SignerWithAddress
   let operator: SignerWithAddress
+  let treasury: SignerWithAddress
   let notOperator: SignerWithAddress
   let creator: SignerWithAddress
   let creatorTreasury: SignerWithAddress
@@ -34,7 +35,7 @@ describe('OriumMarketplace', () => {
   before(async function () {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [deployer, operator, notOperator, creator, creatorTreasury, lender, borrower] = await ethers.getSigners()
+    [deployer, operator, treasury, notOperator, creator, creatorTreasury, lender, borrower] = await ethers.getSigners()
   })
 
   beforeEach(async () => {
