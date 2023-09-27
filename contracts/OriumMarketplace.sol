@@ -255,6 +255,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _expirationDate <= offerDeadline[_offer.lender][_offerHash],
             "OriumMarketplace: expiration date is greater than offer deadline"
         );
+        require(_expirationDate >= block.timestamp, "OriumMarketplace: expiration date is in the past");
     }
 
     /**
