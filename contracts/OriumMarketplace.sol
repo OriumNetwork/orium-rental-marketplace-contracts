@@ -62,7 +62,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 tokenId;
         address feeTokenAddress;
         uint256 feeAmountPerSecond;
-        uint256 nonce; // TODO: Should we keep this field to avoid collisions or replay attacks?
+        uint256 nonce;
         uint64 deadline;
         bytes32[] roles;
         bytes[] rolesData;
@@ -204,6 +204,12 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
     }
 
+    /**
+     * @notice Accepts a rental offer.
+     * @dev The borrower can be address(0) to allow anyone to rent the NFT.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     * @param _expirationDate The period of time the NFT will be rented.
+     */
     function acceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) external {
         _validateOffer(_offer, _expirationDate);
 
@@ -230,6 +236,11 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
     }
 
+    /**
+     * @dev Validates the rental offer.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     * @param _expirationDate The period of time the NFT will be rented.
+     */
     function _validateOffer(RentalOffer calldata _offer, uint256 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
         require(
@@ -246,6 +257,13 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
     }
 
+    /**
+     * @dev Transfers the fees to the marketplace, the creator and the lender.
+     * @param _feeTokenAddress The address of the ERC20 token for rental fees.
+     * @param _feeAmountPerSecond  The amount of fee per second.
+     * @param _expirationDate The period of time the NFT will be rented.
+     * @param _lenderAddress The address of the lender.
+     */
     function _transferFees(
         address _feeTokenAddress,
         uint256 _feeAmountPerSecond,
@@ -253,7 +271,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _lenderAddress
     ) internal {
         uint256 _feeAmount = _feeAmountPerSecond * (_expirationDate - block.timestamp);
-        if (_feeAmountPerSecond == 0) return;
+        if (_feeAmount == 0) return;
 
         uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_feeTokenAddress));
         if (_marketplaceFeeAmount > 0) {
@@ -285,10 +303,26 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         ); // TODO: Change to vesting contract address later
     }
 
+    /**
+     * @dev All values needs to be in wei.
+     * @param _amount The amount to calculate the percentage from.
+     * @param _percentage The percentage to calculate.
+     */
     function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
         return (_amount * _percentage) / MAX_PERCENTAGE;
     }
 
+    /**
+     * @dev Grants the roles to the borrower.
+     * @param _roles The array of roles to be assigned to the borrower
+     * @param _rolesData The array of data for each role
+     * @param _tokenAddress The address of the contract of the NFT to rent
+     * @param _tokenId The tokenId of the NFT to rent
+     * @param _grantor The address of the user lending the NFT
+     * @param _grantee The address of the user renting the NFT
+     * @param _expirationDate The deadline until when the rental offer is valid
+     * @param _revocable If the roles are revocable or not
+     */
     function _batchGrantRole(
         bytes32[] memory _roles,
         bytes[] memory _rolesData,
@@ -313,6 +347,17 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         }
     }
 
+    /**
+     * @dev Grants the role to the borrower.
+     * @param _role The role to be granted
+     * @param _tokenAddress The address of the contract of the NFT to rent
+     * @param _tokenId The tokenId of the NFT to rent
+     * @param _grantor The address of the user lending the NFT
+     * @param _grantee The address of the user renting the NFT
+     * @param _expirationDate The deadline until when the rental offer is valid
+     * @param _revocable If the roles are revocable or not
+     * @param _data The data for the role
+     */
     function _grantUniqueRoleChecked(
         bytes32 _role,
         address _tokenAddress,
