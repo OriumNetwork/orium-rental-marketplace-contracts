@@ -39,11 +39,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev tokenAddress => royaltyInfo
     mapping(address => RoyaltyInfo) public royaltyInfo;
 
-    /// @dev nonce => hashedOffer => isPresigned
-    mapping(uint256 => mapping(bytes32 => bool)) public preSignedOffer;
-
-    /// @dev lender => nonce => deadline
-    mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
+    /// @dev lender => hashedOffer => deadline
+    mapping(address => mapping(bytes32 => uint64)) public offerDeadline;
 
     /** ######### Structs ########### **/
 
@@ -68,7 +65,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 tokenId;
         address feeTokenAddress;
         uint256 feeAmountPerSecond;
-        uint256 nonce;
+        uint256 nonce; // TODO: Should we keep this field to avoid collisions or replay attacks?
         uint64 deadline;
         bytes32[] roles;
         bytes[] rolesData;
@@ -150,7 +147,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                 IERC1155(_tokenAddress).balanceOf(msg.sender, _tokenId) > 0,
                 "OriumMarketplace: only token owner can call this function"
             );
-        } else if(isERC721(_tokenAddress)) {
+        } else if (isERC721(_tokenAddress)) {
             require(
                 msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
                 "OriumMarketplace: only token owner can call this function"
@@ -199,10 +196,11 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
             "OriumMarketplace: Invalid deadline"
         );
-        require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumMarketplace: Nonce already used");
 
-        nonceDeadline[_offer.lender][_offer.nonce] = _offer.deadline;
-        preSignedOffer[_offer.nonce][hashRentalOffer(_offer)] = true;
+        bytes32 _offerHash = hashRentalOffer(_offer);
+        require(offerDeadline[_offer.lender][_offerHash] == 0, "OriumMarketplace: offer already created");
+
+        offerDeadline[_offer.lender][_offerHash] = _offer.deadline;
 
         emit RentalOfferCreated(
             _offer.nonce,
@@ -218,62 +216,113 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
     }
 
-    function acceptRentalOffer(RentalOffer calldata _offer, SignatureType _signatureType, bytes calldata _signature, uint64 _expirationDate) external {
-        require(nonceDeadline[_offer.lender][_offer.nonce] > 0 && nonceDeadline[_offer.lender][_offer.nonce] >= block.timestamp, "OriumMarketplace: Nonce already used");
-        require(
-            msg.sender == _offer.borrower || _offer.borrower == address(0),
-            "OriumMarketplace: Caller is not allowed to rent this NFT"
-        );
-        require(_expirationDate <= nonceDeadline[_offer.lender][_offer.nonce], "OriumMarketplace: Invalid expiration date");
+    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) external {
+        _validateOffer(_offer, _expirationDate);
 
-        if (_signatureType == SignatureType.PRE_SIGNED) {
-            require(preSignedOffer[hashRentalOffer(_offer)] == true, "OriumMarketplace: Presigned offer not found");
-        } else if (_signatureType == SignatureType.EIP_712) {
-            bytes32 _hash = hashRentalOffer(_offer);
-            address signer = ECDSAUpgradeable.recover(_hash, _signature);
-            require(signer == _offer.lender, "OriumMarketplace: Signer is not lender");
-        } else {
-            revert("OriumMarketplace: Unsupported signature type");
-        }
-        
-        uint256 _feeAmount = _offer.feeAmountPerSecond * (_expirationDate - block.timestamp);
-        if(_offer.feeAmountPerSecond > 0) {
-            _transferFees(_offer.feeTokenAddress, _feeAmount, _offer.lender);
-        }
-      
-        for(uint256 i = 0; i < _offer.roles.length; i++) {
-            _grantUniqueRoleChecked(
-                _offer.roles[i],
-                _offer.tokenAddress,
-                _offer.tokenId,
-                _offer.lender,
-                msg.sender, // borrower
-                _offer.deadline,
-                false, // revocable is false by default
-                _offer.rolesData[i]
-            );
-        }
-   
-        emit RentalStarted(_offer.nonce, _offer.lender, msg.sender, _offer.tokenAddress, _offer.tokenId, _expirationDate);
+        _transferFees(_offer.feeTokenAddress, _offer.feeAmountPerSecond, _expirationDate, _offer.lender);
+
+        _batchGrantRole(
+            _offer.roles,
+            _offer.rolesData,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.lender,
+            msg.sender,
+            _expirationDate,
+            false
+        );
+
+        emit RentalStarted(
+            _offer.nonce,
+            _offer.lender,
+            msg.sender,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _expirationDate
+        );
     }
 
-    function _transferFees(address _feetokenAddress, uint256 _feeAmount, address _lenderAddress) internal {
-            uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_feetokenAddress));
-            if(_marketplaceFeeAmount > 0){
-                require(IERC20(_feetokenAddress).transferFrom(msg.sender, address(this), _marketplaceFeeAmount), "OriumMarketplace: Transfer failed");
-            }
+    function _validateOffer(RentalOffer calldata _offer, uint256 _expirationDate) internal view {
+        bytes32 _offerHash = hashRentalOffer(_offer);
+        require(
+            offerDeadline[_offer.lender][_offerHash] > 0 && offerDeadline[_offer.lender][_offerHash] >= block.timestamp,
+            "OriumMarketplace: offer not created or expired"
+        );
+        require(
+            address(0) == _offer.borrower || msg.sender == _offer.borrower,
+            "OriumMarketplace: Sender is not allowed to rent this NFT"
+        );
+        require(
+            _expirationDate <= offerDeadline[_offer.lender][_offerHash],
+            "OriumMarketplace: expiration date is greater than offer deadline"
+        );
+    }
 
-            uint256 _royaltyAmount = _getAmountFromPercentage(_feeAmount, royaltyInfo[_feetokenAddress].royaltyPercentageInWei);
-            if(_royaltyAmount > 0){
-                require(IERC20(_feetokenAddress).transferFrom(msg.sender, royaltyInfo[_feetokenAddress].treasury, _royaltyAmount), "OriumMarketplace: Transfer failed");
-            }
+    function _transferFees(
+        address _feeTokenAddress,
+        uint256 _feeAmountPerSecond,
+        uint64 _expirationDate,
+        address _lenderAddress
+    ) internal {
+        uint256 _feeAmount = _feeAmountPerSecond * (_expirationDate - block.timestamp);
+        if (_feeAmountPerSecond == 0) return;
 
-            uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
-            require(IERC20(_feetokenAddress).transferFrom(msg.sender, _lenderAddress, _lenderAmount), "OriumMarketplace: Transfer failed"); // TODO: Change to vesting contract address later
+        uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_feeTokenAddress));
+        if (_marketplaceFeeAmount > 0) {
+            require(
+                IERC20(_feeTokenAddress).transferFrom(msg.sender, address(this), _marketplaceFeeAmount),
+                "OriumMarketplace: Transfer failed"
+            );
+        }
+
+        uint256 _royaltyAmount = _getAmountFromPercentage(
+            _feeAmount,
+            royaltyInfo[_feeTokenAddress].royaltyPercentageInWei
+        );
+        if (_royaltyAmount > 0) {
+            require(
+                IERC20(_feeTokenAddress).transferFrom(
+                    msg.sender,
+                    royaltyInfo[_feeTokenAddress].treasury,
+                    _royaltyAmount
+                ),
+                "OriumMarketplace: Transfer failed"
+            );
+        }
+
+        uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
+        require(
+            IERC20(_feeTokenAddress).transferFrom(msg.sender, _lenderAddress, _lenderAmount),
+            "OriumMarketplace: Transfer failed"
+        ); // TODO: Change to vesting contract address later
     }
 
     function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
         return (_amount * _percentage) / MAX_PERCENTAGE;
+    }
+
+    function _batchGrantRole(
+        bytes32[] memory _roles,
+        bytes[] memory _rolesData,
+        address _tokenAddress,
+        uint256 _tokenId,
+        address _grantor,
+        address _grantee,
+        uint64 _expirationDate,
+        bool _revocable
+    ) internal {
+        for (uint256 i = 0; i < _roles.length; i++) {
+            _grantUniqueRoleChecked(
+                _roles[i],
+                _tokenAddress,
+                _tokenId,
+                _grantor,
+                _grantee,
+                _expirationDate,
+                _revocable,
+                _rolesData[i]
+            );
+        }
     }
 
     function _grantUniqueRoleChecked(
@@ -286,13 +335,11 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         bool _revocable,
         bytes memory _data
     ) internal {
-        address _lastGrantee = IRolesRegistry(rolesRegistry).latestGrantees(
-            _grantor,
-            _tokenAddress,
-            _tokenId,
-            _role
+        address _lastGrantee = IRolesRegistry(rolesRegistry).latestGrantees(_grantor, _tokenAddress, _tokenId, _role);
+        require(
+            !IRolesRegistry(rolesRegistry).hasUniqueRole(_role, _tokenAddress, _tokenId, _grantor, _lastGrantee),
+            "OriumMarketplace: Role has already been granted"
         );
-        require(!IRolesRegistry(rolesRegistry).hasUniqueRole(_role, _tokenAddress, _tokenId, _grantor, _lastGrantee), "OriumMarketplace: Role has already been granted");
 
         IRolesRegistry(rolesRegistry).grantRoleFrom(
             _role,

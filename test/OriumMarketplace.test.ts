@@ -131,10 +131,10 @@ describe('OriumMarketplace', () => {
             'OriumMarketplace: Invalid deadline',
           )
         })
-        it('Should NOT create a rental offer if nonce is already used', async () => {
+        it('Should NOT create the same rental offer twice', async () => {
           await marketplace.connect(lender).createRentalOffer(rentalOffer)
           await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-            'OriumMarketplace: Nonce already used',
+            'OriumMarketplace: offer already created',
           )
         })
         it('Should NOT create a rental offer if NFT is neither ERC721 nor ERC1155', async () => {
