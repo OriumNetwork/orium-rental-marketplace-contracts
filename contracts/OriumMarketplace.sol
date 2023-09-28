@@ -212,7 +212,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             "OriumMarketplace: Invalid deadline"
         );
         require(nonceDeadline[_offer.nonce] == 0, "OriumMarketplace: nonce already used");
-        require(offerDeadline[_offerHash] == 0, "OriumMarketplace: offer already created");
     }
 
     /**
