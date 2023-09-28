@@ -73,15 +73,15 @@ describe('OriumMarketplace', () => {
         rentalExpirationDate = blockTimestamp + duration
       })
       describe('Create Rental Offer', async () => {
-        it('Should create a rental offer for ERC721', async () => {
+        it('Should create a rental offer', async () => {
           await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
             .to.emit(marketplace, 'RentalOfferCreated')
             .withArgs(
               rentalOffer.nonce,
-              rentalOffer.lender,
-              rentalOffer.borrower,
               rentalOffer.tokenAddress,
               rentalOffer.tokenId,
+              rentalOffer.lender,
+              rentalOffer.borrower,
               rentalOffer.feeTokenAddress,
               rentalOffer.feeAmountPerSecond,
               rentalOffer.deadline,
@@ -137,10 +137,10 @@ describe('OriumMarketplace', () => {
             .to.emit(marketplace, 'RentalStarted')
             .withArgs(
               rentalOffer.nonce,
-              rentalOffer.lender,
-              rentalOffer.borrower,
               rentalOffer.tokenAddress,
               rentalOffer.tokenId,
+              rentalOffer.lender,
+              rentalOffer.borrower,
               expirationDate,
             )
         })
@@ -185,10 +185,10 @@ describe('OriumMarketplace', () => {
             .to.emit(marketplace, 'RentalStarted')
             .withArgs(
               rentalOffer.nonce,
-              rentalOffer.lender,
-              notOperator.address,
               rentalOffer.tokenAddress,
               rentalOffer.tokenId,
+              rentalOffer.lender,
+              notOperator.address,
               blockTimestamp + duration + 1,
             )
         })

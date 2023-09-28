@@ -97,10 +97,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     );
     /**
      * @param nonce The nonce of the rental offer
-     * @param lender The address of the user lending the NFT
-     * @param borrower The address of the user renting the NFT
      * @param tokenAddress The address of the contract of the NFT to rent
      * @param tokenId The tokenId of the NFT to rent
+     * @param lender The address of the user lending the NFT
+     * @param borrower The address of the user renting the NFT
      * @param feeTokenAddress The address of the ERC20 token for rental fees
      * @param feeAmountPerSecond The amount of fee per second
      * @param deadline The deadline until when the rental offer is valid
@@ -109,10 +109,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     event RentalOfferCreated(
         uint256 indexed nonce,
-        address indexed lender,
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        address lender,
         address borrower,
-        address tokenAddress,
-        uint256 tokenId,
         address feeTokenAddress,
         uint256 feeAmountPerSecond,
         uint256 deadline,
@@ -122,18 +122,18 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
     /**
      * @param nonce The nonce of the rental offer
-     * @param lender The address of the lender
-     * @param borrower The address of the borrower
      * @param tokenAddress The address of the contract of the NFT rented
      * @param tokenId The tokenId of the rented NFT
+     * @param lender The address of the lender
+     * @param borrower The address of the borrower
      * @param expirationDate The expiration date of the rental
      */
     event RentalStarted(
         uint256 indexed nonce,
-        address indexed lender,
-        address indexed borrower,
-        address tokenAddress,
-        uint256 tokenId,
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        address lender,
+        address borrower,
         uint64 expirationDate
     );
 
@@ -198,10 +198,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
         emit RentalOfferCreated(
             _offer.nonce,
-            _offer.lender,
-            _offer.borrower,
             _offer.tokenAddress,
             _offer.tokenId,
+            _offer.lender,
+            _offer.borrower,
             _offer.feeTokenAddress,
             _offer.feeAmountPerSecond,
             _offer.deadline,
@@ -251,10 +251,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
         emit RentalStarted(
             _offer.nonce,
-            _offer.lender,
-            msg.sender,
             _offer.tokenAddress,
             _offer.tokenId,
+            _offer.lender,
+            msg.sender,
             _expirationDate
         );
     }
