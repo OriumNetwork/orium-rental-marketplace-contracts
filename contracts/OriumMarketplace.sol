@@ -264,7 +264,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _expirationDate The period of time the NFT will be rented.
      */
-    function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint256 _expirationDate) internal view {
+    function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
         require(offerDeadline[_offerHash] > block.timestamp, "OriumMarketplace: offer not created or expired");
         require(
@@ -272,10 +272,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             "OriumMarketplace: Sender is not allowed to rent this NFT"
         );
         require(
-            _expirationDate <= offerDeadline[_offerHash],
+            offerDeadline[_offerHash] > _expirationDate,
             "OriumMarketplace: expiration date is greater than offer deadline"
         );
-        require(_expirationDate >= block.timestamp, "OriumMarketplace: expiration date is in the past");
     }
 
     /**

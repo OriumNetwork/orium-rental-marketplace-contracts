@@ -4,17 +4,17 @@ import { Contract } from 'ethers'
 /**
  * @dev deployer, operator and treasury needs to be the first three accounts in the hardhat ethers.getSigners()
  * list respectively. This should be considered to use this fixture in tests
- * @returns [marketplace, mockERC721, mockERC20]
+ * @returns [marketplace, rolesRegistry, mockERC721, mockERC20]
  */
 export async function deployMarketplaceContracts() {
   const [, operator, treasury] = await ethers.getSigners()
 
-  // const rolesRegistry = await ethers.getContractAt('IRolesRegsitry', RolesRegistryAddress) // TODO: Uncomment when RolesRegistry is deployed
+  const rolesRegistry = await ethers.getContractAt('IRolesRegistry', RolesRegistryAddress)
 
   const MarketplaceFactory = await ethers.getContractFactory('OriumMarketplace')
   const marketplace = await upgrades.deployProxy(MarketplaceFactory, [
     operator.address,
-    RolesRegistryAddress,
+    rolesRegistry.address,
     treasury.address,
     THREE_MONTHS,
   ])
@@ -28,5 +28,5 @@ export async function deployMarketplaceContracts() {
   const mockERC20 = await MockERC20Factory.deploy()
   await mockERC20.deployed()
 
-  return [marketplace, mockERC721, mockERC20] as Contract[]
+  return [marketplace, rolesRegistry, mockERC721, mockERC20] as Contract[]
 }

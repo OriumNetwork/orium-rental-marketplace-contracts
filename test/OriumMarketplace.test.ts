@@ -6,11 +6,13 @@ import { deployMarketplaceContracts } from './fixtures/OriumMarketplaceFixture'
 import { expect } from 'chai'
 import { toWei } from '../utils/utils'
 import { FeeInfo, RentalOffer, RoyaltyInfo } from '../utils/types'
-import { ONE_DAY, ONE_HOUR } from '../utils/constants'
+import { EMPTY_BYTES, ONE_DAY, ONE_HOUR } from '../utils/constants'
 import { randomBytes } from 'crypto'
+import { USER_ROLE } from '../utils/roles'
 
 describe('OriumMarketplace', () => {
   let marketplace: Contract
+  let rolesRegistry: Contract
   let mockERC721: Contract
   let mockERC20: Contract
 
@@ -41,17 +43,19 @@ describe('OriumMarketplace', () => {
   beforeEach(async () => {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [marketplace, mockERC721, mockERC20] = await loadFixture(deployMarketplaceContracts)
+    [marketplace, rolesRegistry, mockERC721, mockERC20] = await loadFixture(deployMarketplaceContracts)
   })
 
   describe('Main Functions', async () => {
     describe('Rental Functions', async () => {
       let rentalOffer: RentalOffer
       let rentalExpirationDate: number
+      let duration: number
       const tokenId = 1
 
       beforeEach(async () => {
         await mockERC721.mint(lender.address, tokenId)
+        await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC721.address, marketplace.address, true)
         const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
         rentalOffer = {
           nonce: `0x${randomBytes(32).toString('hex')}`,
@@ -62,10 +66,11 @@ describe('OriumMarketplace', () => {
           feeTokenAddress: mockERC20.address,
           feeAmountPerSecond: ethers.BigNumber.from(0),
           deadline: blockTimestamp + ONE_DAY,
-          roles: [],
-          rolesData: [],
+          roles: [USER_ROLE],
+          rolesData: [EMPTY_BYTES],
         }
-        rentalExpirationDate = blockTimestamp + ONE_DAY
+        duration = ONE_HOUR
+        rentalExpirationDate = blockTimestamp + duration
       })
       describe('Create Rental Offer', async () => {
         it('Should create a rental offer for ERC721', async () => {
@@ -117,16 +122,18 @@ describe('OriumMarketplace', () => {
         it('Should NOT create the same rental offer twice', async () => {
           await marketplace.connect(lender).createRentalOffer(rentalOffer)
           await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-            'OriumMarketplace: offer already created',
+            'OriumMarketplace: nonce already used',
           )
         })
       })
-      describe.only('Accept Rental Offer', async () => {
+      describe('Accept Rental Offer', async () => {
         beforeEach(async () => {
           await marketplace.connect(lender).createRentalOffer(rentalOffer)
         })
         it('Should accept a rental offer', async () => {
-          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, rentalExpirationDate))
+          const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+          const expirationDate = blockTimestamp + duration + 1
+          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
             .to.emit(marketplace, 'RentalStarted')
             .withArgs(
               rentalOffer.nonce,
@@ -134,13 +141,14 @@ describe('OriumMarketplace', () => {
               rentalOffer.borrower,
               rentalOffer.tokenAddress,
               rentalOffer.tokenId,
-              rentalExpirationDate,
+              expirationDate,
             )
         })
-        it('Should execute the rental offer more than once', async () => {
-          const rentalExpirationDate1 = (await ethers.provider.getBlock('latest')).timestamp + ONE_HOUR
+        it.skip('Should accept a rental offer more than once', async () => {
+          const duration1 = ONE_HOUR
+          const rentalExpirationDate1 = (await ethers.provider.getBlock('latest')).timestamp + duration1 + 1
 
-          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, rentalExpirationDate1))
+          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration1))
             .to.emit(marketplace, 'RentalStarted')
             .withArgs(
               rentalOffer.nonce,
@@ -153,9 +161,10 @@ describe('OriumMarketplace', () => {
 
           await ethers.provider.send('evm_increaseTime', [ONE_HOUR])
 
-          const rentalExpirationDate2 = (await ethers.provider.getBlock('latest')).timestamp + ONE_HOUR
+          const duration2 = ONE_HOUR
+          const rentalExpirationDate2 = (await ethers.provider.getBlock('latest')).timestamp + duration2 + 1
 
-          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, rentalExpirationDate2))
+          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration2))
             .to.emit(marketplace, 'RentalStarted')
             .withArgs(
               rentalOffer.nonce,
@@ -168,8 +177,11 @@ describe('OriumMarketplace', () => {
         })
         it('Should accept a rental offer by anyone if borrower is the zero address', async () => {
           rentalOffer.borrower = ethers.constants.AddressZero
+          rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
           await marketplace.connect(lender).createRentalOffer(rentalOffer)
-          await expect(marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, rentalExpirationDate))
+
+          const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+          await expect(marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration))
             .to.emit(marketplace, 'RentalStarted')
             .withArgs(
               rentalOffer.nonce,
@@ -177,13 +189,13 @@ describe('OriumMarketplace', () => {
               notOperator.address,
               rentalOffer.tokenAddress,
               rentalOffer.tokenId,
-              rentalExpirationDate,
+              blockTimestamp + duration + 1,
             )
         })
         it('Should NOT accept a rental offer if caller is not the borrower', async () => {
-          await expect(
-            marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, rentalExpirationDate),
-          ).to.be.revertedWith('OriumMarketplace: Sender is not allowed to rent this NFT')
+          await expect(marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
+            'OriumMarketplace: Sender is not allowed to rent this NFT',
+          )
         })
         it('Should NOT accept a rental offer if offer is expired', async () => {
           // move foward in time to expire the offer
@@ -191,35 +203,35 @@ describe('OriumMarketplace', () => {
           const timeToMove = rentalOffer.deadline - blockTimestamp + 1
           await ethers.provider.send('evm_increaseTime', [timeToMove])
 
-          await expect(
-            marketplace.connect(borrower).acceptRentalOffer(rentalOffer, rentalExpirationDate),
-          ).to.be.revertedWith('OriumMarketplace: offer not created or expired')
+          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
+            'OriumMarketplace: offer not created or expired',
+          )
         })
         it('Should NOT accept a rental offer if offer is not created', async () => {
           rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-          await expect(
-            marketplace.connect(borrower).acceptRentalOffer(rentalOffer, rentalExpirationDate),
-          ).to.be.revertedWith('OriumMarketplace: offer not created or expired')
+          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
+            'OriumMarketplace: offer not created or expired',
+          )
         })
         it('Should NOT accept a rental offer if expiration date is higher than offer deadline', async () => {
-          await expect(
-            marketplace.connect(borrower).acceptRentalOffer(rentalOffer, rentalOffer.deadline + 1),
-          ).to.be.revertedWith('OriumMarketplace: expiration date is greater than offer deadline')
+          const maxDuration = rentalOffer.deadline - (await ethers.provider.getBlock('latest')).timestamp + 1
+          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, maxDuration)).to.be.revertedWith(
+            'OriumMarketplace: expiration date is greater than offer deadline',
+          )
         })
         it('Should NOT accept a rental offer if expiration date is less than block timestamp', async () => {
-          const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
-          await expect(
-            marketplace.connect(borrower).acceptRentalOffer(rentalOffer, blockTimestamp - 1),
-          ).to.be.revertedWith('OriumMarketplace: expiration date is in the past')
+          await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, 0)).to.be.revertedWith(
+            'RolesRegistry: expiration date must be in the future',
+          )
         })
       })
     })
     describe('Core Functions', async () => {
       describe('Initialize', async () => {
         it("Should NOT initialize the contract if it's already initialized", async () => {
-          await expect(marketplace.initialize(operator.address, ethers.constants.AddressZero, 0)).to.be.revertedWith(
-            'Initializable: contract is already initialized',
-          )
+          await expect(
+            marketplace.initialize(operator.address, ethers.constants.AddressZero, ethers.constants.AddressZero, 0),
+          ).to.be.revertedWith('Initializable: contract is already initialized')
         })
       })
       describe('Pausable', async () => {

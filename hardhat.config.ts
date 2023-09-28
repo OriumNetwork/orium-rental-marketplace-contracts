@@ -24,7 +24,7 @@ const BASE_CONFIG = {
     hardhat: {
       forking: {
         url: MUMBAI_PROVIDER_URL,
-        blockNumber: 39322273,
+        blockNumber: 40611057,
       },
     },
   },
