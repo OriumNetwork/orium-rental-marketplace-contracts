@@ -2,7 +2,7 @@ import { ethers, upgrades } from 'hardhat'
 import { RolesRegistryAddress, THREE_MONTHS } from '../../utils/constants'
 import { Contract } from 'ethers'
 /**
- * @dev deployer, operator and treasury needs to be the first three accounts in the hardhat ethers.getSigners()
+ * @dev deployer, operator needs to be the first accounts in the hardhat ethers.getSigners()
  * list respectively. This should be considered to use this fixture in tests
  * @returns [marketplace, rolesRegistry, mockERC721, mockERC20]
  */
@@ -15,7 +15,6 @@ export async function deployMarketplaceContracts() {
   const marketplace = await upgrades.deployProxy(MarketplaceFactory, [
     operator.address,
     rolesRegistry.address,
-    treasury.address,
     THREE_MONTHS,
   ])
   await marketplace.deployed()

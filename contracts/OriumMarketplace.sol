@@ -28,9 +28,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev rolesRegistry is a ERC-7432 contract
     address public rolesRegistry;
 
-    /// @dev treasury is the address where the fees will be sent
-    address public treasury;
-
     /// @dev deadline is set in seconds
     uint256 public maxDeadline;
 
@@ -159,20 +156,13 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @dev The owner of the contract will be the owner of the protocol.
      * @param _owner the owner of the protocol.
      * @param _rolesRegistry the address of the roles registry.
-     * @param _treasury the address of the treasury.
      * @param _maxDeadline the maximum deadline.
      */
-    function initialize(
-        address _owner,
-        address _rolesRegistry,
-        address _treasury,
-        uint256 _maxDeadline
-    ) public initializer {
+    function initialize(address _owner, address _rolesRegistry, uint256 _maxDeadline) public initializer {
         __Pausable_init();
         __Ownable_init();
 
         rolesRegistry = _rolesRegistry;
-        treasury = _treasury;
         maxDeadline = _maxDeadline;
 
         transferOwnership(_owner);
@@ -236,7 +226,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
         _validateAcceptRentalOffer(_offer, _expirationDate);
 
-        _transferFees(_offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
+        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         _batchGrantRole(
             _offer.roles,
@@ -285,6 +275,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _lenderAddress The address of the lender.
      */
     function _transferFees(
+        address _tokenAddress,
         address _feeTokenAddress,
         uint256 _feeAmountPerSecond,
         uint64 _duration,
@@ -293,25 +284,21 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 _feeAmount = _feeAmountPerSecond * _duration;
         if (_feeAmount == 0) return;
 
-        uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_feeTokenAddress));
+        uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_tokenAddress));
         if (_marketplaceFeeAmount > 0) {
             require(
-                IERC20(_feeTokenAddress).transferFrom(msg.sender, treasury, _marketplaceFeeAmount),
+                IERC20(_feeTokenAddress).transferFrom(msg.sender, owner(), _marketplaceFeeAmount),
                 "OriumMarketplace: Transfer failed"
             );
         }
 
         uint256 _royaltyAmount = _getAmountFromPercentage(
             _feeAmount,
-            royaltyInfo[_feeTokenAddress].royaltyPercentageInWei
+            royaltyInfo[_tokenAddress].royaltyPercentageInWei
         );
         if (_royaltyAmount > 0) {
             require(
-                IERC20(_feeTokenAddress).transferFrom(
-                    msg.sender,
-                    royaltyInfo[_feeTokenAddress].treasury,
-                    _royaltyAmount
-                ),
+                IERC20(_feeTokenAddress).transferFrom(msg.sender, royaltyInfo[_tokenAddress].treasury, _royaltyAmount),
                 "OriumMarketplace: Transfer failed"
             );
         }
@@ -328,7 +315,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _amount The amount to calculate the percentage from.
      * @param _percentage The percentage to calculate.
      */
-    function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
+    function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal view returns (uint256) {
         return (_amount * _percentage) / MAX_PERCENTAGE;
     }
 
@@ -533,15 +520,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function setMaxDeadline(uint256 _maxDeadline) external onlyOwner {
         require(_maxDeadline > 0, "OriumMarketplace: Max deadline should be greater than 0");
         maxDeadline = _maxDeadline;
-    }
-
-    /**
-     * @notice Sets the treasury.
-     * @dev Only owner can set the treasury.
-     * @param _treasury The address where the fees will be sent.
-     */
-    function setTreasury(address _treasury) external onlyOwner {
-        treasury = _treasury;
     }
 
     /** ######### Getters ########### **/
