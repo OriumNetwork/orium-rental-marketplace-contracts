@@ -149,7 +149,39 @@ describe('OriumMarketplace', () => {
             await marketplace.connect(lender).createRentalOffer(rentalOffer)
           })
           describe('Accept Rental Offer', async () => {
-            it('Should accept a rental offer', async () => {
+            it('Should accept a public rental offer', async () => {
+              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const expirationDate = blockTimestamp + duration + 1
+              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.lender,
+                  borrower.address,
+                  expirationDate,
+                )
+            })
+            it('Should accept a private rental offer', async () => {
+              rentalOffer.borrower = borrower.address
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const expirationDate = blockTimestamp + duration + 1
+              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.lender,
+                  borrower.address,
+                  expirationDate,
+                )
+            })
+            it('Should accept a rental offer if token has a different registry', async () => {
+              await marketplace.connect(operator).setRolesRegistry(mockERC721.address, rolesRegistry.address)
               const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
               const expirationDate = blockTimestamp + duration + 1
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
@@ -577,6 +609,19 @@ describe('OriumMarketplace', () => {
           await expect(marketplace.connect(operator).setMaxDeadline(0)).to.be.revertedWith(
             'OriumMarketplace: Max deadline should be greater than 0',
           )
+        })
+      })
+
+      describe('Roles Registry', async () => {
+        it('Should set the roles registry for a collection', async () => {
+          await expect(marketplace.connect(operator).setRolesRegistry(mockERC721.address, rolesRegistry.address))
+            .to.emit(marketplace, 'RolesRegistrySet')
+            .withArgs(mockERC721.address, rolesRegistry.address)
+        })
+        it('Should NOT set the roles registry if caller is not the operator', async () => {
+          await expect(
+            marketplace.connect(notOperator).setRolesRegistry(mockERC721.address, rolesRegistry.address),
+          ).to.be.revertedWith('Ownable: caller is not the owner')
         })
       })
     })

@@ -9,7 +9,7 @@ import { Contract } from 'ethers'
 export async function deployMarketplaceContracts() {
   const [, operator] = await ethers.getSigners()
 
-  const rolesRegistry = await ethers.getContractAt('IRolesRegistry', RolesRegistryAddress)
+  const rolesRegistry = await ethers.getContractAt('IERC7432', RolesRegistryAddress)
 
   const MarketplaceFactory = await ethers.getContractFactory('OriumMarketplace')
   const marketplace = await upgrades.deployProxy(MarketplaceFactory, [
