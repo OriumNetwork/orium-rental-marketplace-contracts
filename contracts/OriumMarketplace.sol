@@ -40,8 +40,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev hashedOffer => bool
     mapping(bytes32 => bool) public isCreated;
 
-    /// @dev nonce => deadline
-    mapping(uint256 => uint64) public nonceDeadline;
+    /// @dev lender => nonce => deadline
+    mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
 
     /** ######### Structs ########### **/
 
@@ -134,6 +134,12 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint64 expirationDate
     );
 
+    /**
+     * @param nonce The nonce of the rental offer
+     * @param lender The address of the user lending the NFT
+     */
+    event RentalOfferCancelled(uint256 indexed nonce, address indexed lender);
+
     /** ######### Modifiers ########### **/
 
     /**
@@ -182,7 +188,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         _validateCreateRentalOffer(_offer);
 
         bytes32 _offerHash = hashRentalOffer(_offer);
-        nonceDeadline[_offer.nonce] = _offer.deadline;
+
+        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
         isCreated[_offerHash] = true;
 
         emit RentalOfferCreated(
@@ -214,7 +221,14 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
             "OriumMarketplace: Invalid deadline"
         );
-        require(nonceDeadline[_offer.nonce] == 0, "OriumMarketplace: nonce already used");
+        require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumMarketplace: nonce already used");
+    }
+
+    function cancelRentalOffer(uint256 nonce) external {
+        require(nonceDeadline[msg.sender][nonce] > block.timestamp, "OriumMarketplace: Nonce expired or not used yet");
+
+        nonceDeadline[msg.sender][nonce] = uint64(block.timestamp);
+        emit RentalOfferCancelled(nonce, msg.sender);
     }
 
     /**
@@ -264,7 +278,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             "OriumMarketplace: Sender is not allowed to rent this NFT"
         );
         require(
-            nonceDeadline[_offer.nonce] > _expirationDate,
+            nonceDeadline[_offer.lender][_offer.nonce] > _expirationDate,
             "OriumMarketplace: expiration date is greater than offer deadline"
         );
     }
