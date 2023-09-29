@@ -238,14 +238,29 @@ describe('OriumMarketplace', () => {
         })
       })
 
-      describe.only('Cancel Rental Offer', async () => {
+      describe('Cancel Rental Offer', async () => {
         beforeEach(async () => {
           await marketplace.connect(lender).createRentalOffer(rentalOffer)
         })
         it('Should cancel a rental offer', async () => {
-          await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
+          await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer.nonce))
             .to.emit(marketplace, 'RentalOfferCancelled')
             .withArgs(rentalOffer.nonce, lender.address)
+        })
+        it('Should NOT cancel a rental offer if nonce not used yet by caller', async () => {
+          await expect(marketplace.connect(notOperator).cancelRentalOffer(rentalOffer.nonce)).to.be.revertedWith(
+            'OriumMarketplace: Nonce expired or not used yet',
+          )
+        })
+        it("Should NOT cancel a rental offer after deadline's expiration", async () => {
+          // move foward in time to expire the offer
+          const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+          const timeToMove = rentalOffer.deadline - blockTimestamp + 1
+          await ethers.provider.send('evm_increaseTime', [timeToMove])
+
+          await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer.nonce)).to.be.revertedWith(
+            'OriumMarketplace: Nonce expired or not used yet',
+          )
         })
       })
 
