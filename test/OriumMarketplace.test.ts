@@ -4,9 +4,9 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import { deployMarketplaceContracts } from './fixtures/OriumMarketplaceFixture'
 import { expect } from 'chai'
-import { amountFromPercentage, toWei } from '../utils/bignumber'
+import { toWei } from '../utils/bignumber'
 import { FeeInfo, RentalOffer, RoyaltyInfo } from '../utils/types'
-import { DEFAULT_FEE_PERCENTAGE, EMPTY_BYTES, ONE_DAY, ONE_HOUR } from '../utils/constants'
+import { EMPTY_BYTES, ONE_DAY, ONE_HOUR } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
 
@@ -48,7 +48,6 @@ describe('OriumMarketplace', () => {
   describe('Main Functions', async () => {
     describe('Rental Functions', async () => {
       let rentalOffer: RentalOffer
-      let rentalExpirationDate: number
       const duration = ONE_HOUR
       const tokenId = 1
 
@@ -68,7 +67,6 @@ describe('OriumMarketplace', () => {
           roles: [USER_ROLE],
           rolesData: [EMPTY_BYTES],
         }
-        rentalExpirationDate = blockTimestamp + duration
 
         await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
 
