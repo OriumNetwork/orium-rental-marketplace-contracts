@@ -38,7 +38,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     mapping(address => RoyaltyInfo) public royaltyInfo;
 
     /// @dev hashedOffer => bool
-    mapping(bytes32 => bool) public isPresigned;
+    mapping(bytes32 => bool) public isCreated;
 
     /// @dev nonce => deadline
     mapping(uint256 => uint64) public nonceDeadline;
@@ -183,7 +183,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
         bytes32 _offerHash = hashRentalOffer(_offer);
         nonceDeadline[_offer.nonce] = _offer.deadline;
-        isPresigned[_offerHash] = true;
+        isCreated[_offerHash] = true;
 
         emit RentalOfferCreated(
             _offer.nonce,
@@ -258,7 +258,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
-        require(isPresigned[_offerHash], "OriumMarketplace: Offer not created");
+        require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,
             "OriumMarketplace: Sender is not allowed to rent this NFT"
