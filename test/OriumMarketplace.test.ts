@@ -216,13 +216,13 @@ describe('OriumMarketplace', () => {
           await ethers.provider.send('evm_increaseTime', [timeToMove])
 
           await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-            'OriumMarketplace: offer not created or expired',
+            'OriumMarketplace: expiration date is greater than offer deadline',
           )
         })
         it('Should NOT accept a rental offer if offer is not created', async () => {
           rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
           await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-            'OriumMarketplace: offer not created or expired',
+            'OriumMarketplace: Offer not created',
           )
         })
         it('Should NOT accept a rental offer if expiration date is higher than offer deadline', async () => {

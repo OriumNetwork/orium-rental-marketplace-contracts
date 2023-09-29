@@ -37,8 +37,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev tokenAddress => royaltyInfo
     mapping(address => RoyaltyInfo) public royaltyInfo;
 
-    /// @dev hashedOffer => deadline
-    mapping(bytes32 => uint64) public offerDeadline;
+    /// @dev hashedOffer => bool
+    mapping(bytes32 => bool) public isPresigned;
 
     /// @dev nonce => deadline
     mapping(uint256 => uint64) public nonceDeadline;
@@ -179,12 +179,11 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function createRentalOffer(
         RentalOffer calldata _offer
     ) external onlyTokenOwner(_offer.tokenAddress, _offer.tokenId) {
+        _validateCreateRentalOffer(_offer);
+
         bytes32 _offerHash = hashRentalOffer(_offer);
-
-        _validateCreateRentalOffer(_offer, _offerHash);
-
         nonceDeadline[_offer.nonce] = _offer.deadline;
-        offerDeadline[_offerHash] = _offer.deadline;
+        isPresigned[_offerHash] = true;
 
         emit RentalOfferCreated(
             _offer.nonce,
@@ -200,7 +199,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
     }
 
-    function _validateCreateRentalOffer(RentalOffer calldata _offer, bytes32 _offerHash) internal view {
+    function _validateCreateRentalOffer(RentalOffer calldata _offer) internal view {
         require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
         require(_offer.roles.length > 0, "OriumMarketplace: roles should not be empty");
         require(
@@ -255,13 +254,13 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
-        require(offerDeadline[_offerHash] > block.timestamp, "OriumMarketplace: offer not created or expired");
+        require(isPresigned[_offerHash], "OriumMarketplace: Offer not created");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,
             "OriumMarketplace: Sender is not allowed to rent this NFT"
         );
         require(
-            offerDeadline[_offerHash] > _expirationDate,
+            nonceDeadline[_offer.nonce] > _expirationDate,
             "OriumMarketplace: expiration date is greater than offer deadline"
         );
     }
