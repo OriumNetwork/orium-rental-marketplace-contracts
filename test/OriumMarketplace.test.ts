@@ -238,6 +238,17 @@ describe('OriumMarketplace', () => {
         })
       })
 
+      describe.only('Cancel Rental Offer', async () => {
+        beforeEach(async () => {
+          await marketplace.connect(lender).createRentalOffer(rentalOffer)
+        })
+        it('Should cancel a rental offer', async () => {
+          await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
+            .to.emit(marketplace, 'RentalOfferCancelled')
+            .withArgs(rentalOffer.nonce, lender.address)
+        })
+      })
+
       describe('Fees', async function () {
         const feeAmountPerSecond = toWei('1')
         const feeAmount = feeAmountPerSecond.mul(duration)
