@@ -43,7 +43,15 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev lender => nonce => deadline
     mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
 
+    /// @dev hashedOffer => Rental
+    mapping(bytes32 => Rental) public rentals;
+
     /** ######### Structs ########### **/
+
+    struct Rental {
+        address borrower;
+        uint64 expirationDate;
+    }
 
     /// @dev Royalty info. Used to charge fees for the creator.
     struct RoyaltyInfo {
@@ -270,6 +278,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             false
         );
 
+        rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+
         emit RentalStarted(
             _offer.nonce,
             _offer.tokenAddress,
@@ -287,6 +297,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
+        require(rentals[_offerHash].expirationDate < block.timestamp, "OriumMarketplace: Rental already started");
         require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,
@@ -429,6 +440,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
 
         _batchRevokeRole(_offer.roles, _offer.tokenAddress, _offer.tokenId, _offer.lender, _offer.borrower);
 
+        rentals[hashRentalOffer(_offer)].expirationDate = uint64(block.timestamp);
+
         emit RentalEnded(_offer.tokenAddress, _offer.tokenId, _offer.nonce, _offer.lender, _offer.borrower);
     }
 
@@ -439,18 +452,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function _validateEndRental(RentalOffer memory _offer) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
         require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
-        require(msg.sender == _offer.borrower, "OriumMarketplace: Only borrower can end a rental");
+        require(msg.sender == rentals[_offerHash].borrower, "OriumMarketplace: Only borrower can end a rental");
         require(nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp, "OriumMarketplace: Rental expired");
-        require(
-            IRolesRegistry(rolesRegistry).hasUniqueRole(
-                _offer.roles[0], // We just need to check for the first role, since all roles are granted at the same time when renting
-                _offer.tokenAddress,
-                _offer.tokenId,
-                _offer.lender,
-                _offer.borrower
-            ),
-            "OriumMarketplace: Borrower does not have the role anymore"
-        );
+        require(rentals[_offerHash].expirationDate > block.timestamp, "OriumMarketplace: Rental already ended");
     }
 
     /**

@@ -177,7 +177,7 @@ describe('OriumMarketplace', () => {
                   rentalExpirationDate1,
                 )
 
-              await ethers.provider.send('evm_increaseTime', [ONE_HOUR])
+              await ethers.provider.send('evm_increaseTime', [duration + 1])
 
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
                 .to.emit(marketplace, 'RentalStarted')
@@ -187,7 +187,7 @@ describe('OriumMarketplace', () => {
                   rentalOffer.tokenId,
                   rentalOffer.lender,
                   rentalOffer.borrower,
-                  rentalExpirationDate1 + duration,
+                  rentalExpirationDate1 + duration + 1,
                 )
             })
             it('Should accept a rental offer by anyone if borrower is the zero address', async () => {
@@ -298,6 +298,12 @@ describe('OriumMarketplace', () => {
                   'OriumMarketplace: Transfer failed',
                 )
               })
+              it('Should NOT accept a rental offer twice', async () => {
+                await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
+                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
+                  'OriumMarketplace: Rental already started',
+                )
+              })
             })
           })
           describe('Cancel Rental Offer', async () => {
@@ -368,7 +374,7 @@ describe('OriumMarketplace', () => {
                 'OriumMarketplace: Rental expired',
               )
             })
-            it('Should NOT end a rental if the role was revoked by borrower directly in registry', async () => {
+            it('Should end a rental if the role was revoked by borrower directly in registry', async () => {
               await rolesRegistry.connect(borrower).setRoleApprovalForAll(mockERC721.address, borrower.address, true)
               await rolesRegistry
                 .connect(borrower)
@@ -379,14 +385,20 @@ describe('OriumMarketplace', () => {
                   rentalOffer.lender,
                   rentalOffer.borrower,
                 )
-              await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                'OriumMarketplace: Borrower does not have the role anymore',
-              )
+              await expect(marketplace.connect(borrower).endRental(rentalOffer))
+                .to.emit(marketplace, 'RentalEnded')
+                .withArgs(
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.nonce,
+                  rentalOffer.lender,
+                  borrower.address,
+                )
             })
             it('Should NOT end rental twice', async () => {
               await marketplace.connect(borrower).endRental(rentalOffer)
               await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                'OriumMarketplace: Borrower does not have the role anymore',
+                'OriumMarketplace: Rental already ended',
               )
             })
           })
