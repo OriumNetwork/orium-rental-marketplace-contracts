@@ -297,7 +297,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
-        require(rentals[_offerHash].expirationDate < block.timestamp, "OriumMarketplace: Rental already started");
+        require(rentals[_offerHash].expirationDate <= block.timestamp, "OriumMarketplace: Rental already started");
         require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,
@@ -436,21 +436,35 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
     function endRental(RentalOffer memory _offer) external {
-        _validateEndRental(_offer);
+        bytes32 _offerHash = hashRentalOffer(_offer);
 
-        _batchRevokeRole(_offer.roles, _offer.tokenAddress, _offer.tokenId, _offer.lender, _offer.borrower);
+        _validateEndRental(_offer, _offerHash);
 
-        rentals[hashRentalOffer(_offer)].expirationDate = uint64(block.timestamp);
+        _batchRevokeRole(
+            _offer.roles,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.lender,
+            rentals[_offerHash].borrower
+        );
 
-        emit RentalEnded(_offer.tokenAddress, _offer.tokenId, _offer.nonce, _offer.lender, _offer.borrower);
+        rentals[_offerHash].expirationDate = uint64(block.timestamp);
+
+        emit RentalEnded(
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.nonce,
+            _offer.lender,
+            rentals[_offerHash].borrower
+        );
     }
 
     /**
      * @dev Validates the end rental.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     * @param _offerHash The hash of the rental offer struct.
      */
-    function _validateEndRental(RentalOffer memory _offer) internal view {
-        bytes32 _offerHash = hashRentalOffer(_offer);
+    function _validateEndRental(RentalOffer memory _offer, bytes32 _offerHash) internal view {
         require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
         require(msg.sender == rentals[_offerHash].borrower, "OriumMarketplace: Only borrower can end a rental");
         require(nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp, "OriumMarketplace: Rental expired");
