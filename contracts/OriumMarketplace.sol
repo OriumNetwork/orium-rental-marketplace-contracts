@@ -43,7 +43,15 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev lender => nonce => deadline
     mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
 
+    /// @dev hashedOffer => Rental
+    mapping(bytes32 => Rental) public rentals;
+
     /** ######### Structs ########### **/
+
+    struct Rental {
+        address borrower;
+        uint64 expirationDate;
+    }
 
     /// @dev Royalty info. Used to charge fees for the creator.
     struct RoyaltyInfo {
@@ -139,6 +147,21 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param lender The address of the user lending the NFT
      */
     event RentalOfferCancelled(uint256 indexed nonce, address indexed lender);
+
+    /**
+     * @param tokenAddress The address of the contract of the NFT rented
+     * @param tokenId The tokenId of the rented NFT
+     * @param nonce The nonce of the rental offer
+     * @param lender The address of the lender
+     * @param borrower The address of the borrower
+     */
+    event RentalEnded(
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        uint256 indexed nonce,
+        address lender,
+        address borrower
+    );
 
     /** ######### Modifiers ########### **/
 
@@ -255,6 +278,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             false
         );
 
+        rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+
         emit RentalStarted(
             _offer.nonce,
             _offer.tokenAddress,
@@ -272,6 +297,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
+        require(rentals[_offerHash].expirationDate <= block.timestamp, "OriumMarketplace: Rental already started");
         require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,
@@ -401,6 +427,68 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _revocable,
             _data
         );
+    }
+
+    /**
+     * @notice Ends the rental.
+     * @dev Can only be called by the borrower.
+     * @dev Borrower needs to approve marketplace to revoke the roles.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function endRental(RentalOffer memory _offer) external {
+        bytes32 _offerHash = hashRentalOffer(_offer);
+
+        _validateEndRental(_offer, _offerHash);
+
+        _batchRevokeRole(
+            _offer.roles,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.lender,
+            rentals[_offerHash].borrower
+        );
+
+        rentals[_offerHash].expirationDate = uint64(block.timestamp);
+
+        emit RentalEnded(
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.nonce,
+            _offer.lender,
+            rentals[_offerHash].borrower
+        );
+    }
+
+    /**
+     * @dev Validates the end rental.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     * @param _offerHash The hash of the rental offer struct.
+     */
+    function _validateEndRental(RentalOffer memory _offer, bytes32 _offerHash) internal view {
+        require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
+        require(msg.sender == rentals[_offerHash].borrower, "OriumMarketplace: Only borrower can end a rental");
+        require(nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp, "OriumMarketplace: Rental Offer expired");
+        require(rentals[_offerHash].expirationDate > block.timestamp, "OriumMarketplace: Rental ended");
+    }
+
+    /**
+     * @dev Revokes the roles from the borrower.
+     * @param _roles The array of roles to be revoked from the borrower
+     * @param _tokenAddress The address of the contract of the NFT to rent
+     * @param _tokenId The tokenId of the NFT to rent
+     * @param _grantor The address of the user lending the NFT
+     * @param _grantee The address of the user renting the NFT
+     */
+    function _batchRevokeRole(
+        bytes32[] memory _roles,
+        address _tokenAddress,
+        uint256 _tokenId,
+        address _grantor,
+        address _grantee
+    ) internal {
+        for (uint256 i = 0; i < _roles.length; i++) {
+            IRolesRegistry(rolesRegistry).revokeRoleFrom(_roles[i], _tokenAddress, _tokenId, _grantor, _grantee);
+        }
     }
 
     /** ######### Getters ########### **/

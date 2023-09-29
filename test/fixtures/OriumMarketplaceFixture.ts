@@ -7,7 +7,7 @@ import { Contract } from 'ethers'
  * @returns [marketplace, rolesRegistry, mockERC721, mockERC20]
  */
 export async function deployMarketplaceContracts() {
-  const [, operator, treasury] = await ethers.getSigners()
+  const [, operator] = await ethers.getSigners()
 
   const rolesRegistry = await ethers.getContractAt('IRolesRegistry', RolesRegistryAddress)
 
