@@ -199,6 +199,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         );
     }
 
+    /**
+     * @dev Validates the create rental offer.
+     * @param _offer The rental offer struct.
+     */
     function _validateCreateRentalOffer(RentalOffer calldata _offer) internal view {
         require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
         require(_offer.roles.length > 0, "OriumMarketplace: roles should not be empty");
@@ -313,7 +317,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _amount The amount to calculate the percentage from.
      * @param _percentage The percentage to calculate.
      */
-    function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal view returns (uint256) {
+    function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
         return (_amount * _percentage) / MAX_PERCENTAGE;
     }
 
