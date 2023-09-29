@@ -20,3 +20,7 @@ export function toWei(amount: string, decimals = 18) {
 export function fromWei(amount: BigNumber, decimals = 18) {
   return ethers.utils.formatUnits(amount, decimals)
 }
+
+export function amountFromPercentage(amount: BigNumber, percentage: BigNumber) {
+  return amount.mul(percentage).div(toWei('100', 18))
+}
