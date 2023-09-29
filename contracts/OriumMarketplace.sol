@@ -467,8 +467,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     function _validateEndRental(RentalOffer memory _offer, bytes32 _offerHash) internal view {
         require(isCreated[_offerHash], "OriumMarketplace: Offer not created");
         require(msg.sender == rentals[_offerHash].borrower, "OriumMarketplace: Only borrower can end a rental");
-        require(nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp, "OriumMarketplace: Rental expired");
-        require(rentals[_offerHash].expirationDate > block.timestamp, "OriumMarketplace: Rental already ended");
+        require(nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp, "OriumMarketplace: Rental Offer expired");
+        require(rentals[_offerHash].expirationDate > block.timestamp, "OriumMarketplace: Rental ended");
     }
 
     /**

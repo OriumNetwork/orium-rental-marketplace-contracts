@@ -6,7 +6,7 @@ import { deployMarketplaceContracts } from './fixtures/OriumMarketplaceFixture'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
 import { FeeInfo, RentalOffer, RoyaltyInfo } from '../utils/types'
-import { EMPTY_BYTES, ONE_DAY, ONE_HOUR } from '../utils/constants'
+import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
 
@@ -58,7 +58,7 @@ describe('OriumMarketplace', () => {
         rentalOffer = {
           nonce: `0x${randomBytes(32).toString('hex')}`,
           lender: lender.address,
-          borrower: borrower.address,
+          borrower: AddressZero,
           tokenAddress: mockERC721.address,
           tokenId,
           feeTokenAddress: mockERC20.address,
@@ -159,7 +159,7 @@ describe('OriumMarketplace', () => {
                   rentalOffer.tokenAddress,
                   rentalOffer.tokenId,
                   rentalOffer.lender,
-                  rentalOffer.borrower,
+                  borrower.address,
                   expirationDate,
                 )
             })
@@ -173,7 +173,7 @@ describe('OriumMarketplace', () => {
                   rentalOffer.tokenAddress,
                   rentalOffer.tokenId,
                   rentalOffer.lender,
-                  rentalOffer.borrower,
+                  borrower.address,
                   rentalExpirationDate1,
                 )
 
@@ -186,7 +186,7 @@ describe('OriumMarketplace', () => {
                   rentalOffer.tokenAddress,
                   rentalOffer.tokenId,
                   rentalOffer.lender,
-                  rentalOffer.borrower,
+                  borrower.address,
                   rentalExpirationDate1 + duration + 1,
                 )
             })
@@ -208,6 +208,9 @@ describe('OriumMarketplace', () => {
                 )
             })
             it('Should NOT accept a rental offer if caller is not the borrower', async () => {
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.borrower = borrower.address
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
               await expect(
                 marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration),
               ).to.be.revertedWith('OriumMarketplace: Sender is not allowed to rent this NFT')
@@ -261,7 +264,7 @@ describe('OriumMarketplace', () => {
                     rentalOffer.tokenAddress,
                     rentalOffer.tokenId,
                     rentalOffer.lender,
-                    rentalOffer.borrower,
+                    borrower.address,
                     expirationDate,
                   )
                   .to.emit(mockERC20, 'Transfer')
@@ -371,7 +374,7 @@ describe('OriumMarketplace', () => {
               await ethers.provider.send('evm_increaseTime', [timeToMove])
 
               await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                'OriumMarketplace: Rental expired',
+                'OriumMarketplace: Rental Offer expired',
               )
             })
             it('Should end a rental if the role was revoked by borrower directly in registry', async () => {
@@ -383,7 +386,7 @@ describe('OriumMarketplace', () => {
                   rentalOffer.tokenAddress,
                   rentalOffer.tokenId,
                   rentalOffer.lender,
-                  rentalOffer.borrower,
+                  borrower.address,
                 )
               await expect(marketplace.connect(borrower).endRental(rentalOffer))
                 .to.emit(marketplace, 'RentalEnded')
@@ -398,7 +401,7 @@ describe('OriumMarketplace', () => {
             it('Should NOT end rental twice', async () => {
               await marketplace.connect(borrower).endRental(rentalOffer)
               await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                'OriumMarketplace: Rental already ended',
+                'OriumMarketplace: Rental ended',
               )
             })
           })
