@@ -385,6 +385,12 @@ describe('OriumMarketplace', () => {
                 'OriumMarketplace: Borrower does not have the role anymore',
               )
             })
+            it('Should NOT end rental twice', async () => {
+              await marketplace.connect(borrower).endRental(rentalOffer)
+              await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
+                'OriumMarketplace: Borrower does not have the role anymore',
+              )
+            })
           })
         })
       })
