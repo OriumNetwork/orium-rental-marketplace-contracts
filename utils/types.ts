@@ -23,3 +23,13 @@ export interface RentalOffer {
   roles: string[]
   rolesData: string[]
 }
+
+export interface DirectRental {
+  tokenAddress: string
+  tokenId: number
+  lender: string
+  borrower: string
+  duration: number
+  roles: string[]
+  rolesData: string[]
+}

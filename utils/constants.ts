@@ -6,4 +6,5 @@ export const ONE_HOUR = 60 * 60
 export const THREE_MONTHS = 60 * 60 * 24 * 30 * 3
 export const EMPTY_BYTES = '0x'
 export const MAX_PERCENTAGE = ethers.utils.parseEther('100')
+export const DIRECT_RENTAL_NONCE = 0
 export const { HashZero, AddressZero } = ethers.constants
