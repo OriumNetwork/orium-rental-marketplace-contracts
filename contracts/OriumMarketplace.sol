@@ -4,7 +4,7 @@ pragma solidity 0.8.9;
 
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IRolesRegistry } from "./interfaces/IRolesRegistry.sol";
+import { IERC7432 } from "./interfaces/IERC7432.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -26,7 +26,10 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /** ######### Global Variables ########### **/
 
     /// @dev rolesRegistry is a ERC-7432 contract
-    address public rolesRegistry;
+    address public defaultRolesRegistry;
+
+    /// @dev tokenAddress => rolesRegistry
+    mapping(address => address) public tokenRolesRegistry;
 
     /// @dev deadline is set in seconds
     uint256 public maxDeadline;
@@ -163,6 +166,12 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address borrower
     );
 
+    /**
+     * @param tokenAddress The NFT address.
+     * @param rolesRegistry The address of the roles registry.
+     */
+    event RolesRegistrySet(address indexed tokenAddress, address indexed rolesRegistry);
+
     /** ######### Modifiers ########### **/
 
     /**
@@ -183,15 +192,15 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Initializes the contract.
      * @dev The owner of the contract will be the owner of the protocol.
-     * @param _owner the owner of the protocol.
-     * @param _rolesRegistry the address of the roles registry.
-     * @param _maxDeadline the maximum deadline.
+     * @param _owner The owner of the protocol.
+     * @param _defaultRolesRegistry The address of the roles registry.
+     * @param _maxDeadline The maximum deadline.
      */
-    function initialize(address _owner, address _rolesRegistry, uint256 _maxDeadline) public initializer {
+    function initialize(address _owner, address _defaultRolesRegistry, uint256 _maxDeadline) public initializer {
         __Pausable_init();
         __Ownable_init();
 
-        rolesRegistry = _rolesRegistry;
+        defaultRolesRegistry = _defaultRolesRegistry;
         maxDeadline = _maxDeadline;
 
         transferOwnership(_owner);
@@ -274,8 +283,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _offer.tokenId,
             _offer.lender,
             msg.sender,
-            _expirationDate,
-            false
+            _expirationDate
         );
 
         rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
@@ -370,7 +378,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _grantor The address of the user lending the NFT
      * @param _grantee The address of the user renting the NFT
      * @param _expirationDate The deadline until when the rental offer is valid
-     * @param _revocable If the roles are revocable or not
      */
     function _batchGrantRole(
         bytes32[] memory _roles,
@@ -379,9 +386,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 _tokenId,
         address _grantor,
         address _grantee,
-        uint64 _expirationDate,
-        bool _revocable
+        uint64 _expirationDate
     ) internal {
+        address _rolesRegistry = rolesRegistryOf(_tokenAddress);
         for (uint256 i = 0; i < _roles.length; i++) {
             _grantUniqueRoleChecked( // Needed to avoid stack too deep error
                 _roles[i],
@@ -390,8 +397,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                 _grantor,
                 _grantee,
                 _expirationDate,
-                _revocable,
-                _rolesData[i]
+                _rolesData[i],
+                _rolesRegistry
             );
         }
     }
@@ -404,7 +411,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _grantor The address of the user lending the NFT
      * @param _grantee The address of the user renting the NFT
      * @param _expirationDate The deadline until when the rental offer is valid
-     * @param _revocable If the roles are revocable or not
      * @param _data The data for the role
      */
     function _grantUniqueRoleChecked(
@@ -414,17 +420,17 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _grantor,
         address _grantee,
         uint64 _expirationDate,
-        bool _revocable,
-        bytes memory _data
+        bytes memory _data,
+        address _rolesRegistry
     ) internal {
-        IRolesRegistry(rolesRegistry).grantRoleFrom(
+        IERC7432(_rolesRegistry).grantRoleFrom(
             _role,
             _tokenAddress,
             _tokenId,
             _grantor,
             _grantee,
             _expirationDate,
-            _revocable,
+            false,
             _data
         );
     }
@@ -486,8 +492,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _grantor,
         address _grantee
     ) internal {
+        address _rolesRegistry = rolesRegistryOf(_tokenAddress);
         for (uint256 i = 0; i < _roles.length; i++) {
-            IRolesRegistry(rolesRegistry).revokeRoleFrom(_roles[i], _tokenAddress, _tokenId, _grantor, _grantee);
+            IERC7432(_rolesRegistry).revokeRoleFrom(_roles[i], _tokenAddress, _tokenId, _grantor, _grantee);
         }
     }
 
@@ -626,6 +633,17 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         maxDeadline = _maxDeadline;
     }
 
+    /**
+     * @notice Sets the roles registry for a collection.
+     * @dev Only owner can set the roles registry for a collection.
+     * @param _tokenAddress The NFT address.
+     * @param _rolesRegistry The roles registry address.
+     */
+    function setRolesRegistry(address _tokenAddress, address _rolesRegistry) external onlyOwner {
+        tokenRolesRegistry[_tokenAddress] = _rolesRegistry;
+        emit RolesRegistrySet(_tokenAddress, _rolesRegistry);
+    }
+
     /** ######### Getters ########### **/
 
     /**
@@ -635,5 +653,15 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     function marketplaceFeeOf(address _tokenAddress) public view returns (uint256) {
         return feeInfo[_tokenAddress].isCustomFee ? feeInfo[_tokenAddress].feePercentageInWei : DEFAULT_FEE_PERCENTAGE;
+    }
+
+    /**
+     * @notice Gets the roles registry for a collection.
+     * @dev If no custom roles registry is set, the default roles registry will be used.
+     * @param _tokenAddress The NFT address.
+     */
+    function rolesRegistryOf(address _tokenAddress) public view returns (address) {
+        return
+            tokenRolesRegistry[_tokenAddress] == address(0) ? defaultRolesRegistry : tokenRolesRegistry[_tokenAddress];
     }
 }
