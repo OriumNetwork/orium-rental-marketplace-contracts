@@ -26,7 +26,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /** ######### Global Variables ########### **/
 
     /// @dev rolesRegistry is a ERC-7432 contract
-    address public rolesRegistry;
+    address public defaultRolesRegistry;
+
     /// @dev tokenAddress => rolesRegistry
     mapping(address => address) public tokenRolesRegistry;
 
@@ -191,15 +192,15 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /**
      * @notice Initializes the contract.
      * @dev The owner of the contract will be the owner of the protocol.
-     * @param _owner the owner of the protocol.
-     * @param _rolesRegistry the address of the roles registry.
-     * @param _maxDeadline the maximum deadline.
+     * @param _owner The owner of the protocol.
+     * @param _defaultRolesRegistry The address of the roles registry.
+     * @param _maxDeadline The maximum deadline.
      */
-    function initialize(address _owner, address _rolesRegistry, uint256 _maxDeadline) public initializer {
+    function initialize(address _owner, address _defaultRolesRegistry, uint256 _maxDeadline) public initializer {
         __Pausable_init();
         __Ownable_init();
 
-        rolesRegistry = _rolesRegistry;
+        defaultRolesRegistry = _defaultRolesRegistry;
         maxDeadline = _maxDeadline;
 
         transferOwnership(_owner);
@@ -660,6 +661,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _tokenAddress The NFT address.
      */
     function rolesRegistryOf(address _tokenAddress) public view returns (address) {
-        return tokenRolesRegistry[_tokenAddress] == address(0) ? rolesRegistry : tokenRolesRegistry[_tokenAddress];
+        return
+            tokenRolesRegistry[_tokenAddress] == address(0) ? defaultRolesRegistry : tokenRolesRegistry[_tokenAddress];
     }
 }
