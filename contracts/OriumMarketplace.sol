@@ -23,6 +23,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     /// @dev 2.5 ether is 2.5%
     uint256 public constant DEFAULT_FEE_PERCENTAGE = 2.5 ether;
 
+    /// @dev Direct Rental nonce
+    uint256 public constant DIRECT_RENTAL_NONCE = 0;
+
     /** ######### Global Variables ########### **/
 
     /// @dev rolesRegistry is a ERC-7432 contract
@@ -79,6 +82,17 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 feeAmountPerSecond;
         uint256 nonce;
         uint64 deadline;
+        bytes32[] roles;
+        bytes[] rolesData;
+    }
+
+    /// @dev Direct rental info.
+    struct DirectRental {
+        address tokenAddress;
+        uint256 tokenId;
+        address lender;
+        address borrower;
+        uint64 duration;
         bytes32[] roles;
         bytes[] rolesData;
     }
@@ -152,16 +166,16 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
     event RentalOfferCancelled(uint256 indexed nonce, address indexed lender);
 
     /**
+     * @param nonce The nonce of the rental offer
      * @param tokenAddress The address of the contract of the NFT rented
      * @param tokenId The tokenId of the rented NFT
-     * @param nonce The nonce of the rental offer
      * @param lender The address of the lender
      * @param borrower The address of the borrower
      */
     event RentalEnded(
+        uint256 indexed nonce,
         address indexed tokenAddress,
         uint256 indexed tokenId,
-        uint256 indexed nonce,
         address lender,
         address borrower
     );
@@ -243,6 +257,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _offer The rental offer struct.
      */
     function _validateCreateRentalOffer(RentalOffer calldata _offer) internal view {
+        require(_offer.nonce != DIRECT_RENTAL_NONCE, "OriumMarketplace: Nonce cannot be 0");
         require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
         require(_offer.roles.length > 0, "OriumMarketplace: roles should not be empty");
         require(
@@ -283,7 +298,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _offer.tokenId,
             _offer.lender,
             msg.sender,
-            _expirationDate
+            _expirationDate,
+            false
         );
 
         rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
@@ -386,7 +402,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 _tokenId,
         address _grantor,
         address _grantee,
-        uint64 _expirationDate
+        uint64 _expirationDate,
+        bool _revocable
     ) internal {
         address _rolesRegistry = rolesRegistryOf(_tokenAddress);
         for (uint256 i = 0; i < _roles.length; i++) {
@@ -398,7 +415,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                 _grantee,
                 _expirationDate,
                 _rolesData[i],
-                _rolesRegistry
+                _rolesRegistry,
+                _revocable
             );
         }
     }
@@ -421,7 +439,8 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _grantee,
         uint64 _expirationDate,
         bytes memory _data,
-        address _rolesRegistry
+        address _rolesRegistry,
+        bool _revocable
     ) internal {
         IERC7432(_rolesRegistry).grantRoleFrom(
             _role,
@@ -430,7 +449,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _grantor,
             _grantee,
             _expirationDate,
-            false,
+            _revocable,
             _data
         );
     }
@@ -457,9 +476,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         rentals[_offerHash].expirationDate = uint64(block.timestamp);
 
         emit RentalEnded(
+            _offer.nonce,
             _offer.tokenAddress,
             _offer.tokenId,
-            _offer.nonce,
             _offer.lender,
             rentals[_offerHash].borrower
         );
@@ -498,6 +517,97 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         }
     }
 
+    /**
+     * @notice Creates a direct rental.
+     * @dev The lender needs to approve marketplace to grant the roles.
+     * @param _directRental The direct rental struct.
+     */
+    function createDirectRental(
+        DirectRental memory _directRental
+    ) external onlyTokenOwner(_directRental.tokenAddress, _directRental.tokenId) {
+        _validateCreateDirectRental(_directRental);
+
+        bytes32 _hashedDirectRental = hashDirectRental(_directRental);
+        uint64 _expirationDate = uint64(block.timestamp + _directRental.duration);
+        isCreated[_hashedDirectRental] = true;
+        rentals[_hashedDirectRental] = Rental({ borrower: _directRental.borrower, expirationDate: _expirationDate });
+
+        _batchGrantRole(
+            _directRental.roles,
+            _directRental.rolesData,
+            _directRental.tokenAddress,
+            _directRental.tokenId,
+            _directRental.lender,
+            _directRental.borrower,
+            _expirationDate,
+            true
+        );
+
+        emit RentalStarted(
+            DIRECT_RENTAL_NONCE,
+            _directRental.tokenAddress,
+            _directRental.tokenId,
+            _directRental.lender,
+            _directRental.borrower,
+            _expirationDate
+        );
+    }
+
+    /**
+     * @dev Validates the create direct rental.
+     * @param _directRental The direct rental struct.
+     */
+    function _validateCreateDirectRental(DirectRental memory _directRental) internal view {
+        require(_directRental.duration <= maxDeadline, "OriumMarketplace: Duration is greater than max deadline");
+        require(msg.sender == _directRental.lender, "OriumMarketplace: Sender and Lender mismatch");
+        require(_directRental.roles.length > 0, "OriumMarketplace: roles should not be empty");
+        require(
+            _directRental.roles.length == _directRental.rolesData.length,
+            "OriumMarketplace: roles and rolesData should have the same length"
+        );
+    }
+
+    /**
+     * @notice Cancels a direct rental.
+     * @dev The lender needs to approve marketplace to revoke the roles.
+     * @param _directRental The direct rental struct.
+     */
+    function cancelDirectRental(DirectRental memory _directRental) external {
+        bytes32 _hashedDirectRental = hashDirectRental(_directRental);
+
+        _validateCancelDirectRental(_directRental, _hashedDirectRental);
+
+        rentals[_hashedDirectRental].expirationDate = uint64(block.timestamp);
+
+        _batchRevokeRole(
+            _directRental.roles,
+            _directRental.tokenAddress,
+            _directRental.tokenId,
+            _directRental.lender,
+            _directRental.borrower
+        );
+
+        emit RentalEnded(
+            DIRECT_RENTAL_NONCE,
+            _directRental.tokenAddress,
+            _directRental.tokenId,
+            _directRental.lender,
+            _directRental.borrower
+        );
+    }
+
+    function _validateCancelDirectRental(DirectRental memory _directRental, bytes32 _hashedDirectRental) internal view {
+        require(isCreated[_hashedDirectRental], "OriumMarketplace: Direct rental not created");
+        require(
+            rentals[_hashedDirectRental].expirationDate > block.timestamp,
+            "OriumMarketplace: Direct rental expired"
+        );
+        require(
+            msg.sender == _directRental.lender || msg.sender == _directRental.borrower,
+            "OriumMarketplace: Sender and Lender/Borrower mismatch"
+        );
+    }
+
     /** ######### Getters ########### **/
 
     /**
@@ -522,6 +632,30 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
                         _offer.deadline,
                         _offer.roles,
                         _offer.rolesData
+                    )
+                )
+            );
+    }
+
+    /**
+     * @notice Gets the direct rental hash.
+     * @param _directRental The direct rental struct to be hashed.
+     */
+    function hashDirectRental(DirectRental memory _directRental) public view returns (bytes32) {
+        return
+            _hashTypedDataV4(
+                keccak256(
+                    abi.encode(
+                        keccak256(
+                            "DirectRental(address tokenAddress,uint256 tokenId,address lender,address borrower,uint64 duration,bytes32[] roles,bytes[] rolesData)"
+                        ),
+                        _directRental.tokenAddress,
+                        _directRental.tokenId,
+                        _directRental.lender,
+                        _directRental.borrower,
+                        _directRental.duration,
+                        _directRental.roles,
+                        _directRental.rolesData
                     )
                 )
             );

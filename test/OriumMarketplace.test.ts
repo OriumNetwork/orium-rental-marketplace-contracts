@@ -5,8 +5,8 @@ import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import { deployMarketplaceContracts } from './fixtures/OriumMarketplaceFixture'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
-import { FeeInfo, RentalOffer, RoyaltyInfo } from '../utils/types'
-import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR } from '../utils/constants'
+import { DirectRental, FeeInfo, RentalOffer, RoyaltyInfo } from '../utils/types'
+import { AddressZero, DIRECT_RENTAL_NONCE, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
 
@@ -27,7 +27,7 @@ describe('OriumMarketplace', () => {
   let borrower: SignerWithAddress
 
   // Values to be used across tests
-  const maxDeadline = 1000
+  const maxDeadline = THREE_MONTHS
   const feeInfo: FeeInfo = {
     feePercentageInWei: toWei('5'),
     isCustomFee: true,
@@ -47,41 +47,45 @@ describe('OriumMarketplace', () => {
 
   describe('Main Functions', async () => {
     describe('Rental Functions', async () => {
-      let rentalOffer: RentalOffer
       const duration = ONE_HOUR
       const tokenId = 1
 
       beforeEach(async () => {
         await mockERC721.mint(lender.address, tokenId)
         await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC721.address, marketplace.address, true)
-        const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
-        rentalOffer = {
-          nonce: `0x${randomBytes(32).toString('hex')}`,
-          lender: lender.address,
-          borrower: AddressZero,
-          tokenAddress: mockERC721.address,
-          tokenId,
-          feeTokenAddress: mockERC20.address,
-          feeAmountPerSecond: toWei('0'),
-          deadline: blockTimestamp + ONE_DAY,
-          roles: [USER_ROLE],
-          rolesData: [EMPTY_BYTES],
-        }
-
-        await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
-
-        const royaltyInfo: RoyaltyInfo = {
-          creator: creator.address,
-          royaltyPercentageInWei: toWei('10'),
-          treasury: creatorTreasury.address,
-        }
-
-        await marketplace
-          .connect(creator)
-          .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
       })
 
-      describe('Rental Functions', async () => {
+      describe('Rental Offers', async () => {
+        let rentalOffer: RentalOffer
+
+        beforeEach(async () => {
+          await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
+
+          const royaltyInfo: RoyaltyInfo = {
+            creator: creator.address,
+            royaltyPercentageInWei: toWei('10'),
+            treasury: creatorTreasury.address,
+          }
+
+          await marketplace
+            .connect(creator)
+            .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+
+          const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+
+          rentalOffer = {
+            nonce: `0x${randomBytes(32).toString('hex')}`,
+            lender: lender.address,
+            borrower: AddressZero,
+            tokenAddress: mockERC721.address,
+            tokenId,
+            feeTokenAddress: mockERC20.address,
+            feeAmountPerSecond: toWei('0'),
+            deadline: blockTimestamp + ONE_DAY,
+            roles: [USER_ROLE],
+            rolesData: [EMPTY_BYTES],
+          }
+        })
         describe('When Rental Offer is not created', async () => {
           describe('Create Rental Offer', async () => {
             it('Should create a rental offer', async () => {
@@ -140,6 +144,12 @@ describe('OriumMarketplace', () => {
               rentalOffer.roles = []
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
                 'OriumMarketplace: roles should not be empty',
+              )
+            })
+            it("Should NOT create a rental offer if nonce is the direct rental's nonce", async () => {
+              rentalOffer.nonce = DIRECT_RENTAL_NONCE.toString()
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumMarketplace: Nonce cannot be 0',
               )
             })
           })
@@ -375,9 +385,9 @@ describe('OriumMarketplace', () => {
               await expect(marketplace.connect(borrower).endRental(rentalOffer))
                 .to.emit(marketplace, 'RentalEnded')
                 .withArgs(
+                  rentalOffer.nonce,
                   rentalOffer.tokenAddress,
                   rentalOffer.tokenId,
-                  rentalOffer.nonce,
                   rentalOffer.lender,
                   borrower.address,
                 )
@@ -423,9 +433,9 @@ describe('OriumMarketplace', () => {
               await expect(marketplace.connect(borrower).endRental(rentalOffer))
                 .to.emit(marketplace, 'RentalEnded')
                 .withArgs(
+                  rentalOffer.nonce,
                   rentalOffer.tokenAddress,
                   rentalOffer.tokenId,
-                  rentalOffer.nonce,
                   rentalOffer.lender,
                   borrower.address,
                 )
@@ -436,6 +446,99 @@ describe('OriumMarketplace', () => {
                 'OriumMarketplace: Rental ended',
               )
             })
+          })
+        })
+      })
+
+      describe('Direct Rentals', async function () {
+        let directRental: DirectRental
+        beforeEach(async () => {
+          directRental = {
+            tokenAddress: mockERC721.address,
+            tokenId,
+            lender: lender.address,
+            borrower: borrower.address,
+            duration,
+            roles: [USER_ROLE],
+            rolesData: [EMPTY_BYTES],
+          }
+        })
+        describe('Create Direct Rental', async () => {
+          it("Should create a direct rental if caller is the token's owner", async () => {
+            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+            const expirationDate = blockTimestamp + duration + 1
+            await expect(marketplace.connect(lender).createDirectRental(directRental))
+              .to.emit(marketplace, 'RentalStarted')
+              .withArgs(
+                DIRECT_RENTAL_NONCE,
+                mockERC721.address,
+                tokenId,
+                lender.address,
+                borrower.address,
+                expirationDate,
+              )
+          })
+          it('Should NOT create a direct rental if caller is not the token owner', async () => {
+            await expect(marketplace.connect(notOperator).createDirectRental(directRental)).to.be.revertedWith(
+              'OriumMarketplace: only token owner can call this function',
+            )
+          })
+          it("Should NOT create a direct rental if lender address is not the token's owner", async () => {
+            directRental.lender = creator.address
+            await expect(marketplace.connect(lender).createDirectRental(directRental)).to.be.revertedWith(
+              'OriumMarketplace: Sender and Lender mismatch',
+            )
+          })
+          it("Should NOT create a direct rental if roles and rolesData don't have the same length", async () => {
+            directRental.roles = [`0x${randomBytes(32).toString('hex')}`]
+            directRental.rolesData = [`0x${randomBytes(32).toString('hex')}`, `0x${randomBytes(32).toString('hex')}`]
+            await expect(marketplace.connect(lender).createDirectRental(directRental)).to.be.revertedWith(
+              'OriumMarketplace: roles and rolesData should have the same length',
+            )
+          })
+          it('Should NOT create a direct rental if roles or rolesData are empty', async () => {
+            directRental.roles = []
+            await expect(marketplace.connect(lender).createDirectRental(directRental)).to.be.revertedWith(
+              'OriumMarketplace: roles should not be empty',
+            )
+          })
+          it('Should NOT create a direct rental if expiration date is greater than maxDeadline', async () => {
+            directRental.duration += maxDeadline
+            await expect(marketplace.connect(lender).createDirectRental(directRental)).to.be.revertedWith(
+              'OriumMarketplace: Duration is greater than max deadline',
+            )
+          })
+        })
+        describe('Cancel Direct Rental', async () => {
+          beforeEach(async () => {
+            await marketplace.connect(lender).createDirectRental(directRental)
+          })
+          it('Should cancel a direct rental if caller is the lender', async () => {
+            await expect(marketplace.connect(lender).cancelDirectRental(directRental))
+              .to.emit(marketplace, 'RentalEnded')
+              .withArgs(DIRECT_RENTAL_NONCE, mockERC721.address, tokenId, lender.address, borrower.address)
+          })
+          it('Should cancel a direct rental if caller is the borrower', async () => {
+            await rolesRegistry.connect(borrower).setRoleApprovalForAll(mockERC721.address, marketplace.address, true)
+            await expect(marketplace.connect(borrower).cancelDirectRental(directRental))
+              .to.emit(marketplace, 'RentalEnded')
+              .withArgs(DIRECT_RENTAL_NONCE, mockERC721.address, tokenId, lender.address, borrower.address)
+          })
+          it('Should NOT cancel a direct rental if caller is neither borrower or lender', async () => {
+            await expect(marketplace.connect(notOperator).cancelDirectRental(directRental)).to.be.revertedWith(
+              'OriumMarketplace: Sender and Lender/Borrower mismatch',
+            )
+          })
+          it('Should NOT cancel a direct rental twice', async () => {
+            await marketplace.connect(lender).cancelDirectRental(directRental)
+            await expect(marketplace.connect(lender).cancelDirectRental(directRental)).to.be.revertedWith(
+              'OriumMarketplace: Direct rental expired',
+            )
+          })
+          it("Should NOT cancel a direct rental if rental doesn't exist", async () => {
+            await expect(
+              marketplace.connect(lender).cancelDirectRental({ ...directRental, duration: 0 }),
+            ).to.be.revertedWith('OriumMarketplace: Direct rental not created')
           })
         })
       })
