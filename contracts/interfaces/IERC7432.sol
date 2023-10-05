@@ -54,23 +54,14 @@ interface IERC7432 is IERC165 {
     /// @param _tokenAddress The token address.
     /// @param _operator The user approved to grant and revoke roles.
     /// @param _isApproved The approval status.
-    event RoleApprovalForAll(
-        address indexed _tokenAddress,
-        address indexed _operator,
-        bool _isApproved
-    );
+    event RoleApprovalForAll(address indexed _tokenAddress, address indexed _operator, bool _isApproved);
 
     /// @notice Emitted when a user is approved to manage the roles of an NFT on behalf of another user.
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _operator The user approved to grant and revoke roles.
     /// @param _isApproved The approval status.
-    event RoleApproval(
-        address indexed _tokenAddress,
-        uint256 indexed _tokenId,
-        address _operator,
-        bool _isApproved
-    );
+    event RoleApproval(address indexed _tokenAddress, uint256 indexed _tokenId, address _operator, bool _isApproved);
 
     /** External Functions **/
 
@@ -97,12 +88,7 @@ interface IERC7432 is IERC165 {
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _grantee The user that receives the role revocation.
-    function revokeRole(
-        bytes32 _role,
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _grantee
-    ) external;
+    function revokeRole(bytes32 _role, address _tokenAddress, uint256 _tokenId, address _grantee) external;
 
     /// @notice Grants a role on behalf of a user.
     /// @param _role The role identifier.
@@ -142,23 +128,14 @@ interface IERC7432 is IERC165 {
     /// @param _tokenAddress The token address.
     /// @param _operator The user approved to grant and revoke roles.
     /// @param _approved The approval status.
-    function setRoleApprovalForAll(
-        address _tokenAddress,
-        address _operator,
-        bool _approved
-    ) external;
+    function setRoleApprovalForAll(address _tokenAddress, address _operator, bool _approved) external;
 
     /// @notice Approves operator to grant and revoke roles of an NFT on behalf of another user.
     /// @param _tokenAddress The token address.
     /// @param _tokenId The token identifier.
     /// @param _operator The user approved to grant and revoke roles.
     /// @param _approved The approval status.
-    function approveRole(
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _operator,
-        bool _approved
-    ) external;
+    function approveRole(address _tokenAddress, uint256 _tokenId, address _operator, bool _approved) external;
 
     /** View Functions **/
 
