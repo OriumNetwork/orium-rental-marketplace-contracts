@@ -28,7 +28,7 @@ async function main() {
   const deployerAddress = await deployer.getAddress()
   confirmOrDie(`Deploying ${CONTRACT_NAME} contract on: ${NETWORK} network with ${deployerAddress}. Continue?`)
 
-  const ContractFactory = await ethers.getContractFactory(CONTRACT_NAME)
+  const ContractFactory = await ethers.getContractFactory(CONTRACT_NAME, deployer)
   const contract = await upgrades.deployProxy(ContractFactory, INITIALIZER_ARGUMENTS)
   await contract.deployed()
   print(colors.success, `${CONTRACT_NAME} deployed to: ${contract.address}`)
