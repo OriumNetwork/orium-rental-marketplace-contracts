@@ -8,9 +8,12 @@
     "clean": "npx hardhat clean",
     "lint": "npx eslint .",
     "lint-staged": "npx lint-staged",
-    "lint-fix": "npx eslint . --fix && npx prettier --write ."
+    "lint-fix": "npx eslint . --fix && npx prettier --write .",
+    "deploy:mumbai": "npx hardhat run --network mumbai scripts/01-deploy.ts",
+    "deploy:polygon": "npx hardhat run --network polygon scripts/01-deploy.ts"
   },
   "dependencies": {
+    "@govtechsg/ethers-aws-kms-signer": "^2.1.0",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
     "@openzeppelin/contracts": "^4.8.0-rc.1",
     "@openzeppelin/contracts-upgradeable": "^4.8.0-rc.1",
