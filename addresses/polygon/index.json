@@ -4,5 +4,8 @@
   },
   "RolesRegistry": {
     "address": "0xB2aD616e84e1eF7A9ED0fA3169AAF31Ee51EA824"
+  },
+  "KMSDeployer": {
+    "address": ""
   }
 }

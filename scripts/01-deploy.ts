@@ -45,9 +45,33 @@ async function main() {
 
   console.log(deploymentInfo)
 
-  updateJsonFile(`config/${NETWORK}/index.json`, deploymentInfo)
+  updateJsonFile(`addresses/${NETWORK}/index.json`, deploymentInfo)
 
   print(colors.success, 'Config files updated!')
+
+  try {
+    print(colors.highlight, 'Transferring proxy admin ownership...')
+    const abi = [
+      {
+        inputs: [
+          {
+            internalType: 'address',
+            name: 'newOwner',
+            type: 'address',
+          },
+        ],
+        name: 'transferOwnership',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+    ]
+    const proxyAdminContract = new ethers.Contract(deploymentInfo[CONTRACT_NAME].proxyAdmin, abi, deployer)
+    await proxyAdminContract.transferOwnership(OPERATOR_ADDRESS)
+    print(colors.success, `Proxy admin ownership transferred to: ${OPERATOR_ADDRESS}`)
+  } catch (e) {
+    print(colors.error, `Error transferring proxy admin ownership: ${e}`)
+  }
 
   print(colors.highlight, 'Verifying contract on Etherscan...')
   await hre.run('verify:verify', {
