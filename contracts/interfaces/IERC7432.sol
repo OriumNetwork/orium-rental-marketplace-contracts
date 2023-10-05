@@ -4,26 +4,26 @@ pragma solidity 0.8.9;
 
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
+struct RoleData {
+    uint64 expirationDate;
+    bool revocable;
+    bytes data;
+}
+
+struct RoleAssignment {
+    bytes32 role;
+    address tokenAddress;
+    uint256 tokenId;
+    address grantor;
+    address grantee;
+    uint64 expirationDate;
+    bytes data;
+}
+
 /// @title ERC-7432 Non-Fungible Token Roles
 /// @dev See https://eips.ethereum.org/EIPS/eip-7432
 /// Note: the ERC-165 identifier for this interface is 0x04984ac8.
 interface IERC7432 is IERC165 {
-    struct RoleData {
-        uint64 expirationDate;
-        bool revocable;
-        bytes data;
-    }
-
-    struct RoleAssignment {
-        bytes32 role;
-        address tokenAddress;
-        uint256 tokenId;
-        address grantor;
-        address grantee;
-        uint64 expirationDate;
-        bytes data;
-    }
-
     /** Events **/
 
     /// @notice Emitted when a role is granted.
@@ -64,11 +64,7 @@ interface IERC7432 is IERC165 {
     /// @param _tokenAddress The token address.
     /// @param _operator The user approved to grant and revoke roles.
     /// @param _isApproved The approval status.
-    event RoleApprovalForAll(
-        address indexed _tokenAddress,
-        address indexed _operator,
-        bool _isApproved
-    );
+    event RoleApprovalForAll(address indexed _tokenAddress, address indexed _operator, bool _isApproved);
 
     /** External Functions **/
 
@@ -98,11 +94,7 @@ interface IERC7432 is IERC165 {
     /// @param _tokenAddress The token address.
     /// @param _operator The user approved to grant and revoke roles.
     /// @param _approved The approval status.
-    function setRoleApprovalForAll(
-        address _tokenAddress,
-        address _operator,
-        bool _approved
-    ) external;
+    function setRoleApprovalForAll(address _tokenAddress, address _operator, bool _approved) external;
 
     /** View Functions **/
 

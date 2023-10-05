@@ -1,6 +1,6 @@
 import { ethers } from 'ethers'
 
-export const RolesRegistryAddress = '0x4c7E4a30a749d78935ED7674590026f7b74AFea0' // RolesRegistry has the same address on all networks
+export const RolesRegistryAddress = '0xB2aD616e84e1eF7A9ED0fA3169AAF31Ee51EA824' // RolesRegistry has the same address on all networks
 export const ONE_DAY = 60 * 60 * 24
 export const ONE_HOUR = 60 * 60
 export const THREE_MONTHS = 60 * 60 * 24 * 30 * 3
