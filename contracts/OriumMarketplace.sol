@@ -4,7 +4,7 @@ pragma solidity 0.8.9;
 
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC7432 } from "./interfaces/IERC7432.sol";
+import { IERC7432, RoleAssignment } from "./interfaces/IERC7432.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -442,16 +442,20 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         address _rolesRegistry,
         bool _revocable
     ) internal {
-        IERC7432(_rolesRegistry).grantRoleFrom(
-            _role,
-            _tokenAddress,
-            _tokenId,
-            _grantor,
-            _grantee,
-            _expirationDate,
-            _revocable,
-            _data
-        );
+        RoleAssignment memory _roleAssignment = RoleAssignment({
+            role: _role,
+            tokenAddress: _tokenAddress,
+            tokenId: _tokenId,
+            grantor: _grantor,
+            grantee: _grantee,
+            expirationDate: _expirationDate,
+            data: _data
+        });
+        if (_revocable) {
+            IERC7432(_rolesRegistry).grantRevocableRoleFrom(_roleAssignment);
+        } else {
+            IERC7432(_rolesRegistry).grantRoleFrom(_roleAssignment);
+        }
     }
 
     /**

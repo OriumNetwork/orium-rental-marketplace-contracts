@@ -10,7 +10,17 @@ import 'hardhat-contract-sizer'
 
 dotenv.config()
 
-const { ENVIRONMENT, DEFENDER_TEAM_API_KEY, DEFENDER_TEAM_API_SECRET_KEY, MUMBAI_PROVIDER_URL } = process.env
+const {
+  ENVIRONMENT,
+  DEFENDER_TEAM_API_KEY,
+  DEFENDER_TEAM_API_SECRET_KEY,
+  MUMBAI_PROVIDER_URL,
+  POLYGON_PROVIDER_URL,
+  DEV_PRIVATE_KEY,
+  PROD_PRIVATE_KEY,
+  POLYGONSCAN_API_KEY,
+  ETHER_SCAN_API_KEY,
+} = process.env
 
 const BASE_CONFIG = {
   solidity: {
@@ -20,11 +30,18 @@ const BASE_CONFIG = {
       runs: 200,
     },
   },
+  etherscan: {
+    apiKey: {
+      polygon: POLYGONSCAN_API_KEY,
+      polygonMumbai: POLYGONSCAN_API_KEY,
+      goerli: ETHER_SCAN_API_KEY,
+    },
+  },
   networks: {
     hardhat: {
       forking: {
         url: MUMBAI_PROVIDER_URL,
-        blockNumber: 40611057,
+        blockNumber: 40877850,
       },
     },
   },
@@ -46,6 +63,24 @@ const BASE_CONFIG = {
 
 const PROD_CONFIG = {
   ...BASE_CONFIG,
+  networks: {
+    hardhat: {
+      forking: {
+        url: MUMBAI_PROVIDER_URL,
+        blockNumber: 40877850,
+      },
+    },
+    mumbai: {
+      chainId: 80001,
+      url: MUMBAI_PROVIDER_URL,
+      accounts: [DEV_PRIVATE_KEY],
+    },
+    polygon: {
+      chainId: 137,
+      url: POLYGON_PROVIDER_URL,
+      accounts: [PROD_PRIVATE_KEY],
+    },
+  },
   defender: {
     apiKey: DEFENDER_TEAM_API_KEY,
     apiSecret: DEFENDER_TEAM_API_SECRET_KEY,
