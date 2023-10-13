@@ -79,8 +79,6 @@ const PROD_CONFIG = {
       chainId: 137,
       url: POLYGON_PROVIDER_URL,
       accounts: [PROD_PRIVATE_KEY],
-      gas: 80000000000,
-      gasPrice: 80000000000,
     },
   },
   defender: {
