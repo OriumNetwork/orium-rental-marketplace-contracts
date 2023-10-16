@@ -1,11 +1,17 @@
 {
-  "Multisig": {
-    "address": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8"
-  },
-  "RolesRegistry": {
-    "address": "0xB2aD616e84e1eF7A9ED0fA3169AAF31Ee51EA824"
-  },
-  "KMSDeployer": {
-    "address": ""
-  }
+	"Multisig": {
+		"address": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8"
+	},
+	"RolesRegistry": {
+		"address": "0xB2aD616e84e1eF7A9ED0fA3169AAF31Ee51EA824"
+	},
+	"KMSDeployer": {
+		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
+	},
+	"OriumMarketplace": {
+		"address": "0x1A9027FE6DC7675C108c6c801bBf21D902efA1A9",
+		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
+		"implementation": "0x17ecC3620cE4062fA5eC4298a6BDc6d5A25d75Fe",
+		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
+	}
 }

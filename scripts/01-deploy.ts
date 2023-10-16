@@ -22,6 +22,11 @@ const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, RolesRegistry.address
 
 const networkConfig: any = network.config
 const provider = new ethers.providers.JsonRpcProvider(networkConfig.url || '')
+const FEE_DATA: any = {
+  maxFeePerGas: ethers.utils.parseUnits('100', 'gwei'),
+  maxPriorityFeePerGas: ethers.utils.parseUnits('5', 'gwei'),
+}
+provider.getFeeData = async () => FEE_DATA
 const deployer = new AwsKmsSigner(kmsCredentials).connect(provider)
 
 async function main() {
