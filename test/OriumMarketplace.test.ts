@@ -9,6 +9,7 @@ import { DirectRental, FeeInfo, RentalOffer, RoyaltyInfo } from '../utils/types'
 import { AddressZero, DIRECT_RENTAL_NONCE, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
+import { getSignedDirectRentalHash } from '../utils/ecdsa'
 
 describe('OriumMarketplace', () => {
   let marketplace: Contract
@@ -452,6 +453,7 @@ describe('OriumMarketplace', () => {
 
       describe('Direct Rentals', async function () {
         let directRental: DirectRental
+        let directRentalHash: string
         beforeEach(async () => {
           directRental = {
             tokenAddress: mockERC721.address,
@@ -462,20 +464,31 @@ describe('OriumMarketplace', () => {
             roles: [USER_ROLE],
             rolesData: [EMPTY_BYTES],
           }
+          const chainId = (await ethers.provider.getNetwork()).chainId
+          directRentalHash = getSignedDirectRentalHash(
+            directRental,
+            ethers.constants.HashZero,
+            ethers.constants.HashZero,
+            chainId,
+            marketplace.address,
+          )
         })
         describe('Create Direct Rental', async () => {
           it("Should create a direct rental if caller is the token's owner", async () => {
             const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
             const expirationDate = blockTimestamp + duration + 1
             await expect(marketplace.connect(lender).createDirectRental(directRental))
-              .to.emit(marketplace, 'RentalStarted')
+              .to.emit(marketplace, 'DirectRentalStarted')
               .withArgs(
-                DIRECT_RENTAL_NONCE,
+                directRentalHash,
                 mockERC721.address,
                 tokenId,
                 lender.address,
                 borrower.address,
                 expirationDate,
+                directRental.duration,
+                directRental.roles,
+                directRental.rolesData,
               )
           })
           it('Should NOT create a direct rental if caller is not the token owner', async () => {
@@ -515,14 +528,14 @@ describe('OriumMarketplace', () => {
           })
           it('Should cancel a direct rental if caller is the lender', async () => {
             await expect(marketplace.connect(lender).cancelDirectRental(directRental))
-              .to.emit(marketplace, 'RentalEnded')
-              .withArgs(DIRECT_RENTAL_NONCE, mockERC721.address, tokenId, lender.address, borrower.address)
+              .to.emit(marketplace, 'DirectRentalEnded')
+              .withArgs(directRentalHash, lender.address)
           })
           it('Should cancel a direct rental if caller is the borrower', async () => {
             await rolesRegistry.connect(borrower).setRoleApprovalForAll(mockERC721.address, marketplace.address, true)
             await expect(marketplace.connect(borrower).cancelDirectRental(directRental))
-              .to.emit(marketplace, 'RentalEnded')
-              .withArgs(DIRECT_RENTAL_NONCE, mockERC721.address, tokenId, lender.address, borrower.address)
+              .to.emit(marketplace, 'DirectRentalEnded')
+              .withArgs(directRentalHash, lender.address)
           })
           it('Should NOT cancel a direct rental if caller is neither borrower or lender', async () => {
             await expect(marketplace.connect(notOperator).cancelDirectRental(directRental)).to.be.revertedWith(

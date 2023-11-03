@@ -186,6 +186,35 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      */
     event RolesRegistrySet(address indexed tokenAddress, address indexed rolesRegistry);
 
+    /**
+     * @param directRentalHash The hash of the direct rental
+     * @param tokenAddress The address of the contract of the NFT rented
+     * @param tokenId The tokenId of the rented NFT
+     * @param lender The address of the lender
+     * @param borrower The address of the borrower
+     * @param expirationDate The expiration date of the rental
+     * @param duration The duration of the rental
+     * @param roles The array of roles to be assigned to the borrower
+     * @param rolesData The array of data for each role
+     */
+    event DirectRentalStarted(
+        bytes32 indexed directRentalHash,
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        address lender,
+        address borrower,
+        uint64 expirationDate,
+        uint256 duration,
+        bytes32[] roles,
+        bytes[] rolesData
+    );
+
+    /**
+     * @param directRentalHash The hash of the direct rental
+     * @param lender The address of the user lending the NFT
+     */
+    event DirectRentalEnded(bytes32 indexed directRentalHash, address indexed lender);
+
     /** ######### Modifiers ########### **/
 
     /**
@@ -536,6 +565,9 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         isCreated[_hashedDirectRental] = true;
         rentals[_hashedDirectRental] = Rental({ borrower: _directRental.borrower, expirationDate: _expirationDate });
 
+        //hash to uint256
+        uint256 _directRentalNonce = uint256(_hashedDirectRental);
+
         _batchGrantRole(
             _directRental.roles,
             _directRental.rolesData,
@@ -547,13 +579,16 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             true
         );
 
-        emit RentalStarted(
-            DIRECT_RENTAL_NONCE,
+        emit DirectRentalStarted(
+            _hashedDirectRental,
             _directRental.tokenAddress,
             _directRental.tokenId,
             _directRental.lender,
             _directRental.borrower,
-            _expirationDate
+            _expirationDate,
+            _directRental.duration,
+            _directRental.roles,
+            _directRental.rolesData
         );
     }
 
@@ -591,13 +626,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _directRental.borrower
         );
 
-        emit RentalEnded(
-            DIRECT_RENTAL_NONCE,
-            _directRental.tokenAddress,
-            _directRental.tokenId,
-            _directRental.lender,
-            _directRental.borrower
-        );
+        emit DirectRentalEnded(_hashedDirectRental, _directRental.lender);
     }
 
     function _validateCancelDirectRental(DirectRental memory _directRental, bytes32 _hashedDirectRental) internal view {

@@ -12,9 +12,9 @@
     }
   ],
   "impls": {
-    "54a4d6a09a43613c32ca9e07613d8cc56e3791a26d99d9ce5db1c1f1191d6a3f": {
+    "cc20eb06005e49444aa4a621e83df0d9277cf1b8f4d02c1eac9ae07ea1a469c6": {
       "address": "0x453331ECFa1e422A1b8226b44D2Cd843d8b0C542",
-      "txHash": "0xda4d7fe4aaebe61e1e55f2e47129ee4d85a28e97e39d4f315bb297de40ae8b01",
+      "txHash": "0x572005a4ee8be37186a5c446e123cea29c318443982b78046c9e97079fca4b25",
       "layout": {
         "solcVersion": "0.8.9",
         "storage": [
@@ -127,7 +127,7 @@
             "label": "feeInfo",
             "offset": 0,
             "slot": "206",
-            "type": "t_mapping(t_address,t_struct(FeeInfo)7010_storage)",
+            "type": "t_mapping(t_address,t_struct(FeeInfo)2609_storage)",
             "contract": "OriumMarketplace",
             "src": "contracts/OriumMarketplace.sol:41"
           },
@@ -135,7 +135,7 @@
             "label": "royaltyInfo",
             "offset": 0,
             "slot": "207",
-            "type": "t_mapping(t_address,t_struct(RoyaltyInfo)7005_storage)",
+            "type": "t_mapping(t_address,t_struct(RoyaltyInfo)2604_storage)",
             "contract": "OriumMarketplace",
             "src": "contracts/OriumMarketplace.sol:44"
           },
@@ -159,7 +159,7 @@
             "label": "rentals",
             "offset": 0,
             "slot": "210",
-            "type": "t_mapping(t_bytes32,t_struct(Rental)6998_storage)",
+            "type": "t_mapping(t_bytes32,t_struct(Rental)2597_storage)",
             "contract": "OriumMarketplace",
             "src": "contracts/OriumMarketplace.sol:53"
           }
@@ -193,11 +193,11 @@
             "label": "mapping(address => mapping(uint256 => uint64))",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_address,t_struct(FeeInfo)7010_storage)": {
+          "t_mapping(t_address,t_struct(FeeInfo)2609_storage)": {
             "label": "mapping(address => struct OriumMarketplace.FeeInfo)",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_address,t_struct(RoyaltyInfo)7005_storage)": {
+          "t_mapping(t_address,t_struct(RoyaltyInfo)2604_storage)": {
             "label": "mapping(address => struct OriumMarketplace.RoyaltyInfo)",
             "numberOfBytes": "32"
           },
@@ -205,7 +205,7 @@
             "label": "mapping(bytes32 => bool)",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_bytes32,t_struct(Rental)6998_storage)": {
+          "t_mapping(t_bytes32,t_struct(Rental)2597_storage)": {
             "label": "mapping(bytes32 => struct OriumMarketplace.Rental)",
             "numberOfBytes": "32"
           },
@@ -213,7 +213,7 @@
             "label": "mapping(uint256 => uint64)",
             "numberOfBytes": "32"
           },
-          "t_struct(FeeInfo)7010_storage": {
+          "t_struct(FeeInfo)2609_storage": {
             "label": "struct OriumMarketplace.FeeInfo",
             "members": [
               {
@@ -231,7 +231,7 @@
             ],
             "numberOfBytes": "64"
           },
-          "t_struct(Rental)6998_storage": {
+          "t_struct(Rental)2597_storage": {
             "label": "struct OriumMarketplace.Rental",
             "members": [
               {
@@ -249,7 +249,7 @@
             ],
             "numberOfBytes": "32"
           },
-          "t_struct(RoyaltyInfo)7005_storage": {
+          "t_struct(RoyaltyInfo)2604_storage": {
             "label": "struct OriumMarketplace.RoyaltyInfo",
             "members": [
               {
