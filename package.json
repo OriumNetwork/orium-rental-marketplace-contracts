@@ -7,10 +7,15 @@
     "coverage": "npx hardhat coverage",
     "clean": "npx hardhat clean",
     "lint": "npx eslint .",
-    "lint-staged": "npx lint-staged",
-    "lint-fix": "npx eslint . --fix && npx prettier --write .",
+    "lint:staged": "npx lint-staged",
+    "lint:fix": "npx eslint . --fix && npx prettier --write .",
     "deploy:mumbai": "npx hardhat run --network mumbai scripts/01-deploy.ts",
     "deploy:polygon": "npx hardhat run --network polygon scripts/01-deploy.ts"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run lint:staged"
+    }
   },
   "dependencies": {
     "@govtechsg/ethers-aws-kms-signer": "^2.1.0",
