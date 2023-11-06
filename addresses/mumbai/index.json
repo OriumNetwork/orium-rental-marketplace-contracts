@@ -11,7 +11,7 @@
 	"OriumMarketplace": {
 		"address": "0x037c0ae89bAE6d86476074CE3ef4F235467B1B79",
 		"operator": "0x61c22C4e709c3027ecCCdd6ee562BB583Db9a17f",
-		"implementation": "0x2711383C11acA1Ab43d94D8006745331ca23b95B",
+		"implementation": "0x92Ea5e9D5341F10eb6291BB72F3C9e617090952C",
 		"proxyAdmin": "0x3033689fB46FDe57789A8c84AD1C9bD3A8217985"
 	}
 }
