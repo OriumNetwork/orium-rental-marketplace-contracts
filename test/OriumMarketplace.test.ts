@@ -475,8 +475,6 @@ describe('OriumMarketplace', () => {
         })
         describe('Create Direct Rental', async () => {
           it("Should create a direct rental if caller is the token's owner", async () => {
-            const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
-            const expirationDate = blockTimestamp + duration + 1
             await expect(marketplace.connect(lender).createDirectRental(directRental))
               .to.emit(marketplace, 'DirectRentalStarted')
               .withArgs(
@@ -485,7 +483,6 @@ describe('OriumMarketplace', () => {
                 tokenId,
                 lender.address,
                 borrower.address,
-                expirationDate,
                 directRental.duration,
                 directRental.roles,
                 directRental.rolesData,

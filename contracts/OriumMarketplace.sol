@@ -192,7 +192,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param tokenId The tokenId of the rented NFT
      * @param lender The address of the lender
      * @param borrower The address of the borrower
-     * @param expirationDate The expiration date of the rental
      * @param duration The duration of the rental
      * @param roles The array of roles to be assigned to the borrower
      * @param rolesData The array of data for each role
@@ -203,7 +202,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         uint256 indexed tokenId,
         address lender,
         address borrower,
-        uint64 expirationDate,
         uint256 duration,
         bytes32[] roles,
         bytes[] rolesData
@@ -585,7 +583,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
             _directRental.tokenId,
             _directRental.lender,
             _directRental.borrower,
-            _expirationDate,
             _directRental.duration,
             _directRental.roles,
             _directRental.rolesData
