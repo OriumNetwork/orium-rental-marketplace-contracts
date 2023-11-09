@@ -34,11 +34,15 @@ async function main() {
   )
 
   print(colors.highlight, `Deploying ProxyAdmin to ${NETWORK}...`)
+  // Deploy ProxyAdmin and update network files, if there is a ProxyAdmin already deployed it will use it
   const proxyAdminAddress = await upgrades.deployProxyAdmin(deployer)
   print(colors.success, `ProxyAdmin deployed to ${NETWORK} at ${proxyAdminAddress}`)
 
   print(colors.highlight, `Deploying implementation to ${NETWORK}...`)
   const ImplementationFactory = await ethers.getContractFactory(CONTRACT_NAME, deployer)
+  // We are not using upgrades.deployImplementation here because it will only update the storage layout of the implementation
+  // And it will clash when we try to forceImport the proxy network files
+  // This way we can have both (implementation and proxy) imported in the network files
   const implementation = await ImplementationFactory.deploy()
   await implementation.deployed()
   print(colors.success, `Implementation deployed to ${NETWORK} at ${implementation.address}`)
@@ -51,30 +55,32 @@ async function main() {
     deployer,
   )
 
-  const salt = '0x00000000000000000000000000000000000000008b99e5a778edb02572010000'
-  const initData = ImplementationFactory.interface.encodeFunctionData('initialize', INITIALIZER_ARGUMENTS)
-  const TransparentUpgradeableProxyFactory = await ethers.getContractFactory(
-    TransparentUpgradeableProxy.abi,
-    TransparentUpgradeableProxy.bytecode,
-    deployer,
-  )
+  // encoding the implementation initialize function call with the arguments
+  const implementationInitData = ImplementationFactory.interface.encodeFunctionData('initialize', INITIALIZER_ARGUMENTS)
+  // encoding the TransparentUpgradeableProxy constructor call with the implementation address, proxy admin address and implementation initialize function call
+  // this is the bytecode that will be deployed with CREATE2
   const bytecode = ethers.utils.concat([
-    TransparentUpgradeableProxyFactory.bytecode,
+    TransparentUpgradeableProxy.bytecode,
     ethers.utils.defaultAbiCoder.encode(
       ['address', 'address', 'bytes'],
-      [implementation.address, proxyAdminAddress, initData],
+      // Here we are passing the implementation address, proxy admin address that will be set for TransparentUpgradeableProxy
+      // and initialize data that will be called on implementation with delegatecall (implementationInitData)
+      [implementation.address, proxyAdminAddress, implementationInitData],
     ),
   ])
+  const salt = '0x00000000000000000000000000000000000000008b99e5a778edb02572010000'
 
+  // computing the proxy address that will be deployed with CREATE2
   const proxyContractAddress = await create2Factory.computeAddress(salt, keccak256(bytecode))
   print(colors.highlight, `Proxy will be deployed to ${proxyContractAddress}, deploying...`)
 
+  // deploying the proxy with CREATE2, this will deploy the bytecode we computed above
   const tx = await create2Factory.deploy(salt, bytecode)
   print(colors.highlight, `Waiting for transaction to be mined..., tx: ${tx.hash}`)
   await tx.wait()
   print(colors.success, `Proxy deployed to ${proxyContractAddress}`)
 
-  // Force upgrade proxy
+  // We need this to import to the network files the implementation WITH proxy address
   try {
     print(colors.highlight, `Fetching proxy network files...`)
     await upgrades.forceImport(proxyContractAddress, ImplementationFactory, { kind: 'transparent' })
@@ -84,6 +90,8 @@ async function main() {
     console.error(e)
   }
 
+  // it will fail to verify proxy because transaction hash is different than the one used to verify
+  // but it will still verify the implementation and link the proxy to the implementation
   try {
     print(colors.highlight, `Verifying proxy...`)
     await hre.run('verify:verify', {
@@ -92,10 +100,11 @@ async function main() {
     })
     print(colors.success, `Proxy verified!`)
   } catch (e) {
-    // it will fail to verify proxy because transaction hash is different than the one used to verify
     /* print(colors.error, `Proxy not verified`)
     console.error(e) */
   }
+
+  // THE FOLLOWING CODE IS THE SAME AS THE 01-deploy.ts (previous deploy script)
 
   print(colors.highlight, 'Updating config files...')
   const deploymentInfo = {
