@@ -737,6 +737,17 @@ describe('OriumMarketplace', () => {
           ).to.be.revertedWith('Ownable: caller is not the owner')
         })
       })
+
+      describe('Default Roles Registry', async () => {
+        it('Should set the default roles registry for a collection', async () => {
+          await expect(marketplace.connect(operator).setDefaultRolesRegistry(rolesRegistry.address)).to.not.be.reverted
+        })
+        it('Should NOT set the default roles registry if caller is not the operator', async () => {
+          await expect(
+            marketplace.connect(notOperator).setDefaultRolesRegistry(rolesRegistry.address),
+          ).to.be.revertedWith('Ownable: caller is not the owner')
+        })
+      })
     })
   })
 })
