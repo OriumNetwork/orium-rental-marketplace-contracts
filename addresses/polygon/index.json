@@ -13,5 +13,8 @@
 		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
 		"implementation": "0x69C9457dC1FDf2E84C4e45402967f3b88Cc6FF00",
 		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
+	},
+	"ImmutableOwnerCreate2Factory": {
+		"address": "0x066f91a9Aa4C33D4ea4c12aBee6f4cb4e919F71d"
 	}
 }
