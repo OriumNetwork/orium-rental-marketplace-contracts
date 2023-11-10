@@ -8,23 +8,19 @@ import { IERC7432, RoleAssignment } from "./interfaces/IERC7432.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import { EIP712Upgradeable } from "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting NFTs
  * @dev This contract is used to manage NFTs rentals, powered by ERC-7432 Non-Fungible Token Roles
  * @author Orium Network Team - developers@orium.network
  */
-contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable, EIP712Upgradeable {
+contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
     /** ######### Constants ########### **/
 
     /// @dev 100 ether is 100%
     uint256 public constant MAX_PERCENTAGE = 100 ether;
     /// @dev 2.5 ether is 2.5%
     uint256 public constant DEFAULT_FEE_PERCENTAGE = 2.5 ether;
-
-    /// @dev Direct Rental nonce
-    uint256 public constant DIRECT_RENTAL_NONCE = 0;
 
     /** ######### Global Variables ########### **/
 
@@ -284,7 +280,7 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @param _offer The rental offer struct.
      */
     function _validateCreateRentalOffer(RentalOffer calldata _offer) internal view {
-        require(_offer.nonce != DIRECT_RENTAL_NONCE, "OriumMarketplace: Nonce cannot be 0");
+        require(_offer.nonce != 0, "OriumMarketplace: Nonce cannot be 0");
         require(msg.sender == _offer.lender, "OriumMarketplace: Sender and Lender mismatch");
         require(_offer.roles.length > 0, "OriumMarketplace: roles should not be empty");
         require(
@@ -563,9 +559,6 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         isCreated[_hashedDirectRental] = true;
         rentals[_hashedDirectRental] = Rental({ borrower: _directRental.borrower, expirationDate: _expirationDate });
 
-        //hash to uint256
-        uint256 _directRentalNonce = uint256(_hashedDirectRental);
-
         _batchGrantRole(
             _directRental.roles,
             _directRental.rolesData,
@@ -644,25 +637,20 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @notice Gets the rental offer hash.
      * @param _offer The rental offer struct to be hashed.
      */
-    function hashRentalOffer(RentalOffer memory _offer) public view returns (bytes32) {
+    function hashRentalOffer(RentalOffer memory _offer) public pure returns (bytes32) {
         return
-            _hashTypedDataV4(
-                keccak256(
-                    abi.encode(
-                        keccak256(
-                            "RentalOffer(address lender,address borrower,address tokenAddress,uint256 tokenId,address feeTokenAddress,uint256 feeAmountPerSecond,uint256 nonce,uint64 deadline,bytes32[] roles,bytes[] rolesData)"
-                        ),
-                        _offer.lender,
-                        _offer.borrower,
-                        _offer.tokenAddress,
-                        _offer.tokenId,
-                        _offer.feeTokenAddress,
-                        _offer.feeAmountPerSecond,
-                        _offer.nonce,
-                        _offer.deadline,
-                        _offer.roles,
-                        _offer.rolesData
-                    )
+            keccak256(
+                abi.encode(
+                    _offer.lender,
+                    _offer.borrower,
+                    _offer.tokenAddress,
+                    _offer.tokenId,
+                    _offer.feeTokenAddress,
+                    _offer.feeAmountPerSecond,
+                    _offer.nonce,
+                    _offer.deadline,
+                    _offer.roles,
+                    _offer.rolesData
                 )
             );
     }
@@ -671,22 +659,17 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
      * @notice Gets the direct rental hash.
      * @param _directRental The direct rental struct to be hashed.
      */
-    function hashDirectRental(DirectRental memory _directRental) public view returns (bytes32) {
+    function hashDirectRental(DirectRental memory _directRental) public pure returns (bytes32) {
         return
-            _hashTypedDataV4(
-                keccak256(
-                    abi.encode(
-                        keccak256(
-                            "DirectRental(address tokenAddress,uint256 tokenId,address lender,address borrower,uint64 duration,bytes32[] roles,bytes[] rolesData)"
-                        ),
-                        _directRental.tokenAddress,
-                        _directRental.tokenId,
-                        _directRental.lender,
-                        _directRental.borrower,
-                        _directRental.duration,
-                        _directRental.roles,
-                        _directRental.rolesData
-                    )
+            keccak256(
+                abi.encode(
+                    _directRental.tokenAddress,
+                    _directRental.tokenId,
+                    _directRental.lender,
+                    _directRental.borrower,
+                    _directRental.duration,
+                    _directRental.roles,
+                    _directRental.rolesData
                 )
             );
     }

@@ -9,7 +9,7 @@ import { DirectRental, FeeInfo, RentalOffer, RoyaltyInfo } from '../utils/types'
 import { AddressZero, DIRECT_RENTAL_NONCE, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
-import { getSignedDirectRentalHash } from '../utils/ecdsa'
+import { hashDirectRental } from '../utils/hash'
 
 describe('OriumMarketplace', () => {
   let marketplace: Contract
@@ -464,14 +464,7 @@ describe('OriumMarketplace', () => {
             roles: [USER_ROLE],
             rolesData: [EMPTY_BYTES],
           }
-          const chainId = (await ethers.provider.getNetwork()).chainId
-          directRentalHash = getSignedDirectRentalHash(
-            directRental,
-            ethers.constants.HashZero,
-            ethers.constants.HashZero,
-            chainId,
-            marketplace.address,
-          )
+          directRentalHash = hashDirectRental(directRental)
         })
         describe('Create Direct Rental', async () => {
           it("Should create a direct rental if caller is the token's owner", async () => {
