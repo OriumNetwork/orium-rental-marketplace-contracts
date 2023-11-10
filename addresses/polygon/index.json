@@ -9,10 +9,10 @@
 		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
 	},
 	"OriumMarketplace": {
-		"address": "0x1A9027FE6DC7675C108c6c801bBf21D902efA1A9",
+		"address": "0x4e9D2d1cC3af72C4e151f369a026c9519372955e",
 		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
-		"implementation": "0x69C9457dC1FDf2E84C4e45402967f3b88Cc6FF00",
-		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
+		"implementation": "0xc5Bb8c1B1B5aCEc7A9f21E33225734eC2C02e4CD",
+		"proxyAdmin": "0x803F64798cA02e3c5f70a1C21c4EaA73Fd39578F"
 	},
 	"IImmutableProxyCreate2Factory": {
 		"address": "0x47ee2432257DaF1BF3d2652fD1a7b30AE19fED13"
