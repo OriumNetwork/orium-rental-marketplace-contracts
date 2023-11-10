@@ -808,6 +808,15 @@ contract OriumMarketplace is Initializable, OwnableUpgradeable, PausableUpgradea
         emit RolesRegistrySet(_tokenAddress, _rolesRegistry);
     }
 
+    /**
+     * @notice Sets the default roles registry.
+     * @dev Only owner can set the default roles registry.
+     * @param _rolesRegistry The roles registry address.
+     */
+    function setDefaultRolesRegistry(address _rolesRegistry) external onlyOwner {
+        defaultRolesRegistry = _rolesRegistry;
+    }
+
     /** ######### Getters ########### **/
 
     /**
