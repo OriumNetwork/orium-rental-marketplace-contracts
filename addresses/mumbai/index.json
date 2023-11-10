@@ -9,9 +9,9 @@
 		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
 	},
 	"OriumMarketplace": {
-		"address": "0x037c0ae89bAE6d86476074CE3ef4F235467B1B79",
+		"address": "0x77766beEc578e6a6c2BF23f9f6577DC8Fa83Ef26",
 		"operator": "0x61c22C4e709c3027ecCCdd6ee562BB583Db9a17f",
-		"implementation": "0x92Ea5e9D5341F10eb6291BB72F3C9e617090952C",
+		"implementation": "0xB1E6FDAD3aB4Df7738D68c5cC4f9f419d46B6e1a",
 		"proxyAdmin": "0x3033689fB46FDe57789A8c84AD1C9bD3A8217985"
 	},
 	"ImmutableOwnerCreate2Factory": {
