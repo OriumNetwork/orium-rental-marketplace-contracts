@@ -8,6 +8,10 @@ import {
   abi as proxyAbi,
   bytecode as proxyBytecode,
 } from '@openzeppelin/upgrades-core/artifacts/@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json'
+import {
+  abi as proxyAdminAbi,
+  bytecode as proxyAdminBytecode,
+} from '@openzeppelin/upgrades-core/artifacts/@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol/ProxyAdmin.json'
 import { updateJsonFile } from '../utils/json'
 import { defaultAbiCoder as abi, concat } from 'ethers/lib/utils'
 import { Contract, ContractFactory } from 'ethers'
@@ -20,7 +24,7 @@ const kmsCredentials = {
 }
 
 const NETWORK = network.name as Network
-const { Multisig, RolesRegistry, ImmutableOwnerCreate2Factory } = addresses[NETWORK]
+const { Multisig, RolesRegistry, IImmutableProxyCreate2Factory } = addresses[NETWORK]
 
 const CONTRACT_NAME = 'OriumMarketplace'
 const OPERATOR_ADDRESS = Multisig.address
@@ -30,13 +34,18 @@ const SALT = '0x00000000000000000000000000000000000000008b99e5a778edb02572010000
 
 const networkConfig: any = network.config
 const provider = new ethers.providers.JsonRpcProvider(networkConfig.url || '')
+const FEE_DATA: any = {
+  maxFeePerGas: ethers.utils.parseUnits('215', 'gwei'),
+  maxPriorityFeePerGas: ethers.utils.parseUnits('5', 'gwei'),
+}
+provider.getFeeData = async () => FEE_DATA
 const deployer = new AwsKmsSigner(kmsCredentials).connect(provider)
 
 async function main() {
   const deployerAddress = await deployer.getAddress()
   const create2Factory = await ethers.getContractAt(
-    'IImmutableOwnerCreate2Factory',
-    ImmutableOwnerCreate2Factory.address,
+    'IImmutableProxyCreate2Factory',
+    IImmutableProxyCreate2Factory.address,
     deployer,
   )
 
@@ -45,8 +54,9 @@ async function main() {
   )
 
   print(colors.highlight, `Deploying ProxyAdmin to ${NETWORK}...`)
-  const ProxyAdminFactory = await ethers.getContractFactory('CustomProxyAdmin', deployer)
-  const proxyAdminAddress = await create2DeployWithFactory(create2Factory, ProxyAdminFactory, [OPERATOR_ADDRESS], SALT)
+  const ProxyAdminFactory = await ethers.getContractFactory(proxyAdminAbi, proxyAdminBytecode, deployer)
+  const callData = generateTransferOwnershipCallData(OPERATOR_ADDRESS)
+  const proxyAdminAddress = await create2DeployWithFactory(create2Factory, ProxyAdminFactory, [], SALT, callData)
   print(colors.success, `ProxyAdmin deployed to ${NETWORK} at ${proxyAdminAddress}`)
 
   print(colors.highlight, `Deploying implementation to ${NETWORK}...`)
@@ -57,8 +67,14 @@ async function main() {
   print(colors.highlight, `Deploying proxy to ${NETWORK} with CREATE2...`)
   const ProxyFactory = await ethers.getContractFactory(proxyAbi, proxyBytecode, deployer)
   const initializerData = ImplementationFactory.interface.encodeFunctionData('initialize', INITIALIZER_ARGUMENTS)
-  const proxyConstructorArgs = [implementationAddress, proxyAdminAddress, initializerData]
-  const proxyContractAddress = await create2DeployWithFactory(create2Factory, ProxyFactory, proxyConstructorArgs, SALT)
+  const proxyConstructorArgs = [implementationAddress, proxyAdminAddress, '0x']
+  const proxyContractAddress = await create2DeployWithFactory(
+    create2Factory,
+    ProxyFactory,
+    proxyConstructorArgs,
+    SALT,
+    initializerData,
+  )
   print(colors.success, `Proxy deployed to ${proxyContractAddress}`)
 
   // We need this to import to the network files the implementation WITH proxy address
@@ -103,7 +119,13 @@ async function main() {
   print(colors.success, 'Config files updated!')
 }
 
-async function create2DeployWithFactory(create2Factory: Contract, factory: ContractFactory, args: any[], salt: string) {
+async function create2DeployWithFactory(
+  create2Factory: Contract,
+  factory: ContractFactory,
+  args: any[],
+  salt: string,
+  callData?: string,
+) {
   if (factory.interface.deploy.inputs.length !== args.length) {
     throw new Error('Arguments length does not match factory inputs length')
   }
@@ -121,12 +143,39 @@ async function create2DeployWithFactory(create2Factory: Contract, factory: Contr
 
   const deploymentAddress = await create2Factory.computeAddress(salt, keccak256(bytecode))
   console.log('deploymentAddress: ', deploymentAddress)
-
-  const tx = await create2Factory.deploy(salt, bytecode)
+  let tx
+  if (callData) {
+    tx = await create2Factory.deployAndCall(salt, bytecode, callData)
+  } else {
+    tx = await create2Factory.deploy(salt, bytecode)
+  }
   print(colors.highlight, `Waiting for transaction to be mined..., tx: ${tx.hash}`)
   await tx.wait()
   print(colors.success, `Contract deployed to ${deploymentAddress}`)
   return deploymentAddress
+}
+
+function generateTransferOwnershipCallData(newOwner: string) {
+  // encode transferOwnership call with newOwner as argument
+  // to be call as adddress.call(transferOwnershipCallData)
+
+  const abi = [
+    {
+      inputs: [
+        {
+          internalType: 'address',
+          name: 'newOwner',
+          type: 'address',
+        },
+      ],
+      name: 'transferOwnership',
+      outputs: [],
+      stateMutability: 'nonpayable',
+      type: 'function',
+    },
+  ]
+
+  return new ethers.utils.Interface(abi).encodeFunctionData('transferOwnership', [newOwner])
 }
 
 main()
