@@ -1,6 +1,6 @@
 {
 	"Multisig": {
-		"address": "0x61c22C4e709c3027ecCCdd6ee562BB583Db9a17f"
+		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
 	},
 	"RolesRegistry": {
 		"address": "0xB1b599Ec67ad23AF7FAC240191319822e674571A"
@@ -9,10 +9,10 @@
 		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
 	},
 	"OriumMarketplace": {
-		"address": "0x77766beEc578e6a6c2BF23f9f6577DC8Fa83Ef26",
-		"operator": "0x61c22C4e709c3027ecCCdd6ee562BB583Db9a17f",
-		"implementation": "0xB1E6FDAD3aB4Df7738D68c5cC4f9f419d46B6e1a",
-		"proxyAdmin": "0x3033689fB46FDe57789A8c84AD1C9bD3A8217985"
+		"address": "0x0BA6c992049b3219e733424E24bE7829d7736f6b",
+		"operator": "0x04c8c6c56dab836f8bd62cb6884371507e706806",
+		"implementation": "0xAb8E668acD4FEF935D5DfD869410bf8704688a53",
+		"proxyAdmin": "0xC3154ccAC181eb9d71ccd53f29F425BDdD52d983"
 	},
 	"ImmutableOwnerCreate2Factory": {
 		"address": "0x066f91a9Aa4C33D4ea4c12aBee6f4cb4e919F71d"
