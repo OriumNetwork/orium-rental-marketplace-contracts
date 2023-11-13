@@ -111,7 +111,7 @@ const PROD_CONFIG = {
     cronos: {
       chainId: 25,
       url: CRONOS_PROVIDER_URL,
-      accounts: [DEV_PRIVATE_KEY],
+      accounts: [PROD_PRIVATE_KEY],
     },
   },
   defender: {
