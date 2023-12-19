@@ -1,6 +1,7 @@
 import { ethers, network as hardhatNetwork } from 'hardhat'
 import config, { Network } from '../addresses'
 import { colors, print, confirmOrDie } from '../utils/misc'
+import { BigNumber } from 'ethers'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network
@@ -13,7 +14,7 @@ async function main() {
 
   const contract = await ethers.getContractAt(CONTRACT_NAME, CONTRACT_ADDRESS)
 
-  const nonce = '71870379709915352622008287115212578751761046896364388794105918647859783855919'
+  const nonce = BigNumber.from('0x0924aa59075f0008abf36a3cd83e2f0ff5d835f6e3fa2e80efec5bf50b2ee801')
   const tx = await contract.cancelRentalOffer(nonce)
 
   print(colors.highlight, `Transaction hash: ${tx.hash}`)
