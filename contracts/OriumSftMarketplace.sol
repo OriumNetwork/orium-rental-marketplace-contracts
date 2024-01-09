@@ -25,7 +25,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     address public defaultRolesRegistry;
 
     /// @dev tokenAddress => rolesRegistry
-    mapping(address => address) public tokenRolesRegistry;
+    mapping(address => address) public tokenAddressToRolesRegistry;
 
     /// @dev deadline is set in seconds
     uint256 public maxDeadline;
@@ -33,8 +33,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /// @dev tokenAddress => feePercentageInWei
     mapping(address => FeeInfo) public feeInfo;
 
-    /// @dev tokenAddress => royaltyInfo
-    mapping(address => RoyaltyInfo) public royaltyInfo;
+    /// @dev tokenAddress => tokenAddressToRoyaltyInfo
+    mapping(address => RoyaltyInfo) public tokenAddressToRoyaltyInfo;
 
     /** ######### Structs ########### **/
 
@@ -103,8 +103,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /** ######### Setters ########### **/
 
     /**
-     * @notice Sets the roles registry.
-     * @dev Only owner can set the roles registry.
+     * @notice Pauses the contract.
+     * @dev Only owner can pause the contract.
      */
     function pause() external onlyOwner {
         _pause();
@@ -130,7 +130,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         uint256 _feePercentageInWei,
         bool _isCustomFee
     ) external onlyOwner {
-        uint256 _royaltyPercentage = royaltyInfo[_tokenAddress].royaltyPercentageInWei;
+        uint256 _royaltyPercentage = tokenAddressToRoyaltyInfo[_tokenAddress].royaltyPercentageInWei;
         require(
             _royaltyPercentage + _feePercentageInWei < MAX_PERCENTAGE,
             "OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
@@ -144,26 +144,26 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /**
      * @notice Sets the royalty info.
      * @dev Only owner can associate a collection with a creator.
-     * @param _tokenAddress The SFT address.
      * @param _creator The address of the creator.
-     */
-    function setCreator(address _tokenAddress, address _creator) external onlyOwner {
-        _setRoyalty(_creator, _tokenAddress, 0, address(0));
-    }
-
-    /**
-     * @notice Sets the royalty info.
      * @param _tokenAddress The SFT address.
      * @param _royaltyPercentageInWei The royalty percentage in wei.
      * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
      */
-    function setRoyaltyInfo(address _tokenAddress, uint256 _royaltyPercentageInWei, address _treasury) external {
-        require(
-            msg.sender == royaltyInfo[_tokenAddress].creator,
-            "OriumSftMarketplace: Only creator can set royalty info"
-        );
+    function setRoyaltyInfo(
+        address _creator,
+        address _tokenAddress,
+        uint256 _royaltyPercentageInWei,
+        address _treasury
+    ) external {
+        if (msg.sender != owner()) {
+            require(
+                msg.sender == tokenAddressToRoyaltyInfo[_tokenAddress].creator,
+                "OriumSftMarketplace: Only creator or owner can set the royalty info"
+            );
+            require(msg.sender == _creator, "OriumSftMarketplace: sender and creator mismatch");
+        }
 
-        _setRoyalty(msg.sender, _tokenAddress, _royaltyPercentageInWei, _treasury);
+        _setRoyalty(_creator, _tokenAddress, _royaltyPercentageInWei, _treasury);
     }
 
     /**
@@ -185,7 +185,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
         );
 
-        royaltyInfo[_tokenAddress] = RoyaltyInfo({
+        tokenAddressToRoyaltyInfo[_tokenAddress] = RoyaltyInfo({
             creator: _creator,
             royaltyPercentageInWei: _royaltyPercentageInWei,
             treasury: _treasury
@@ -211,7 +211,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _rolesRegistry The roles registry address.
      */
     function setRolesRegistry(address _tokenAddress, address _rolesRegistry) external onlyOwner {
-        tokenRolesRegistry[_tokenAddress] = _rolesRegistry;
+        tokenAddressToRolesRegistry[_tokenAddress] = _rolesRegistry;
         emit RolesRegistrySet(_tokenAddress, _rolesRegistry);
     }
 
@@ -242,6 +242,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function rolesRegistryOf(address _tokenAddress) public view returns (address) {
         return
-            tokenRolesRegistry[_tokenAddress] == address(0) ? defaultRolesRegistry : tokenRolesRegistry[_tokenAddress];
+            tokenAddressToRolesRegistry[_tokenAddress] == address(0)
+                ? defaultRolesRegistry
+                : tokenAddressToRolesRegistry[_tokenAddress];
     }
 }

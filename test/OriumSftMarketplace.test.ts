@@ -6,7 +6,7 @@ import { deploySftMarketplaceContracts } from './fixtures/OriumSftMarketplaceFix
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
 import { FeeInfo, RoyaltyInfo } from '../utils/types'
-import { THREE_MONTHS } from '../utils/constants'
+import { AddressZero, THREE_MONTHS } from '../utils/constants'
 
 describe('OriumSftMarketplace', () => {
   let marketplace: Contract
@@ -92,6 +92,7 @@ describe('OriumSftMarketplace', () => {
           ])
           expect(await marketplace.marketplaceFeeOf(mockERC1155.address)).to.be.equal(feeInfo.feePercentageInWei)
         })
+
         it('Should NOT set the marketplace fee if caller is not the operator', async () => {
           await expect(
             marketplace
@@ -99,8 +100,9 @@ describe('OriumSftMarketplace', () => {
               .setMarketplaceFeeForCollection(mockERC1155.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
           ).to.be.revertedWith('Ownable: caller is not the owner')
         })
+
         it("Should NOT set the marketplace fee if marketplace fee + creator royalty it's greater than 100%", async () => {
-          await marketplace.connect(operator).setCreator(mockERC1155.address, creator.address)
+          await marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
 
           const royaltyInfo: RoyaltyInfo = {
             creator: creator.address,
@@ -110,7 +112,12 @@ describe('OriumSftMarketplace', () => {
 
           await marketplace
             .connect(creator)
-            .setRoyaltyInfo(mockERC1155.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+            .setRoyaltyInfo(
+              creator.address,
+              mockERC1155.address,
+              royaltyInfo.royaltyPercentageInWei,
+              royaltyInfo.treasury,
+            )
 
           const feeInfo: FeeInfo = {
             feePercentageInWei: toWei('95'),
@@ -132,27 +139,31 @@ describe('OriumSftMarketplace', () => {
               treasury: ethers.constants.AddressZero,
             }
 
-            await expect(marketplace.connect(operator).setCreator(mockERC1155.address, creator.address))
+            await expect(
+              marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero),
+            )
               .to.emit(marketplace, 'CreatorRoyaltySet')
               .withArgs(mockERC1155.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
 
-            expect(await marketplace.royaltyInfo(mockERC1155.address)).to.have.deep.members([
+            expect(await marketplace.tokenAddressToRoyaltyInfo(mockERC1155.address)).to.have.deep.members([
               royaltyInfo.creator,
               royaltyInfo.royaltyPercentageInWei,
               royaltyInfo.treasury,
             ])
           })
+
           it('Should NOT set the creator royalties if caller is not the operator', async () => {
             await expect(
-              marketplace.connect(notOperator).setCreator(mockERC1155.address, creator.address),
-            ).to.be.revertedWith('Ownable: caller is not the owner')
+              marketplace.connect(notOperator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero),
+            ).to.be.revertedWith('OriumSftMarketplace: Only creator or owner can set the royalty info')
           })
         })
 
         describe('Creator', async () => {
           beforeEach(async () => {
-            await marketplace.connect(operator).setCreator(mockERC1155.address, creator.address)
+            await marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
           })
+
           it("Should update the creator royalties for a collection if it's already set", async () => {
             const royaltyInfo: RoyaltyInfo = {
               creator: creator.address,
@@ -163,11 +174,17 @@ describe('OriumSftMarketplace', () => {
             await expect(
               marketplace
                 .connect(creator)
-                .setRoyaltyInfo(mockERC1155.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(
+                  creator.address,
+                  mockERC1155.address,
+                  royaltyInfo.royaltyPercentageInWei,
+                  royaltyInfo.treasury,
+                ),
             )
               .to.emit(marketplace, 'CreatorRoyaltySet')
               .withArgs(mockERC1155.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
           })
+
           it('Should NOT update the creator royalties for a collection if caller is not the creator', async () => {
             const royaltyInfo: RoyaltyInfo = {
               creator: creator.address,
@@ -178,9 +195,15 @@ describe('OriumSftMarketplace', () => {
             await expect(
               marketplace
                 .connect(notOperator)
-                .setRoyaltyInfo(mockERC1155.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
-            ).to.be.revertedWith('OriumSftMarketplace: Only creator can set royalty info')
+                .setRoyaltyInfo(
+                  creator.address,
+                  mockERC1155.address,
+                  royaltyInfo.royaltyPercentageInWei,
+                  royaltyInfo.treasury,
+                ),
+            ).to.be.revertedWith('OriumSftMarketplace: Only creator or owner can set the royalty info')
           })
+
           it("Should NOT update the creator royalties for a collection if creator's royalty percentage + marketplace fee is greater than 100%", async () => {
             const royaltyInfo: RoyaltyInfo = {
               creator: creator.address,
@@ -191,7 +214,12 @@ describe('OriumSftMarketplace', () => {
             await expect(
               marketplace
                 .connect(creator)
-                .setRoyaltyInfo(mockERC1155.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(
+                  creator.address,
+                  mockERC1155.address,
+                  royaltyInfo.royaltyPercentageInWei,
+                  royaltyInfo.treasury,
+                ),
             ).to.be.revertedWith(
               'OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%',
             )
@@ -203,11 +231,13 @@ describe('OriumSftMarketplace', () => {
           await marketplace.connect(operator).setMaxDeadline(maxDeadline)
           expect(await marketplace.maxDeadline()).to.be.equal(maxDeadline)
         })
+
         it('Should NOT set the max deadline if caller is not the operator', async () => {
           await expect(marketplace.connect(notOperator).setMaxDeadline(maxDeadline)).to.be.revertedWith(
             'Ownable: caller is not the owner',
           )
         })
+
         it('Should NOT set the max deadline 0', async () => {
           await expect(marketplace.connect(operator).setMaxDeadline(0)).to.be.revertedWith(
             'OriumSftMarketplace: Max deadline should be greater than 0',
@@ -221,6 +251,7 @@ describe('OriumSftMarketplace', () => {
             .to.emit(marketplace, 'RolesRegistrySet')
             .withArgs(mockERC1155.address, rolesRegistry.address)
         })
+
         it('Should NOT set the roles registry if caller is not the operator', async () => {
           await expect(
             marketplace.connect(notOperator).setRolesRegistry(mockERC1155.address, rolesRegistry.address),
@@ -232,6 +263,7 @@ describe('OriumSftMarketplace', () => {
         it('Should set the default roles registry for a collection', async () => {
           await expect(marketplace.connect(operator).setDefaultRolesRegistry(rolesRegistry.address)).to.not.be.reverted
         })
+
         it('Should NOT set the default roles registry if caller is not the operator', async () => {
           await expect(
             marketplace.connect(notOperator).setDefaultRolesRegistry(rolesRegistry.address),
