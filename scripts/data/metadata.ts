@@ -1,5 +1,5 @@
 import { toWei } from '../../utils/bignumber'
-import { defaultAbiCoder as abi, keccak256 } from 'ethers/lib/utils'
+import { defaultAbiCoder as abi } from 'ethers/lib/utils'
 import { USER_ROLE } from '../../utils/roles'
 import { inputsToTypes } from '../../utils/role-metadata'
 
