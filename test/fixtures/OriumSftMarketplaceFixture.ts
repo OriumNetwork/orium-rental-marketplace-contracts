@@ -13,7 +13,7 @@ export async function deploySftMarketplaceContracts() {
   const marketplace = await upgrades.deployProxy(MarketplaceFactory, [operator.address, AddressZero, THREE_MONTHS])
   await marketplace.deployed()
 
-  const MockERC1155Factory = await ethers.getContractFactory('MockERC721')
+  const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
   const mockERC1155 = await MockERC1155Factory.deploy()
   await mockERC1155.deployed()
 
@@ -21,5 +21,7 @@ export async function deploySftMarketplaceContracts() {
   const mockERC20 = await MockERC20Factory.deploy()
   await mockERC20.deployed()
 
-  return [marketplace, mockERC1155, mockERC20] as Contract[]
+  const rolesRegistry = mockERC1155 //TODO: replace with real roles registry later
+
+  return [marketplace, rolesRegistry, mockERC1155, mockERC20] as Contract[]
 }

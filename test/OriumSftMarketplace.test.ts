@@ -1,17 +1,20 @@
 import { ethers } from 'hardhat'
-import { Contract } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import { deploySftMarketplaceContracts } from './fixtures/OriumSftMarketplaceFixture'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
-import { FeeInfo, RoyaltyInfo } from '../utils/types'
-import { AddressZero, THREE_MONTHS } from '../utils/constants'
+import { FeeInfo, RoyaltyInfo, SftRentalOffer } from '../utils/types'
+import { AddressZero, EMPTY_BYTES, ONE_DAY, THREE_MONTHS } from '../utils/constants'
+import { randomBytes } from 'crypto'
+import { USER_ROLE } from '../utils/roles'
 
 describe('OriumSftMarketplace', () => {
   let marketplace: Contract
   let rolesRegistry: Contract
   let mockERC1155: Contract
+  let mockERC20: Contract
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -20,6 +23,7 @@ describe('OriumSftMarketplace', () => {
   let notOperator: SignerWithAddress
   let creator: SignerWithAddress
   let creatorTreasury: SignerWithAddress
+  let lender: SignerWithAddress
 
   // Values to be used across tests
   const maxDeadline = THREE_MONTHS
@@ -31,16 +35,127 @@ describe('OriumSftMarketplace', () => {
   before(async function () {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [deployer, operator, notOperator, creator, creatorTreasury] = await ethers.getSigners()
+    [deployer, operator, notOperator, creator, creatorTreasury, lender] = await ethers.getSigners()
   })
 
   beforeEach(async () => {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [marketplace, rolesRegistry, mockERC1155] = await loadFixture(deploySftMarketplaceContracts)
+    [marketplace, rolesRegistry, mockERC1155, mockERC20] = await loadFixture(deploySftMarketplaceContracts)
   })
 
   describe('Main Functions', async () => {
+    describe('Rental Functions', async () => {
+      const tokenId = 1
+      const tokenAmount = BigNumber.from(2)
+
+      beforeEach(async () => {
+        await mockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
+      })
+
+      describe('Rental Offers', async () => {
+        let rentalOffer: SftRentalOffer
+
+        beforeEach(async () => {
+          await marketplace.connect(operator).setCreator(mockERC1155.address, creator.address)
+
+          const royaltyInfo: RoyaltyInfo = {
+            creator: creator.address,
+            royaltyPercentageInWei: toWei('10'),
+            treasury: creatorTreasury.address,
+          }
+
+          await marketplace
+            .connect(creator)
+            .setRoyaltyInfo(mockERC1155.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+
+          const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+
+          rentalOffer = {
+            nonce: `0x${randomBytes(32).toString('hex')}`,
+            lender: lender.address,
+            borrower: AddressZero,
+            tokenAddress: mockERC1155.address,
+            tokenId,
+            tokenAmount,
+            feeTokenAddress: mockERC20.address,
+            feeAmountPerSecond: toWei('0'),
+            deadline: blockTimestamp + ONE_DAY,
+            roles: [USER_ROLE],
+            rolesData: [EMPTY_BYTES],
+          }
+        })
+        describe('When Rental Offer is not created', async () => {
+          describe('Create Rental Offer', async () => {
+            it('Should create a rental offer', async () => {
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCreated')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.tokenAmount,
+                  rentalOffer.lender,
+                  rentalOffer.borrower,
+                  rentalOffer.feeTokenAddress,
+                  rentalOffer.feeAmountPerSecond,
+                  rentalOffer.deadline,
+                  rentalOffer.roles,
+                  rentalOffer.rolesData,
+                )
+            })
+            it('Should NOT create a rental offer if caller is not the lender', async () => {
+              await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: caller does not have enough balance for the token',
+              )
+            })
+            it("Should NOT create a rental offer if lender is not the caller's address", async () => {
+              rentalOffer.lender = creator.address
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: Sender and Lender mismatch',
+              )
+            })
+            it("Should NOT create a rental offer if roles and rolesData don't have the same length", async () => {
+              rentalOffer.roles = [`0x${randomBytes(32).toString('hex')}`]
+              rentalOffer.rolesData = [`0x${randomBytes(32).toString('hex')}`, `0x${randomBytes(32).toString('hex')}`]
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: roles and rolesData should have the same length',
+              )
+            })
+            it('Should NOT create a rental offer if deadline is greater than maxDeadline', async () => {
+              rentalOffer.deadline = maxDeadline + 1
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: Invalid deadline',
+              )
+            })
+            it("Should NOT create a rental offer if deadline is less than block's timestamp", async () => {
+              rentalOffer.deadline = (await ethers.provider.getBlock('latest')).timestamp - 1
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: Invalid deadline',
+              )
+            })
+            it('Should NOT create the same rental offer twice', async () => {
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: nonce already used',
+              )
+            })
+            it('Should NOT create a rental offer if roles or rolesData are empty', async () => {
+              rentalOffer.roles = []
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: roles should not be empty',
+              )
+            })
+            it('Should NOT create a rental offer if nonce is 0', async () => {
+              rentalOffer.nonce = '0'
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: Nonce cannot be 0',
+              )
+            })
+          })
+        })
+      })
+    })
     describe('Core Functions', async () => {
       describe('Initialize', async () => {
         it("Should NOT initialize the contract if it's already initialized", async () => {

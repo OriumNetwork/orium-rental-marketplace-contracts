@@ -5,6 +5,7 @@ pragma solidity 0.8.9;
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -35,6 +36,12 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /// @dev tokenAddress => tokenAddressToRoyaltyInfo
     mapping(address => RoyaltyInfo) public tokenAddressToRoyaltyInfo;
+    
+    /// @dev hashedOffer => bool
+    mapping(bytes32 => bool) public isCreated;
+
+    /// @dev lender => nonce => deadline
+    mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
 
     /** ######### Structs ########### **/
 
@@ -49,6 +56,21 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     struct FeeInfo {
         uint256 feePercentageInWei;
         bool isCustomFee;
+    }
+
+    /// @dev Rental offer info.
+    struct RentalOffer {
+        address lender;
+        address borrower;
+        address tokenAddress;
+        uint256 tokenId;
+        uint256 tokenAmount;
+        address feeTokenAddress;
+        uint256 feeAmountPerSecond;
+        uint256 nonce;
+        uint64 deadline;
+        bytes32[] roles;
+        bytes[] rolesData;
     }
 
     /** ######### Events ########### **/
@@ -78,7 +100,49 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     event RolesRegistrySet(address indexed tokenAddress, address indexed rolesRegistry);
 
+    /**
+     * @param nonce The nonce of the rental offer
+     * @param tokenAddress The address of the contract of the SFT to rent
+     * @param tokenId The tokenId of the SFT to rent
+     * @param tokenAmount The amount of SFT to rent
+     * @param lender The address of the user lending the SFT
+     * @param borrower The address of the user renting the SFT
+     * @param feeTokenAddress The address of the ERC20 token for rental fees
+     * @param feeAmountPerSecond The amount of fee per second
+     * @param deadline The deadline until when the rental offer is valid
+     * @param roles The array of roles to be assigned to the borrower
+     * @param rolesData The array of data for each role
+     */
+    event RentalOfferCreated(
+        uint256 indexed nonce,
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        uint256 tokenAmount,
+        address lender,
+        address borrower,
+        address feeTokenAddress,
+        uint256 feeAmountPerSecond,
+        uint256 deadline,
+        bytes32[] roles,
+        bytes[] rolesData
+    );
+
     /** ######### Modifiers ########### **/
+
+    /**
+     * @notice Checks if sender has enough balance for the token.
+     * @dev Throws if the caller does not have enough balance for the token.
+     * @param _tokenAddress The SFT address.
+     * @param _tokenId The id of the token.
+     * @param _tokenAmount The amount of tokens.
+     */
+    modifier hasBalance(address _tokenAddress, uint256 _tokenId, uint256 _tokenAmount) {
+        require(
+            IERC1155(_tokenAddress).balanceOf(msg.sender, _tokenId) >= _tokenAmount,
+            "OriumSftMarketplace: caller does not have enough balance for the token"
+        );
+        _;
+    }
 
     /** ######### Initializer ########### **/
     /**
@@ -96,6 +160,83 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         maxDeadline = _maxDeadline;
 
         transferOwnership(_owner);
+    }
+
+    /** ============================ Rental Functions  ================================== **/
+
+    /** ######### Setters ########### **/
+    /**
+     * @notice Creates a rental offer.
+     * @dev To optimize for gas, only the offer hash is stored on-chain
+     * @param _offer The rental offer struct.
+     */
+    function createRentalOffer(
+        RentalOffer calldata _offer
+    ) external hasBalance(_offer.tokenAddress, _offer.tokenId, _offer.tokenAmount) {
+        _validateCreateRentalOffer(_offer);
+
+        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
+        isCreated[hashRentalOffer(_offer)] = true;
+
+        emit RentalOfferCreated(
+            _offer.nonce,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.tokenAmount,
+            _offer.lender,
+            _offer.borrower,
+            _offer.feeTokenAddress,
+            _offer.feeAmountPerSecond,
+            _offer.deadline,
+            _offer.roles,
+            _offer.rolesData
+        );
+    }
+
+    /** ######### Getters ########### **/
+
+    /**
+     * @notice Gets the rental offer hash.
+     * @param _offer The rental offer struct to be hashed.
+     */
+    function hashRentalOffer(RentalOffer memory _offer) public pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    _offer.lender,
+                    _offer.borrower,
+                    _offer.tokenAddress,
+                    _offer.tokenId,
+                    _offer.tokenAmount,
+                    _offer.feeTokenAddress,
+                    _offer.feeAmountPerSecond,
+                    _offer.nonce,
+                    _offer.deadline,
+                    _offer.roles,
+                    _offer.rolesData
+                )
+            );
+    }
+
+    /** ######### Internals ########### **/
+     /**
+     * @dev Validates the create rental offer.
+     * @param _offer The rental offer struct.
+     */
+    function _validateCreateRentalOffer(RentalOffer calldata _offer) internal view {
+        require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
+        require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
+        require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
+        require(_offer.roles.length > 0, "OriumSftMarketplace: roles should not be empty");
+        require(
+            _offer.roles.length == _offer.rolesData.length,
+            "OriumSftMarketplace: roles and rolesData should have the same length"
+        );
+        require(
+            _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
+            "OriumSftMarketplace: Invalid deadline"
+        );
+        require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
     }
 
     /** ============================ Core Functions  ================================== **/
