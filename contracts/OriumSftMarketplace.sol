@@ -21,7 +21,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /** ######### Global Variables ########### **/
 
-    /// @dev rolesRegistry is a ERC-7432 contract
+    /// @dev rolesRegistry is a ERC-7589 contract
     address public defaultRolesRegistry;
 
     /// @dev tokenAddress => rolesRegistry
