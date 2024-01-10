@@ -44,6 +44,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /// @dev lender => nonce => deadline
     mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
 
+    /// @dev rolesRegistry => commitmentId => nonce
+    mapping(address => mapping(uint256 => uint256)) public commitmentIdToNonce;
+
     /** ######### Structs ########### **/
 
     /// @dev Royalty info. Used to charge fees for the creator.
@@ -69,6 +72,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address feeTokenAddress;
         uint256 feeAmountPerSecond;
         uint256 nonce;
+        uint256 commitmentId;
         uint64 deadline;
         bytes32[] roles;
         bytes[] rolesData;
@@ -106,6 +110,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param tokenAddress The address of the contract of the SFT to rent
      * @param tokenId The tokenId of the SFT to rent
      * @param tokenAmount The amount of SFT to rent
+     * @param commitmentId The commitmentId of the SFT to rent
      * @param lender The address of the user lending the SFT
      * @param borrower The address of the user renting the SFT
      * @param feeTokenAddress The address of the ERC20 token for rental fees
@@ -119,6 +124,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address indexed tokenAddress,
         uint256 indexed tokenId,
         uint256 tokenAmount,
+        uint256 commitmentId,
         address lender,
         address borrower,
         address feeTokenAddress,
@@ -137,15 +143,23 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _tokenId The id of the token.
      * @param _tokenAmount The amount of tokens.
      */
-    modifier hasBalance(
+    modifier hasBalanceOrCommitment(
         address _tokenAddress,
         uint256 _tokenId,
-        uint256 _tokenAmount
+        uint256 _tokenAmount,
+        uint256 _commitmentId
     ) {
-        require(
-            IERC1155(_tokenAddress).balanceOf(msg.sender, _tokenId) >= _tokenAmount,
-            "OriumSftMarketplace: caller does not have enough balance for the token"
-        );
+        if (_commitmentId != 0) {
+            require(
+                IERC7589(rolesRegistryOf(_tokenAddress)).tokenAmountOf(_commitmentId) == _tokenAmount,
+                "OriumSftMarketplace: commitmentId token amount does not match offer's token amount"
+            );
+        } else {
+            require(
+                IERC1155(_tokenAddress).balanceOf(msg.sender, _tokenId) >= _tokenAmount,
+                "OriumSftMarketplace: caller does not have enough balance for the token"
+            );
+        }
         _;
     }
 
@@ -177,7 +191,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function createRentalOffer(
         RentalOffer calldata _offer
-    ) external hasBalance(_offer.tokenAddress, _offer.tokenId, _offer.tokenAmount) {
+    ) external hasBalanceOrCommitment(_offer.tokenAddress, _offer.tokenId, _offer.tokenAmount, _offer.commitmentId) {
         _validateCreateRentalOffer(_offer);
         _createRentalOffer(_offer);
     }
@@ -200,6 +214,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
                     _offer.feeTokenAddress,
                     _offer.feeAmountPerSecond,
                     _offer.nonce,
+                    _offer.commitmentId,
                     _offer.deadline,
                     _offer.roles,
                     _offer.rolesData
@@ -226,6 +241,31 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Invalid deadline"
         );
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
+        if (_offer.commitmentId != 0) {
+            address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
+
+            if (commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId] != 0) {
+                uint256 _nonce = commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId];
+                require(
+                    nonceDeadline[_offer.lender][_nonce] < block.timestamp,
+                    "OriumSftMarketplace: commitmentId is in an active rental offer"
+                );
+            }
+
+            IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
+            require(
+                _rolesRegistry.grantorOf(_offer.commitmentId) == _offer.lender,
+                "OriumSftMarketplace: commitmentId grantor does not match offer's lender"
+            );
+            require(
+                _rolesRegistry.tokenAddressOf(_offer.commitmentId) == _offer.tokenAddress,
+                "OriumSftMarketplace: commitmentId tokenAddress does not match offer's tokenAddress"
+            );
+            require(
+                _rolesRegistry.tokenIdOf(_offer.commitmentId) == _offer.tokenId,
+                "OriumSftMarketplace: commitmentId tokenId does not match offer's tokenId"
+            );
+        }
     }
 
     /**
@@ -233,22 +273,28 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct.
      */
 
-    function _createRentalOffer(RentalOffer calldata _offer) internal {
+    function _createRentalOffer(RentalOffer memory _offer) internal {
+        address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
+
+        if (_offer.commitmentId == 0) {
+            _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
+                _offer.lender,
+                _offer.tokenAddress,
+                _offer.tokenId,
+                _offer.tokenAmount
+            );
+        }
+
         nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
         isCreated[hashRentalOffer(_offer)] = true;
-
-        IERC7589(rolesRegistryOf(_offer.tokenAddress)).commitTokens(
-            _offer.lender,
-            _offer.tokenAddress,
-            _offer.tokenId,
-            _offer.tokenAmount
-        );
+        commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId] = _offer.nonce;
 
         emit RentalOfferCreated(
             _offer.nonce,
             _offer.tokenAddress,
             _offer.tokenId,
             _offer.tokenAmount,
+            _offer.commitmentId,
             _offer.lender,
             _offer.borrower,
             _offer.feeTokenAddress,
