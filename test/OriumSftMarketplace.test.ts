@@ -57,7 +57,7 @@ describe('OriumSftMarketplace', () => {
         let rentalOffer: SftRentalOffer
 
         beforeEach(async () => {
-          await marketplace.connect(operator).setCreator(mockERC1155.address, creator.address)
+          await marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
 
           const royaltyInfo: RoyaltyInfo = {
             creator: creator.address,
@@ -67,7 +67,12 @@ describe('OriumSftMarketplace', () => {
 
           await marketplace
             .connect(creator)
-            .setRoyaltyInfo(mockERC1155.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+            .setRoyaltyInfo(
+              creator.address,
+              mockERC1155.address,
+              royaltyInfo.royaltyPercentageInWei,
+              royaltyInfo.treasury,
+            )
 
           const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
 
@@ -84,6 +89,10 @@ describe('OriumSftMarketplace', () => {
             roles: [USER_ROLE],
             rolesData: [EMPTY_BYTES],
           }
+
+          await mockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
+          await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+          await mockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
         })
         describe('When Rental Offer is not created', async () => {
           describe('Create Rental Offer', async () => {

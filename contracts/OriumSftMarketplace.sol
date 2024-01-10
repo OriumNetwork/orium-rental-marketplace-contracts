@@ -6,6 +6,7 @@ import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/O
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import { IERC7589 } from "./interfaces/IERC7589.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -36,7 +37,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /// @dev tokenAddress => tokenAddressToRoyaltyInfo
     mapping(address => RoyaltyInfo) public tokenAddressToRoyaltyInfo;
-    
+
     /// @dev hashedOffer => bool
     mapping(bytes32 => bool) public isCreated;
 
@@ -136,7 +137,11 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _tokenId The id of the token.
      * @param _tokenAmount The amount of tokens.
      */
-    modifier hasBalance(address _tokenAddress, uint256 _tokenId, uint256 _tokenAmount) {
+    modifier hasBalance(
+        address _tokenAddress,
+        uint256 _tokenId,
+        uint256 _tokenAmount
+    ) {
         require(
             IERC1155(_tokenAddress).balanceOf(msg.sender, _tokenId) >= _tokenAmount,
             "OriumSftMarketplace: caller does not have enough balance for the token"
@@ -174,23 +179,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         RentalOffer calldata _offer
     ) external hasBalance(_offer.tokenAddress, _offer.tokenId, _offer.tokenAmount) {
         _validateCreateRentalOffer(_offer);
-
-        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
-        isCreated[hashRentalOffer(_offer)] = true;
-
-        emit RentalOfferCreated(
-            _offer.nonce,
-            _offer.tokenAddress,
-            _offer.tokenId,
-            _offer.tokenAmount,
-            _offer.lender,
-            _offer.borrower,
-            _offer.feeTokenAddress,
-            _offer.feeAmountPerSecond,
-            _offer.deadline,
-            _offer.roles,
-            _offer.rolesData
-        );
+        _createRentalOffer(_offer);
     }
 
     /** ######### Getters ########### **/
@@ -219,7 +208,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /** ######### Internals ########### **/
-     /**
+    /**
      * @dev Validates the create rental offer.
      * @param _offer The rental offer struct.
      */
@@ -237,6 +226,37 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Invalid deadline"
         );
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
+    }
+
+    /**
+     * @dev creates a rental offer.
+     * @param _offer The rental offer struct.
+     */
+
+    function _createRentalOffer(RentalOffer calldata _offer) internal {
+        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
+        isCreated[hashRentalOffer(_offer)] = true;
+
+        IERC7589(rolesRegistryOf(_offer.tokenAddress)).commitTokens(
+            _offer.lender,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.tokenAmount
+        );
+
+        emit RentalOfferCreated(
+            _offer.nonce,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.tokenAmount,
+            _offer.lender,
+            _offer.borrower,
+            _offer.feeTokenAddress,
+            _offer.feeAmountPerSecond,
+            _offer.deadline,
+            _offer.roles,
+            _offer.rolesData
+        );
     }
 
     /** ============================ Core Functions  ================================== **/
