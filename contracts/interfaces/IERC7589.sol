@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.9;
 
-import { IERC165 } from '@openzeppelin/contracts/utils/introspection/IERC165.sol';
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 interface IERC7589 is IERC165 {
     struct RoleAssignment {
