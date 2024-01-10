@@ -112,6 +112,33 @@ describe('OriumSftMarketplace', () => {
                   rentalOffer.roles,
                   rentalOffer.rolesData,
                 )
+                .to.emit(mockERC1155, 'TransferSingle')
+                .withArgs(rolesRegistry.address, lender.address, rolesRegistry.address, tokenId, tokenAmount)
+                .to.emit(rolesRegistry, 'TokensCommitted')
+                .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
+            })
+            it('Should create a rental offer if collection has a custom roles registry', async function () {
+              await marketplace.connect(operator).setRolesRegistry(mockERC1155.address, rolesRegistry.address)
+              await mockERC1155.setApprovalForAll(rolesRegistry.address, true)
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCreated')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.tokenAmount,
+                  rentalOffer.lender,
+                  rentalOffer.borrower,
+                  rentalOffer.feeTokenAddress,
+                  rentalOffer.feeAmountPerSecond,
+                  rentalOffer.deadline,
+                  rentalOffer.roles,
+                  rentalOffer.rolesData,
+                )
+                .to.emit(mockERC1155, 'TransferSingle')
+                .withArgs(rolesRegistry.address, lender.address, rolesRegistry.address, tokenId, tokenAmount)
+                .to.emit(rolesRegistry, 'TokensCommitted')
+                .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
             })
             it('Should NOT create a rental offer if caller is not the lender', async () => {
               await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer)).to.be.revertedWith(
@@ -159,6 +186,12 @@ describe('OriumSftMarketplace', () => {
               rentalOffer.nonce = '0'
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
                 'OriumSftMarketplace: Nonce cannot be 0',
+              )
+            })
+            it('Should NOT create a rental offer if tokenAmount is 0', async () => {
+              rentalOffer.tokenAmount = BigNumber.from(0)
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: tokenAmount should be greater than 0',
               )
             })
           })
@@ -347,6 +380,24 @@ describe('OriumSftMarketplace', () => {
             ).to.be.revertedWith(
               'OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%',
             )
+          })
+          it("Should NOT update the creator royalties if caller and creator's address are different", async () => {
+            const royaltyInfo: RoyaltyInfo = {
+              creator: creator.address,
+              royaltyPercentageInWei: toWei('0'),
+              treasury: creatorTreasury.address,
+            }
+
+            await expect(
+              marketplace
+                .connect(creator)
+                .setRoyaltyInfo(
+                  notOperator.address,
+                  mockERC1155.address,
+                  royaltyInfo.royaltyPercentageInWei,
+                  royaltyInfo.treasury,
+                ),
+            ).to.be.revertedWith('OriumSftMarketplace: sender and creator mismatch')
           })
         })
       })
