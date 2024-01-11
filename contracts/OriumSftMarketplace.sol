@@ -50,7 +50,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /// @dev tokenAddress => bool
     mapping(address => bool) public isTrustedTokenAddress;
-    
+
     /// @dev hashedOffer => Rental
     mapping(bytes32 => Rental) public rentals;
 
@@ -166,17 +166,30 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         uint64 expirationDate
     );
 
-    /** ######### Modifiers ########### **/
+    /**
+     * @param nonce The nonce of the rental offer
+     * @param lender The address of the user lending the SFT
+     */
+    event RentalOfferCancelled(uint256 indexed nonce, address indexed lender);
 
     /**
-     * @notice Checks if the token address is trusted.
-     * @dev Throws if the token address is not trusted.
-     * @param _tokenAddress The token address.
+     * @param nonce The nonce of the rental offer
+     * @param tokenAddress The address of the contract of the SFT rented
+     * @param tokenId The tokenId of the rented SFT
+     * @param commitmentId The commitmentId of the rented SFT
+     * @param lender The address of the lender
+     * @param borrower The address of the borrower
      */
-    modifier onlyTrustedToken(address _tokenAddress) {
-        require(isTrustedTokenAddress[_tokenAddress], "OriumSftMarketplace: tokenAddress is not trusted");
-        _;
-    }
+    event RentalEnded(
+        uint256 indexed nonce,
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        uint256 commitmentId,
+        address lender,
+        address borrower
+    );
+
+    /** ######### Modifiers ########### **/
 
     /** ######### Initializer ########### **/
     /**
@@ -205,11 +218,38 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct.
      */
     function createRentalOffer(
-        RentalOffer calldata _offer
-    ) external onlyTrustedToken(_offer.feeTokenAddress) onlyTrustedToken(_offer.tokenAddress) whenNotPaused {
+        RentalOffer memory _offer
+    ) external whenNotPaused {
         address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
-        _createRentalOffer(_offer, _rolesRegistryAddress);
+        
+        if (_offer.commitmentId == 0) {
+            _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
+                _offer.lender,
+                _offer.tokenAddress,
+                _offer.tokenId,
+                _offer.tokenAmount
+            );
+        }
+
+        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
+        isCreated[hashRentalOffer(_offer)] = true;
+        commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId] = _offer.nonce;
+
+        emit RentalOfferCreated(
+            _offer.nonce,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.tokenAmount,
+            _offer.commitmentId,
+            _offer.lender,
+            _offer.borrower,
+            _offer.feeTokenAddress,
+            _offer.feeAmountPerSecond,
+            _offer.deadline,
+            _offer.roles,
+            _offer.rolesData
+        );
     }
 
     /**
@@ -225,7 +265,77 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
         _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
-        _createRental(_offer, _expirationDate);
+        IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
+        for (uint256 i = 0; i < _offer.roles.length; i++) {
+            _rolesRegistry.grantRole(_offer.commitmentId, _offer.roles[i], msg.sender, _expirationDate, false, _offer.rolesData[i]);
+        }
+
+        rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+
+        emit RentalStarted(
+            _offer.nonce,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.commitmentId,
+            _offer.lender,
+            msg.sender,
+            _expirationDate
+        );
+    }
+
+    /**
+     * @notice Cancels a rental offer.
+     * @dev The nonce is used to identify the rental offer.
+     * @param nonce The nonce of the rental offer
+     */
+    function cancelRentalOffer(uint256 nonce) external {
+        require(
+            nonceDeadline[msg.sender][nonce] > block.timestamp,
+            "OriumSftMarketplace: Nonce expired or not used yet"
+        );
+
+        nonceDeadline[msg.sender][nonce] = uint64(block.timestamp);
+        emit RentalOfferCancelled(nonce, msg.sender);
+    }
+
+    /**
+     * @notice Ends the rental.
+     * @dev Can only be called by the borrower.
+     * @dev Borrower needs to approve marketplace to revoke the roles.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function endRental(RentalOffer memory _offer) external {
+        bytes32 _offerHash = hashRentalOffer(_offer);
+
+        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
+        require(msg.sender == rentals[_offerHash].borrower, "OriumSftMarketplace: Only borrower can end a rental");
+        require(
+            nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp,
+            "OriumSftMarketplace: Rental Offer expired"
+        );
+        require(rentals[_offerHash].expirationDate > block.timestamp, "OriumSftMarketplace: Rental ended");
+
+        IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
+        address _borrower = rentals[_offerHash].borrower;
+
+        // This if is needed for the case where the borrower revoked the role before the rental ended. It will not revoke the role again
+        // and will only update the rental expiration date.
+        if(_rolesRegistry.roleExpirationDate(_offer.commitmentId, _offer.roles[0], _borrower) >= block.timestamp) {
+            for (uint256 i = 0; i < _offer.roles.length; i++) {
+            _rolesRegistry.revokeRole(_offer.commitmentId, _offer.roles[i], _borrower);
+            }
+        }
+
+        rentals[_offerHash].expirationDate = uint64(block.timestamp);
+
+        emit RentalEnded(
+            _offer.nonce,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.commitmentId,
+            _offer.lender,
+            rentals[_offerHash].borrower
+        );
     }
 
     /** ######### Getters ########### **/
@@ -259,7 +369,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev Validates the create rental offer.
      * @param _offer The rental offer struct.
      */
-    function _validateCreateRentalOffer(RentalOffer calldata _offer, address _rolesRegistryAddress) internal view {
+    function _validateCreateRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal view {
+        require(isTrustedTokenAddress[_offer.tokenAddress] && isTrustedTokenAddress[_offer.feeTokenAddress], "OriumSftMarketplace: tokenAddress is not trusted");
         require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
         require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
         require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
@@ -333,41 +444,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
-     * @dev creates a rental offer.
-     * @param _offer The rental offer struct.
-     */
-
-    function _createRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal {
-        if (_offer.commitmentId == 0) {
-            _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
-                _offer.lender,
-                _offer.tokenAddress,
-                _offer.tokenId,
-                _offer.tokenAmount
-            );
-        }
-
-        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
-        isCreated[hashRentalOffer(_offer)] = true;
-        commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId] = _offer.nonce;
-
-        emit RentalOfferCreated(
-            _offer.nonce,
-            _offer.tokenAddress,
-            _offer.tokenId,
-            _offer.tokenAmount,
-            _offer.commitmentId,
-            _offer.lender,
-            _offer.borrower,
-            _offer.feeTokenAddress,
-            _offer.feeAmountPerSecond,
-            _offer.deadline,
-            _offer.roles,
-            _offer.rolesData
-        );
-    }
-
-        /**
      * @dev Validates the accept rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _expirationDate The expiration date of the rental.
@@ -417,7 +493,11 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
         if (_royaltyAmount > 0) {
             require(
-                IERC20(_feeTokenAddress).transferFrom(msg.sender, tokenAddressToRoyaltyInfo[_tokenAddress].treasury, _royaltyAmount),
+                IERC20(_feeTokenAddress).transferFrom(
+                    msg.sender,
+                    tokenAddressToRoyaltyInfo[_tokenAddress].treasury,
+                    _royaltyAmount
+                ),
                 "OriumSftMarketplace: Transfer failed"
             );
         }
@@ -436,60 +516,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
         return (_amount * _percentage) / MAX_PERCENTAGE;
-    }
-
-    /**
-     * @dev Grants the roles to the borrower.
-     * @param _commitmentId The commitment identifier.
-     * @param _roles The array of roles to be assigned to the borrower
-     * @param _grantee The address of the user renting the SFT
-     * @param _expirationDate The deadline until when the rental offer is valid
-     * @param _revocable Whether the role is revocable or not
-     * @param _rolesData The array of data for each role
-     * @param _tokenAddress The address of the contract of the SFT to rent
-     */
-    function _batchGrantRole(
-        uint256 _commitmentId,
-        bytes32[] memory _roles,
-        address _grantee,
-        uint64 _expirationDate,
-        bool _revocable,
-        bytes[] memory _rolesData,
-        address _tokenAddress
-    ) internal {
-        IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_tokenAddress));
-        for (uint256 i = 0; i < _roles.length; i++) {
-           _rolesRegistry.grantRole(_commitmentId, _roles[i], _grantee, _expirationDate, _revocable, _rolesData[i]);
-        }
-    }
-
-    /**
-     * @notice Starts the rental.
-     * @param _offer The rental offer struct.
-     * @param _expirationDate The period of time the SFT will be rented.
-     */
-    function _createRental(RentalOffer calldata _offer, uint64 _expirationDate) internal {
-         _batchGrantRole(
-            _offer.commitmentId,
-            _offer.roles,
-            msg.sender,
-            _expirationDate,
-            false,
-            _offer.rolesData,
-            _offer.tokenAddress
-        );
-
-        rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
-
-        emit RentalStarted(
-            _offer.nonce,
-            _offer.tokenAddress,
-            _offer.tokenId,
-            _offer.commitmentId,
-            _offer.lender,
-            msg.sender,
-            _expirationDate
-        );
     }
 
     /** ============================ Core Functions  ================================== **/

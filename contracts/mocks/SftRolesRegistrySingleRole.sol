@@ -168,7 +168,7 @@ contract SftRolesRegistrySingleRole is IERC7589, ERC1155Holder, ICommitTokensAnd
         uint256 _commitmentId,
         bytes32 _role,
         address _grantee
-    ) external view sameGrantee(_commitmentId, _role, _grantee) returns (uint64 expirationDate_) {
+    ) external view /* sameGrantee(_commitmentId, _role, _grantee) */ returns (uint64 expirationDate_) {
         return roleAssignments[_commitmentId][_role].expirationDate;
     }
 

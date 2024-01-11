@@ -58,7 +58,6 @@ describe('OriumSftMarketplace', () => {
 
       describe('Rental Offers', async () => {
         let rentalOffer: SftRentalOffer
-        let commitmentIdCounter: BigNumber
 
         beforeEach(async () => {
           await marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
@@ -565,6 +564,103 @@ describe('OriumSftMarketplace', () => {
                 await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
                   'OriumSftMarketplace: This offer has an ongoing rental',
+                )
+              })
+            })
+          })
+
+          describe('Cancel Rental Offer', async () => {
+            it('Should cancel a rental offer', async () => {
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer.nonce))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.nonce, lender.address)
+            })
+            it('Should NOT cancel a rental offer if nonce not used yet by caller', async () => {
+              await expect(marketplace.connect(notOperator).cancelRentalOffer(rentalOffer.nonce)).to.be.revertedWith(
+                'OriumSftMarketplace: Nonce expired or not used yet',
+              )
+            })
+            it("Should NOT cancel a rental offer after deadline's expiration", async () => {
+              // move foward in time to expire the offer
+              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const timeToMove = rentalOffer.deadline - blockTimestamp + 1
+              await ethers.provider.send('evm_increaseTime', [timeToMove])
+
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer.nonce)).to.be.revertedWith(
+                'OriumSftMarketplace: Nonce expired or not used yet',
+              )
+            })
+          })
+
+          describe('When Rental Offer is accepted', async () => {
+            beforeEach(async () => {
+              await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
+              await rolesRegistry
+                .connect(borrower)
+                .setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+            })
+            describe('End Rental', async () => {
+              it('Should end a rental by the borrower', async () => {
+                await expect(marketplace.connect(borrower).endRental(rentalOffer))
+                  .to.emit(marketplace, 'RentalEnded')
+                  .withArgs(
+                    rentalOffer.nonce,
+                    rentalOffer.tokenAddress,
+                    rentalOffer.tokenId,
+                    rentalOffer.commitmentId,
+                    rentalOffer.lender,
+                    borrower.address,
+                  )
+              })
+              it('Should NOT end a rental by the lender', async () => {
+                await expect(marketplace.connect(lender).endRental(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: Only borrower can end a rental',
+                )
+              })
+              it('Should NOT end a rental if caller is not the borrower', async () => {
+                await expect(marketplace.connect(notOperator).endRental(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: Only borrower can end a rental',
+                )
+              })
+              it('Should NOT end a rental if rental is not started', async () => {
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    .endRental({ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }),
+                ).to.be.revertedWith('OriumSftMarketplace: Offer not created')
+              })
+              it('Should NOT end a rental if rental is expired', async () => {
+                // move foward in time to expire the offer
+                const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+                const timeToMove = rentalOffer.deadline - blockTimestamp + 1
+                await ethers.provider.send('evm_increaseTime', [timeToMove])
+
+                await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: Rental Offer expired',
+                )
+              })
+              it('Should end a rental if the role was revoked by borrower directly in registry', async () => {
+                await rolesRegistry
+                  .connect(borrower)
+                  .setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+                await rolesRegistry
+                  .connect(borrower)
+                  .revokeRole(rentalOffer.commitmentId, rentalOffer.roles[0], borrower.address)
+                await expect(marketplace.connect(borrower).endRental(rentalOffer))
+                  .to.emit(marketplace, 'RentalEnded')
+                  .withArgs(
+                    rentalOffer.nonce,
+                    rentalOffer.tokenAddress,
+                    rentalOffer.tokenId,
+                    rentalOffer.commitmentId,
+                    rentalOffer.lender,
+                    borrower.address,
+                  )
+              })
+              it('Should NOT end rental twice', async () => {
+                await marketplace.connect(borrower).endRental(rentalOffer)
+                await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: Rental ended',
                 )
               })
             })
