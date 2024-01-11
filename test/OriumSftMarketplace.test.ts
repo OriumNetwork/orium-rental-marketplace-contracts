@@ -564,7 +564,7 @@ describe('OriumSftMarketplace', () => {
               it('Should NOT accept a rental offer twice', async () => {
                 await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumSftMarketplace: Rental already started',
+                  'OriumSftMarketplace: This offer has an ongoing rental',
                 )
               })
             })
