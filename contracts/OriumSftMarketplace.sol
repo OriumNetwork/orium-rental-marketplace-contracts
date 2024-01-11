@@ -374,7 +374,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
-        require(rentals[_offerHash].expirationDate <= block.timestamp, "OriumSftMarketplace: Rental already started");
+        require(rentals[_offerHash].expirationDate <= block.timestamp, "OriumSftMarketplace: This offer has an ongoing rental");
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,
