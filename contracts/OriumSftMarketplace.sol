@@ -228,8 +228,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         _createRental(_offer, _expirationDate);
     }
 
-
-
     /** ######### Getters ########### **/
 
     /**
