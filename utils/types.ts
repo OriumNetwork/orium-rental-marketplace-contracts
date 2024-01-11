@@ -33,3 +33,8 @@ export interface DirectRental {
   roles: string[]
   rolesData: string[]
 }
+
+export interface SftRentalOffer extends RentalOffer {
+  tokenAmount: BigNumber
+  commitmentId: BigNumber
+}

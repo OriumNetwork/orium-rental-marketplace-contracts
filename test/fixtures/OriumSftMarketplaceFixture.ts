@@ -9,11 +9,19 @@ import { Contract } from 'ethers'
 export async function deploySftMarketplaceContracts() {
   const [, operator] = await ethers.getSigners()
 
+  const RolesRegistryFactory = await ethers.getContractFactory('SftRolesRegistrySingleRole')
+  const rolesRegistry = await RolesRegistryFactory.deploy()
+  await rolesRegistry.deployed()
+
   const MarketplaceFactory = await ethers.getContractFactory('OriumSftMarketplace')
-  const marketplace = await upgrades.deployProxy(MarketplaceFactory, [operator.address, AddressZero, THREE_MONTHS])
+  const marketplace = await upgrades.deployProxy(MarketplaceFactory, [
+    operator.address,
+    rolesRegistry.address,
+    THREE_MONTHS,
+  ])
   await marketplace.deployed()
 
-  const MockERC1155Factory = await ethers.getContractFactory('MockERC721')
+  const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
   const mockERC1155 = await MockERC1155Factory.deploy()
   await mockERC1155.deployed()
 
@@ -21,5 +29,5 @@ export async function deploySftMarketplaceContracts() {
   const mockERC20 = await MockERC20Factory.deploy()
   await mockERC20.deployed()
 
-  return [marketplace, mockERC1155, mockERC20] as Contract[]
+  return [marketplace, rolesRegistry, mockERC1155, mockERC20] as Contract[]
 }

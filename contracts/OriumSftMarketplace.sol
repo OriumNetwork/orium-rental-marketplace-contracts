@@ -5,6 +5,8 @@ pragma solidity 0.8.9;
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import { IERC7589 } from "./interfaces/IERC7589.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -36,6 +38,18 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /// @dev tokenAddress => tokenAddressToRoyaltyInfo
     mapping(address => RoyaltyInfo) public tokenAddressToRoyaltyInfo;
 
+    /// @dev hashedOffer => bool
+    mapping(bytes32 => bool) public isCreated;
+
+    /// @dev lender => nonce => deadline
+    mapping(address => mapping(uint256 => uint64)) public nonceDeadline;
+
+    /// @dev rolesRegistry => commitmentId => nonce
+    mapping(address => mapping(uint256 => uint256)) public commitmentIdToNonce;
+
+    /// @dev tokenAddress => bool
+    mapping(address => bool) public isTrustedTokenAddress;
+
     /** ######### Structs ########### **/
 
     /// @dev Royalty info. Used to charge fees for the creator.
@@ -49,6 +63,22 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     struct FeeInfo {
         uint256 feePercentageInWei;
         bool isCustomFee;
+    }
+
+    /// @dev Rental offer info.
+    struct RentalOffer {
+        address lender;
+        address borrower;
+        address tokenAddress;
+        uint256 tokenId;
+        uint256 tokenAmount;
+        address feeTokenAddress;
+        uint256 feeAmountPerSecond;
+        uint256 nonce;
+        uint256 commitmentId;
+        uint64 deadline;
+        bytes32[] roles;
+        bytes[] rolesData;
     }
 
     /** ######### Events ########### **/
@@ -78,7 +108,46 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     event RolesRegistrySet(address indexed tokenAddress, address indexed rolesRegistry);
 
+    /**
+     * @param nonce The nonce of the rental offer
+     * @param tokenAddress The address of the contract of the SFT to rent
+     * @param tokenId The tokenId of the SFT to rent
+     * @param tokenAmount The amount of SFT to rent
+     * @param commitmentId The commitmentId of the SFT to rent
+     * @param lender The address of the user lending the SFT
+     * @param borrower The address of the user renting the SFT
+     * @param feeTokenAddress The address of the ERC20 token for rental fees
+     * @param feeAmountPerSecond The amount of fee per second
+     * @param deadline The deadline until when the rental offer is valid
+     * @param roles The array of roles to be assigned to the borrower
+     * @param rolesData The array of data for each role
+     */
+    event RentalOfferCreated(
+        uint256 indexed nonce,
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        uint256 tokenAmount,
+        uint256 commitmentId,
+        address lender,
+        address borrower,
+        address feeTokenAddress,
+        uint256 feeAmountPerSecond,
+        uint256 deadline,
+        bytes32[] roles,
+        bytes[] rolesData
+    );
+
     /** ######### Modifiers ########### **/
+
+    /**
+     * @notice Checks if the token address is trusted.
+     * @dev Throws if the token address is not trusted.
+     * @param _tokenAddress The token address.
+     */
+    modifier onlyTrustedToken(address _tokenAddress) {
+        require(isTrustedTokenAddress[_tokenAddress], "OriumSftMarketplace: tokenAddress is not trusted");
+        _;
+    }
 
     /** ######### Initializer ########### **/
     /**
@@ -96,6 +165,161 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         maxDeadline = _maxDeadline;
 
         transferOwnership(_owner);
+    }
+
+    /** ============================ Rental Functions  ================================== **/
+
+    /** ######### Setters ########### **/
+    /**
+     * @notice Creates a rental offer.
+     * @dev To optimize for gas, only the offer hash is stored on-chain
+     * @param _offer The rental offer struct.
+     */
+    function createRentalOffer(
+        RentalOffer calldata _offer
+    ) external onlyTrustedToken(_offer.feeTokenAddress) onlyTrustedToken(_offer.tokenAddress) whenNotPaused {
+        address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
+        _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
+        _createRentalOffer(_offer, _rolesRegistryAddress);
+    }
+
+    /** ######### Getters ########### **/
+
+    /**
+     * @notice Gets the rental offer hash.
+     * @param _offer The rental offer struct to be hashed.
+     */
+    function hashRentalOffer(RentalOffer memory _offer) public pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    _offer.lender,
+                    _offer.borrower,
+                    _offer.tokenAddress,
+                    _offer.tokenId,
+                    _offer.tokenAmount,
+                    _offer.feeTokenAddress,
+                    _offer.feeAmountPerSecond,
+                    _offer.nonce,
+                    _offer.commitmentId,
+                    _offer.deadline,
+                    _offer.roles,
+                    _offer.rolesData
+                )
+            );
+    }
+
+    /** ######### Internals ########### **/
+    /**
+     * @dev Validates the create rental offer.
+     * @param _offer The rental offer struct.
+     */
+    function _validateCreateRentalOffer(RentalOffer calldata _offer, address _rolesRegistryAddress) internal view {
+        require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
+        require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
+        require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
+        require(_offer.roles.length > 0, "OriumSftMarketplace: roles should not be empty");
+        require(
+            _offer.roles.length == _offer.rolesData.length,
+            "OriumSftMarketplace: roles and rolesData should have the same length"
+        );
+        require(
+            _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
+            "OriumSftMarketplace: Invalid deadline"
+        );
+        require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
+        require(
+            _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
+            "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
+        );
+
+        if (_offer.commitmentId != 0) {
+            _validateCommitmentId(
+                _offer.commitmentId,
+                _offer.tokenAddress,
+                _offer.tokenId,
+                _offer.tokenAmount,
+                _offer.lender,
+                _rolesRegistryAddress
+            );
+        } else {
+            require(
+                IERC1155(_offer.tokenAddress).balanceOf(msg.sender, _offer.tokenId) >= _offer.tokenAmount,
+                "OriumSftMarketplace: caller does not have enough balance for the token"
+            );
+        }
+    }
+
+    function _validateCommitmentId(
+        uint256 _commitmentId,
+        address _tokenAddress,
+        uint256 _tokenId,
+        uint256 _tokenAmount,
+        address _lender,
+        address _rolesRegistryAddress
+    ) internal view {
+        IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
+        require(
+            _rolesRegistry.tokenAmountOf(_commitmentId) == _tokenAmount,
+            "OriumSftMarketplace: commitmentId token amount does not match offer's token amount"
+        );
+
+        uint256 _nonce = commitmentIdToNonce[_rolesRegistryAddress][_commitmentId];
+
+        if (_nonce != 0) {
+            require(
+                nonceDeadline[_lender][_nonce] < block.timestamp,
+                "OriumSftMarketplace: commitmentId is in an active rental offer"
+            );
+        }
+
+        require(
+            _rolesRegistry.grantorOf(_commitmentId) == _lender,
+            "OriumSftMarketplace: commitmentId grantor does not match offer's lender"
+        );
+        require(
+            _rolesRegistry.tokenAddressOf(_commitmentId) == _tokenAddress,
+            "OriumSftMarketplace: commitmentId tokenAddress does not match offer's tokenAddress"
+        );
+        require(
+            _rolesRegistry.tokenIdOf(_commitmentId) == _tokenId,
+            "OriumSftMarketplace: commitmentId tokenId does not match offer's tokenId"
+        );
+    }
+
+    /**
+     * @dev creates a rental offer.
+     * @param _offer The rental offer struct.
+     */
+
+    function _createRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal {
+        if (_offer.commitmentId == 0) {
+            _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
+                _offer.lender,
+                _offer.tokenAddress,
+                _offer.tokenId,
+                _offer.tokenAmount
+            );
+        }
+
+        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
+        isCreated[hashRentalOffer(_offer)] = true;
+        commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId] = _offer.nonce;
+
+        emit RentalOfferCreated(
+            _offer.nonce,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.tokenAmount,
+            _offer.commitmentId,
+            _offer.lender,
+            _offer.borrower,
+            _offer.feeTokenAddress,
+            _offer.feeAmountPerSecond,
+            _offer.deadline,
+            _offer.roles,
+            _offer.rolesData
+        );
     }
 
     /** ============================ Core Functions  ================================== **/
@@ -222,6 +446,19 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function setDefaultRolesRegistry(address _rolesRegistry) external onlyOwner {
         defaultRolesRegistry = _rolesRegistry;
+    }
+
+    /**
+     * @notice Sets the trusted token addresses.
+     * @dev Can only be called by the owner. Used to allow collections with no custom fee set.
+     * @param _tokenAddresses The SFT addresses.
+     * @param _isTrusted The boolean array.
+     */
+    function setTrustedTokens(address[] calldata _tokenAddresses, bool[] calldata _isTrusted) external onlyOwner {
+        require(_tokenAddresses.length == _isTrusted.length, "OriumSftMarketplace: Arrays should have the same length");
+        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+            isTrustedTokenAddress[_tokenAddresses[i]] = _isTrusted[i];
+        }
     }
 
     /** ######### Getters ########### **/
