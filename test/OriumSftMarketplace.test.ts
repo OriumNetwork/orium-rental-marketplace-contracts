@@ -51,6 +51,7 @@ describe('OriumSftMarketplace', () => {
 
       beforeEach(async () => {
         await mockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
+        await marketplace.connect(operator).setTrustedTokens([mockERC1155.address, mockERC20.address], [true, true])
       })
 
       describe('Rental Offers', async () => {
@@ -85,7 +86,7 @@ describe('OriumSftMarketplace', () => {
             tokenId,
             tokenAmount,
             feeTokenAddress: mockERC20.address,
-            feeAmountPerSecond: toWei('0'),
+            feeAmountPerSecond: toWei('0.0000001'),
             deadline: blockTimestamp + ONE_DAY,
             roles: [USER_ROLE],
             rolesData: [EMPTY_BYTES],
@@ -144,9 +145,33 @@ describe('OriumSftMarketplace', () => {
                   .to.emit(rolesRegistry, 'TokensCommitted')
                   .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
               })
+              it('Should create a rental offer with feeAmountPerSecond equal to 0 if offer is private', async function () {
+                rentalOffer.feeAmountPerSecond = BigNumber.from(0)
+                rentalOffer.borrower = lender.address
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                  .to.emit(marketplace, 'RentalOfferCreated')
+                  .withArgs(
+                    rentalOffer.nonce,
+                    rentalOffer.tokenAddress,
+                    rentalOffer.tokenId,
+                    rentalOffer.tokenAmount,
+                    1,
+                    rentalOffer.lender,
+                    rentalOffer.borrower,
+                    rentalOffer.feeTokenAddress,
+                    rentalOffer.feeAmountPerSecond,
+                    rentalOffer.deadline,
+                    rentalOffer.roles,
+                    rentalOffer.rolesData,
+                  )
+                  .to.emit(mockERC1155, 'TransferSingle')
+                  .withArgs(rolesRegistry.address, lender.address, rolesRegistry.address, tokenId, tokenAmount)
+                  .to.emit(rolesRegistry, 'TokensCommitted')
+                  .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
+              })
               it('Should NOT create a rental offer if caller is not the lender', async () => {
                 await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                  'OriumSftMarketplace: caller does not have enough balance for the token',
+                  'OriumSftMarketplace: Sender and Lender mismatch',
                 )
               })
               it("Should NOT create a rental offer if lender is not the caller's address", async () => {
@@ -207,7 +232,41 @@ describe('OriumSftMarketplace', () => {
                   'OriumSftMarketplace: commitmentId is in an active rental offer',
                 )
               })
+              it("Should NOT create a rental offer if SFT address isn't trusted", async () => {
+                rentalOffer.tokenAddress = AddressZero
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: tokenAddress is not trusted',
+                )
+              })
+              it("Should NOT create a rental offer if fee token address isn't trusted", async () => {
+                rentalOffer.feeTokenAddress = AddressZero
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: tokenAddress is not trusted',
+                )
+              })
+              it('Should NOT create a rental offer if contract is paused', async () => {
+                await marketplace.connect(operator).pause()
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                  'Pausable: paused',
+                )
+              })
+              it('Should NOT create a rental offer if offer is public and feeAmountPerSecond is 0', async function () {
+                rentalOffer.feeAmountPerSecond = BigNumber.from(0)
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: feeAmountPerSecond should be greater than 0',
+                )
+              })
+              it("Should NOT create a rental offer if lender doesn't have enough balance", async () => {
+                const balance = await mockERC1155.balanceOf(lender.address, tokenId)
+                await mockERC1155
+                  .connect(lender)
+                  .safeTransferFrom(lender.address, creator.address, tokenId, balance, '0x')
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                  'OriumSftMarketplace: caller does not have enough balance for the token',
+                )
+              })
             })
+
             describe('When commitmentId exists and rental offer deadline expired', async () => {
               beforeEach(async () => {
                 await marketplace.connect(lender).createRentalOffer(rentalOffer)
@@ -253,6 +312,7 @@ describe('OriumSftMarketplace', () => {
                 await anotherMockERC1155.deployed()
                 await anotherMockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
                 await anotherMockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
+                await marketplace.connect(operator).setTrustedTokens([anotherMockERC1155.address], [true])
                 await rolesRegistry
                   .connect(lender)
                   .commitTokens(lender.address, anotherMockERC1155.address, tokenId, tokenAmount)
@@ -294,6 +354,7 @@ describe('OriumSftMarketplace', () => {
           )
         })
       })
+
       describe('Pausable', async () => {
         describe('Pause', async () => {
           it('Should pause the contract', async () => {
@@ -322,6 +383,7 @@ describe('OriumSftMarketplace', () => {
           })
         })
       })
+
       describe('Marketplace Fee', async () => {
         it('Should set the marketplace for a collection', async () => {
           await expect(
@@ -375,6 +437,7 @@ describe('OriumSftMarketplace', () => {
           ).to.be.revertedWith('OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%')
         })
       })
+
       describe('Creator Royalties', async () => {
         describe('Operator', async () => {
           it('Should set the creator royalties for a collection', async () => {
@@ -489,6 +552,7 @@ describe('OriumSftMarketplace', () => {
           })
         })
       })
+
       describe('Max Deadline', async () => {
         it('Should set the max deadline by operator', async () => {
           await marketplace.connect(operator).setMaxDeadline(maxDeadline)
@@ -531,6 +595,24 @@ describe('OriumSftMarketplace', () => {
           await expect(
             marketplace.connect(notOperator).setDefaultRolesRegistry(rolesRegistry.address),
           ).to.be.revertedWith('Ownable: caller is not the owner')
+        })
+      })
+
+      describe('Trusted Tokens', async () => {
+        it('Should set the trusted tokens', async () => {
+          await marketplace.connect(operator).setTrustedTokens([mockERC1155.address], [true])
+          expect(await marketplace.isTrustedTokenAddress(mockERC1155.address)).to.be.true
+        })
+
+        it('Should NOT set the trusted tokens if caller is not the operator', async () => {
+          await expect(
+            marketplace.connect(notOperator).setTrustedTokens([mockERC1155.address], [true]),
+          ).to.be.revertedWith('Ownable: caller is not the owner')
+        })
+        it('Should NOT set the trusted tokens if token address and isTrusted have different lengths', async () => {
+          await expect(
+            marketplace.connect(operator).setTrustedTokens([mockERC1155.address, mockERC20.address], [true]),
+          ).to.be.revertedWith('OriumSftMarketplace: Arrays should have the same length')
         })
       })
     })
