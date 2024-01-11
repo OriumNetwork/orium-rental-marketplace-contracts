@@ -7,6 +7,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC7589 } from "./interfaces/IERC7589.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -49,6 +50,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /// @dev tokenAddress => bool
     mapping(address => bool) public isTrustedTokenAddress;
+    
+    /// @dev hashedOffer => Rental
+    mapping(bytes32 => Rental) public rentals;
 
     /** ######### Structs ########### **/
 
@@ -79,6 +83,12 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         uint64 deadline;
         bytes32[] roles;
         bytes[] rolesData;
+    }
+
+    /// @dev Rental info.
+    struct Rental {
+        address borrower;
+        uint64 expirationDate;
     }
 
     /** ######### Events ########### **/
@@ -137,6 +147,25 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         bytes[] rolesData
     );
 
+    /**
+     * @param nonce The nonce of the rental offer
+     * @param tokenAddress The address of the contract of the SFT rented
+     * @param tokenId The tokenId of the rented SFT
+     * @param commitmentId The commitmentId of the rented SFT
+     * @param lender The address of the lender
+     * @param borrower The address of the borrower
+     * @param expirationDate The expiration date of the rental
+     */
+    event RentalStarted(
+        uint256 indexed nonce,
+        address indexed tokenAddress,
+        uint256 indexed tokenId,
+        uint256 commitmentId,
+        address lender,
+        address borrower,
+        uint64 expirationDate
+    );
+
     /** ######### Modifiers ########### **/
 
     /**
@@ -181,6 +210,22 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
         _createRentalOffer(_offer, _rolesRegistryAddress);
+    }
+
+    /**
+     * @notice Accepts a rental offer.
+     * @dev The borrower can be address(0) to allow anyone to rent the SFT.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     * @param _duration The duration of the rental.
+     */
+    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external {
+        uint64 _expirationDate = uint64(block.timestamp + _duration);
+
+        _validateAcceptRentalOffer(_offer, _expirationDate);
+
+        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
+
+        _createRental(_offer, _expirationDate);
     }
 
     /** ######### Getters ########### **/
@@ -319,6 +364,131 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             _offer.deadline,
             _offer.roles,
             _offer.rolesData
+        );
+    }
+
+        /**
+     * @dev Validates the accept rental offer.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     * @param _expirationDate The expiration date of the rental.
+     */
+    function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
+        bytes32 _offerHash = hashRentalOffer(_offer);
+        require(rentals[_offerHash].expirationDate <= block.timestamp, "OriumSftMarketplace: This offer has an ongoing rental");
+        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
+        require(
+            address(0) == _offer.borrower || msg.sender == _offer.borrower,
+            "OriumSftMarketplace: Sender is not allowed to rent this SFT"
+        );
+        require(
+            nonceDeadline[_offer.lender][_offer.nonce] > _expirationDate,
+            "OriumSftMarketplace: expiration date is greater than offer deadline"
+        );
+    }
+
+    /**
+     * @dev Transfers the fees to the marketplace, the creator and the lender.
+     * @param _feeTokenAddress The address of the ERC20 token for rental fees.
+     * @param _feeAmountPerSecond  The amount of fee per second.
+     * @param _duration The duration of the rental.
+     * @param _lenderAddress The address of the lender.
+     */
+    function _transferFees(
+        address _tokenAddress,
+        address _feeTokenAddress,
+        uint256 _feeAmountPerSecond,
+        uint64 _duration,
+        address _lenderAddress
+    ) internal {
+        uint256 _feeAmount = _feeAmountPerSecond * _duration;
+        if (_feeAmount == 0) return;
+
+        uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_tokenAddress));
+        if (_marketplaceFeeAmount > 0) {
+            require(
+                IERC20(_feeTokenAddress).transferFrom(msg.sender, owner(), _marketplaceFeeAmount),
+                "OriumSftMarketplace: Transfer failed"
+            );
+        }
+
+        uint256 _royaltyAmount = _getAmountFromPercentage(
+            _feeAmount,
+            tokenAddressToRoyaltyInfo[_tokenAddress].royaltyPercentageInWei
+        );
+        if (_royaltyAmount > 0) {
+            require(
+                IERC20(_feeTokenAddress).transferFrom(msg.sender, tokenAddressToRoyaltyInfo[_tokenAddress].treasury, _royaltyAmount),
+                "OriumSftMarketplace: Transfer failed"
+            );
+        }
+
+        uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
+        require(
+            IERC20(_feeTokenAddress).transferFrom(msg.sender, _lenderAddress, _lenderAmount),
+            "OriumSftMarketplace: Transfer failed"
+        );
+    }
+
+    /**
+     * @dev All values needs to be in wei.
+     * @param _amount The amount to calculate the percentage from.
+     * @param _percentage The percentage to calculate.
+     */
+    function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
+        return (_amount * _percentage) / MAX_PERCENTAGE;
+    }
+
+    /**
+     * @dev Grants the roles to the borrower.
+     * @param _commitmentId The commitment identifier.
+     * @param _roles The array of roles to be assigned to the borrower
+     * @param _grantee The address of the user renting the SFT
+     * @param _expirationDate The deadline until when the rental offer is valid
+     * @param _revocable Whether the role is revocable or not
+     * @param _rolesData The array of data for each role
+     * @param _tokenAddress The address of the contract of the SFT to rent
+     */
+    function _batchGrantRole(
+        uint256 _commitmentId,
+        bytes32[] memory _roles,
+        address _grantee,
+        uint64 _expirationDate,
+        bool _revocable,
+        bytes[] memory _rolesData,
+        address _tokenAddress
+    ) internal {
+        IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_tokenAddress));
+        for (uint256 i = 0; i < _roles.length; i++) {
+           _rolesRegistry.grantRole(_commitmentId, _roles[i], _grantee, _expirationDate, _revocable, _rolesData[i]);
+        }
+    }
+
+    /**
+     * @notice Starts the rental.
+     * @param _offer The rental offer struct.
+     * @param _expirationDate The period of time the SFT will be rented.
+     */
+    function _createRental(RentalOffer calldata _offer, uint64 _expirationDate) internal {
+         _batchGrantRole(
+            _offer.commitmentId,
+            _offer.roles,
+            msg.sender,
+            _expirationDate,
+            false,
+            _offer.rolesData,
+            _offer.tokenAddress
+        );
+
+        rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+
+        emit RentalStarted(
+            _offer.nonce,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.commitmentId,
+            _offer.lender,
+            msg.sender,
+            _expirationDate
         );
     }
 
