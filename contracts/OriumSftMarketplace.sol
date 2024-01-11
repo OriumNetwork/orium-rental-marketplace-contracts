@@ -177,14 +177,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function createRentalOffer(
         RentalOffer calldata _offer
-    )
-        external
-        onlyTrustedToken(_offer.feeTokenAddress)
-        onlyTrustedToken(_offer.tokenAddress)
-        whenNotPaused
-    {
-        _validateCreateRentalOffer(_offer);
-        _createRentalOffer(_offer);
+    ) external onlyTrustedToken(_offer.feeTokenAddress) onlyTrustedToken(_offer.tokenAddress) whenNotPaused {
+        address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
+        _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
+        _createRentalOffer(_offer, _rolesRegistryAddress);
     }
 
     /** ######### Getters ########### **/
@@ -218,7 +214,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev Validates the create rental offer.
      * @param _offer The rental offer struct.
      */
-    function _validateCreateRentalOffer(RentalOffer calldata _offer) internal view {
+    function _validateCreateRentalOffer(RentalOffer calldata _offer, address _rolesRegistryAddress) internal view {
         require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
         require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
         require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
@@ -232,15 +228,20 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Invalid deadline"
         );
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
-
-        if (_offer.commitmentId != 0) {}
-
-        if (_offer.borrower == address(0)) {
-            require(_offer.feeAmountPerSecond > 0, "OriumSftMarketplace: feeAmountPerSecond should be greater than 0");
-        }
+        require(
+            _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
+            "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
+        );
 
         if (_offer.commitmentId != 0) {
-            _validateCommitmentId(_offer.commitmentId, _offer.tokenAddress, _offer.tokenId, _offer.tokenAmount, _offer.lender);
+            _validateCommitmentId(
+                _offer.commitmentId,
+                _offer.tokenAddress,
+                _offer.tokenId,
+                _offer.tokenAmount,
+                _offer.lender,
+                _rolesRegistryAddress
+            );
         } else {
             require(
                 IERC1155(_offer.tokenAddress).balanceOf(msg.sender, _offer.tokenId) >= _offer.tokenAmount,
@@ -254,16 +255,17 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address _tokenAddress,
         uint256 _tokenId,
         uint256 _tokenAmount,
-        address _lender
+        address _lender,
+        address _rolesRegistryAddress
     ) internal view {
+        IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
         require(
-            IERC7589(rolesRegistryOf(_tokenAddress)).tokenAmountOf(_commitmentId) == _tokenAmount,
+            _rolesRegistry.tokenAmountOf(_commitmentId) == _tokenAmount,
             "OriumSftMarketplace: commitmentId token amount does not match offer's token amount"
         );
 
-        address _rolesRegistryAddress = rolesRegistryOf(_tokenAddress);
         uint256 _nonce = commitmentIdToNonce[_rolesRegistryAddress][_commitmentId];
-        
+
         if (_nonce != 0) {
             require(
                 nonceDeadline[_lender][_nonce] < block.timestamp,
@@ -271,7 +273,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             );
         }
 
-        IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
         require(
             _rolesRegistry.grantorOf(_commitmentId) == _lender,
             "OriumSftMarketplace: commitmentId grantor does not match offer's lender"
@@ -291,9 +292,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct.
      */
 
-    function _createRentalOffer(RentalOffer memory _offer) internal {
-        address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
-
+    function _createRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal {
         if (_offer.commitmentId == 0) {
             _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
                 _offer.lender,
@@ -455,10 +454,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _tokenAddresses The SFT addresses.
      * @param _isTrusted The boolean array.
      */
-    function setTrustedTokens(
-        address[] calldata _tokenAddresses,
-        bool[] calldata _isTrusted
-    ) external onlyOwner {
+    function setTrustedTokens(address[] calldata _tokenAddresses, bool[] calldata _isTrusted) external onlyOwner {
         require(_tokenAddresses.length == _isTrusted.length, "OriumSftMarketplace: Arrays should have the same length");
         for (uint256 i = 0; i < _tokenAddresses.length; i++) {
             isTrustedTokenAddress[_tokenAddresses[i]] = _isTrusted[i];
