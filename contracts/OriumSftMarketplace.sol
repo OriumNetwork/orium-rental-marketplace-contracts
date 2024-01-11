@@ -217,12 +217,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
-    function createRentalOffer(
-        RentalOffer memory _offer
-    ) external whenNotPaused {
+    function createRentalOffer(RentalOffer memory _offer) external whenNotPaused {
         address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
-        
+
         if (_offer.commitmentId == 0) {
             _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
                 _offer.lender,
@@ -267,7 +265,14 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
         IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
         for (uint256 i = 0; i < _offer.roles.length; i++) {
-            _rolesRegistry.grantRole(_offer.commitmentId, _offer.roles[i], msg.sender, _expirationDate, false, _offer.rolesData[i]);
+            _rolesRegistry.grantRole(
+                _offer.commitmentId,
+                _offer.roles[i],
+                msg.sender,
+                _expirationDate,
+                false,
+                _offer.rolesData[i]
+            );
         }
 
         rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
@@ -318,12 +323,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
         address _borrower = rentals[_offerHash].borrower;
 
-        // This if is needed for the case where the borrower revoked the role before the rental ended. It will not revoke the role again
-        // and will only update the rental expiration date.
-        if(_rolesRegistry.roleExpirationDate(_offer.commitmentId, _offer.roles[0], _borrower) >= block.timestamp) {
-            for (uint256 i = 0; i < _offer.roles.length; i++) {
+        for (uint256 i = 0; i < _offer.roles.length; i++) {
             _rolesRegistry.revokeRole(_offer.commitmentId, _offer.roles[i], _borrower);
-            }
         }
 
         rentals[_offerHash].expirationDate = uint64(block.timestamp);
@@ -370,7 +371,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct.
      */
     function _validateCreateRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal view {
-        require(isTrustedTokenAddress[_offer.tokenAddress] && isTrustedTokenAddress[_offer.feeTokenAddress], "OriumSftMarketplace: tokenAddress is not trusted");
+        require(
+            isTrustedTokenAddress[_offer.tokenAddress] && isTrustedTokenAddress[_offer.feeTokenAddress],
+            "OriumSftMarketplace: tokenAddress is not trusted"
+        );
         require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
         require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
         require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
@@ -450,7 +454,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
-        require(rentals[_offerHash].expirationDate <= block.timestamp, "OriumSftMarketplace: This offer has an ongoing rental");
+        require(
+            rentals[_offerHash].expirationDate <= block.timestamp,
+            "OriumSftMarketplace: This offer has an ongoing rental"
+        );
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(
             address(0) == _offer.borrower || msg.sender == _offer.borrower,

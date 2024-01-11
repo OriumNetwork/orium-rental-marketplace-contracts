@@ -639,23 +639,16 @@ describe('OriumSftMarketplace', () => {
                   'OriumSftMarketplace: Rental Offer expired',
                 )
               })
-              it('Should end a rental if the role was revoked by borrower directly in registry', async () => {
+              it('Should NOT end a rental if the role was revoked by borrower directly in registry', async () => {
                 await rolesRegistry
                   .connect(borrower)
                   .setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
                 await rolesRegistry
                   .connect(borrower)
                   .revokeRole(rentalOffer.commitmentId, rentalOffer.roles[0], borrower.address)
-                await expect(marketplace.connect(borrower).endRental(rentalOffer))
-                  .to.emit(marketplace, 'RentalEnded')
-                  .withArgs(
-                    rentalOffer.nonce,
-                    rentalOffer.tokenAddress,
-                    rentalOffer.tokenId,
-                    rentalOffer.commitmentId,
-                    rentalOffer.lender,
-                    borrower.address,
-                  )
+                await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
+                  'SftRolesRegistry: grantee mismatch',
+                )
               })
               it('Should NOT end rental twice', async () => {
                 await marketplace.connect(borrower).endRental(rentalOffer)
