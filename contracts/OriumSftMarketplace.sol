@@ -262,8 +262,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
 
         address _rolesRegistryAddress = rolesRegistryOf(_tokenAddress);
-        if (commitmentIdToNonce[_rolesRegistryAddress][_commitmentId] != 0) {
-            uint256 _nonce = commitmentIdToNonce[_rolesRegistryAddress][_commitmentId];
+        uint256 _nonce = commitmentIdToNonce[_rolesRegistryAddress][_commitmentId];
+        
+        if (_nonce != 0) {
             require(
                 nonceDeadline[_lender][_nonce] < block.timestamp,
                 "OriumSftMarketplace: commitmentId is in an active rental offer"
