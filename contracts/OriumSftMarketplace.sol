@@ -370,7 +370,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         /**
      * @dev Validates the accept rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
-     * @param _expirationDate The period of time the SFT will be rented.
+     * @param _expirationDate The expiration date of the rental.
      */
     function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
         bytes32 _offerHash = hashRentalOffer(_offer);
