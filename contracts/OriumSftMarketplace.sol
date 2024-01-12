@@ -168,26 +168,14 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /**
      * @param nonce The nonce of the rental offer
-     * @param lender The address of the user lending the SFT
      */
-    event RentalOfferCancelled(uint256 indexed nonce, address indexed lender);
+    event RentalOfferCancelled(uint256 indexed nonce);
 
     /**
-     * @param nonce The nonce of the rental offer
-     * @param tokenAddress The address of the contract of the SFT rented
-     * @param tokenId The tokenId of the rented SFT
-     * @param commitmentId The commitmentId of the rented SFT
      * @param lender The address of the lender
-     * @param borrower The address of the borrower
+     * @param nonce The nonce of the rental offer
      */
-    event RentalEnded(
-        uint256 indexed nonce,
-        address indexed tokenAddress,
-        uint256 indexed tokenId,
-        uint256 commitmentId,
-        address lender,
-        address borrower
-    );
+    event RentalEnded(address indexed lender, uint256 indexed nonce);
 
     /** ######### Modifiers ########### **/
 
@@ -300,7 +288,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
 
         nonceDeadline[msg.sender][nonce] = uint64(block.timestamp);
-        emit RentalOfferCancelled(nonce, msg.sender);
+        emit RentalOfferCancelled(nonce);
     }
 
     /**
@@ -315,10 +303,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(msg.sender == rentals[_offerHash].borrower, "OriumSftMarketplace: Only borrower can end a rental");
         require(
-            nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp,
-            "OriumSftMarketplace: Rental Offer expired"
+            rentals[_offerHash].expirationDate > block.timestamp,
+            "OriumSftMarketplace: There is any active Rental"
         );
-        require(rentals[_offerHash].expirationDate > block.timestamp, "OriumSftMarketplace: Rental ended");
 
         IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
         address _borrower = rentals[_offerHash].borrower;
@@ -329,14 +316,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
         rentals[_offerHash].expirationDate = uint64(block.timestamp);
 
-        emit RentalEnded(
-            _offer.nonce,
-            _offer.tokenAddress,
-            _offer.tokenId,
-            _offer.commitmentId,
-            _offer.lender,
-            rentals[_offerHash].borrower
-        );
+        emit RentalEnded(_offer.lender, _offer.nonce);
     }
 
     /** ######### Getters ########### **/

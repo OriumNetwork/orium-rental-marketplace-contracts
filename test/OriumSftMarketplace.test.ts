@@ -573,7 +573,7 @@ describe('OriumSftMarketplace', () => {
             it('Should cancel a rental offer', async () => {
               await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer.nonce))
                 .to.emit(marketplace, 'RentalOfferCancelled')
-                .withArgs(rentalOffer.nonce, lender.address)
+                .withArgs(rentalOffer.nonce)
             })
             it('Should NOT cancel a rental offer if nonce not used yet by caller', async () => {
               await expect(marketplace.connect(notOperator).cancelRentalOffer(rentalOffer.nonce)).to.be.revertedWith(
@@ -603,14 +603,7 @@ describe('OriumSftMarketplace', () => {
               it('Should end a rental by the borrower', async () => {
                 await expect(marketplace.connect(borrower).endRental(rentalOffer))
                   .to.emit(marketplace, 'RentalEnded')
-                  .withArgs(
-                    rentalOffer.nonce,
-                    rentalOffer.tokenAddress,
-                    rentalOffer.tokenId,
-                    rentalOffer.commitmentId,
-                    rentalOffer.lender,
-                    borrower.address,
-                  )
+                  .withArgs(rentalOffer.lender, rentalOffer.nonce)
               })
               it('Should NOT end a rental by the lender', async () => {
                 await expect(marketplace.connect(lender).endRental(rentalOffer)).to.be.revertedWith(
@@ -636,7 +629,7 @@ describe('OriumSftMarketplace', () => {
                 await ethers.provider.send('evm_increaseTime', [timeToMove])
 
                 await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                  'OriumSftMarketplace: Rental Offer expired',
+                  'OriumSftMarketplace: There is any active Rental',
                 )
               })
               it('Should NOT end a rental if the role was revoked by borrower directly in registry', async () => {
@@ -653,7 +646,7 @@ describe('OriumSftMarketplace', () => {
               it('Should NOT end rental twice', async () => {
                 await marketplace.connect(borrower).endRental(rentalOffer)
                 await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                  'OriumSftMarketplace: Rental ended',
+                  'OriumSftMarketplace: There is any active Rental',
                 )
               })
             })
