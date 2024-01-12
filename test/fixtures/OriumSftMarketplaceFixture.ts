@@ -1,5 +1,5 @@
 import { ethers, upgrades } from 'hardhat'
-import { AddressZero, THREE_MONTHS } from '../../utils/constants'
+import { THREE_MONTHS } from '../../utils/constants'
 import { Contract } from 'ethers'
 /**
  * @dev deployer, operator needs to be the first accounts in the hardhat ethers.getSigners()
@@ -13,12 +13,20 @@ export async function deploySftMarketplaceContracts() {
   const rolesRegistry = await RolesRegistryFactory.deploy()
   await rolesRegistry.deployed()
 
-  const MarketplaceFactory = await ethers.getContractFactory('OriumSftMarketplace')
-  const marketplace = await upgrades.deployProxy(MarketplaceFactory, [
-    operator.address,
-    rolesRegistry.address,
-    THREE_MONTHS,
-  ])
+  const LibMarketplaceFactory = await ethers.getContractFactory('LibOriumSftMarketplace')
+  const libMarketplace = await LibMarketplaceFactory.deploy()
+  await libMarketplace.deployed()
+
+  const MarketplaceFactory = await ethers.getContractFactory('OriumSftMarketplace', {
+    libraries: {
+      LibOriumSftMarketplace: libMarketplace.address,
+    },
+  })
+  const marketplace = await upgrades.deployProxy(
+    MarketplaceFactory,
+    [operator.address, rolesRegistry.address, THREE_MONTHS],
+    { unsafeAllowLinkedLibraries: true },
+  )
   await marketplace.deployed()
 
   const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')

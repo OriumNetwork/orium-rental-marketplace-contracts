@@ -7,7 +7,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC7589 } from "./interfaces/IERC7589.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { LibOriumSftMarketplace, RentalOffer } from "./libraries/LibOriumSftMarketplace.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -16,11 +16,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  */
 contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
     /** ######### Constants ########### **/
-
-    /// @dev 100 ether is 100%
-    uint256 public constant MAX_PERCENTAGE = 100 ether;
-    /// @dev 2.5 ether is 2.5%
-    uint256 public constant DEFAULT_FEE_PERCENTAGE = 2.5 ether;
 
     /** ######### Global Variables ########### **/
 
@@ -67,22 +62,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     struct FeeInfo {
         uint256 feePercentageInWei;
         bool isCustomFee;
-    }
-
-    /// @dev Rental offer info.
-    struct RentalOffer {
-        address lender;
-        address borrower;
-        address tokenAddress;
-        uint256 tokenId;
-        uint256 tokenAmount;
-        address feeTokenAddress;
-        uint256 feeAmountPerSecond;
-        uint256 nonce;
-        uint256 commitmentId;
-        uint64 deadline;
-        bytes32[] roles;
-        bytes[] rolesData;
     }
 
     /// @dev Rental info.
@@ -219,7 +198,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         }
 
         nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
-        isCreated[hashRentalOffer(_offer)] = true;
+        isCreated[LibOriumSftMarketplace.hashRentalOffer(_offer)] = true;
         commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId] = _offer.nonce;
 
         emit RentalOfferCreated(
@@ -246,8 +225,21 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external {
         uint64 _expirationDate = uint64(block.timestamp + _duration);
+        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
 
-        _validateAcceptRentalOffer(_offer, _expirationDate);
+        require(
+            rentals[_offerHash].expirationDate <= block.timestamp,
+            "OriumSftMarketplace: This offer has an ongoing rental"
+        );
+        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
+        require(
+            address(0) == _offer.borrower || msg.sender == _offer.borrower,
+            "OriumSftMarketplace: Sender is not allowed to rent this SFT"
+        );
+        require(
+            nonceDeadline[_offer.lender][_offer.nonce] > _expirationDate,
+            "OriumSftMarketplace: expiration date is greater than offer deadline"
+        );
 
         _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
@@ -263,7 +255,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             );
         }
 
-        rentals[hashRentalOffer(_offer)] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+        rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
 
         emit RentalStarted(
             _offer.nonce,
@@ -278,17 +270,23 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /**
      * @notice Cancels a rental offer.
-     * @dev The nonce is used to identify the rental offer.
-     * @param nonce The nonce of the rental offer
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
-    function cancelRentalOffer(uint256 nonce) external {
+    function cancelRentalOffer(RentalOffer calldata _offer) external {
+        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
+        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
+        require(msg.sender == _offer.lender, "OriumSftMarketplace: Only lender can cancel a rental offer");
         require(
-            nonceDeadline[msg.sender][nonce] > block.timestamp,
+            nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp,
             "OriumSftMarketplace: Nonce expired or not used yet"
         );
 
-        nonceDeadline[msg.sender][nonce] = uint64(block.timestamp);
-        emit RentalOfferCancelled(nonce);
+        if (rentals[_offerHash].expirationDate < block.timestamp) {
+            IERC7589(rolesRegistryOf(_offer.tokenAddress)).releaseTokens(_offer.commitmentId);
+        }
+
+        nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
+        emit RentalOfferCancelled(_offer.nonce);
     }
 
     /**
@@ -298,7 +296,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
     function endRental(RentalOffer memory _offer) external {
-        bytes32 _offerHash = hashRentalOffer(_offer);
+        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
 
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(msg.sender == rentals[_offerHash].borrower, "OriumSftMarketplace: Only borrower can end a rental");
@@ -319,31 +317,21 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         emit RentalEnded(_offer.lender, _offer.nonce);
     }
 
-    /** ######### Getters ########### **/
-
-    /**
-     * @notice Gets the rental offer hash.
-     * @param _offer The rental offer struct to be hashed.
-     */
-    function hashRentalOffer(RentalOffer memory _offer) public pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    _offer.lender,
-                    _offer.borrower,
-                    _offer.tokenAddress,
-                    _offer.tokenId,
-                    _offer.tokenAmount,
-                    _offer.feeTokenAddress,
-                    _offer.feeAmountPerSecond,
-                    _offer.nonce,
-                    _offer.commitmentId,
-                    _offer.deadline,
-                    _offer.roles,
-                    _offer.rolesData
-                )
+    function batchReleaseTokens(RentalOffer[] calldata _offer) external {
+        for (uint256 i = 0; i < _offer.length; i++) {
+            bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer[i]);
+            require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
+            require(msg.sender == _offer[i].lender, "OriumSftMarketplace: Only lender can release tokens");
+            require(
+                rentals[_offerHash].expirationDate < block.timestamp,
+                "OriumSftMarketplace: Offer has an active Rental"
             );
+
+            IERC7589(rolesRegistryOf(_offer[i].tokenAddress)).releaseTokens(_offer[i].commitmentId);
+        }
     }
+
+    /** ######### Getters ########### **/
 
     /** ######### Internals ########### **/
     /**
@@ -355,26 +343,24 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             isTrustedTokenAddress[_offer.tokenAddress] && isTrustedTokenAddress[_offer.feeTokenAddress],
             "OriumSftMarketplace: tokenAddress is not trusted"
         );
-        require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
-        require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
-        require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
-        require(_offer.roles.length > 0, "OriumSftMarketplace: roles should not be empty");
-        require(
-            _offer.roles.length == _offer.rolesData.length,
-            "OriumSftMarketplace: roles and rolesData should have the same length"
-        );
+        LibOriumSftMarketplace.validateOffer(_offer);
         require(
             _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
             "OriumSftMarketplace: Invalid deadline"
         );
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
-        require(
-            _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
-            "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
-        );
 
         if (_offer.commitmentId != 0) {
-            _validateCommitmentId(
+            uint256 _commitmentNonce = commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId];
+
+            if (_commitmentNonce != 0) {
+                require(
+                    nonceDeadline[_offer.lender][_commitmentNonce] < block.timestamp,
+                    "OriumSftMarketplace: commitmentId is in an active rental offer"
+                );
+            }
+
+            LibOriumSftMarketplace.validateCommitmentId(
                 _offer.commitmentId,
                 _offer.tokenAddress,
                 _offer.tokenId,
@@ -388,65 +374,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
                 "OriumSftMarketplace: caller does not have enough balance for the token"
             );
         }
-    }
-
-    function _validateCommitmentId(
-        uint256 _commitmentId,
-        address _tokenAddress,
-        uint256 _tokenId,
-        uint256 _tokenAmount,
-        address _lender,
-        address _rolesRegistryAddress
-    ) internal view {
-        IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
-        require(
-            _rolesRegistry.tokenAmountOf(_commitmentId) == _tokenAmount,
-            "OriumSftMarketplace: commitmentId token amount does not match offer's token amount"
-        );
-
-        uint256 _nonce = commitmentIdToNonce[_rolesRegistryAddress][_commitmentId];
-
-        if (_nonce != 0) {
-            require(
-                nonceDeadline[_lender][_nonce] < block.timestamp,
-                "OriumSftMarketplace: commitmentId is in an active rental offer"
-            );
-        }
-
-        require(
-            _rolesRegistry.grantorOf(_commitmentId) == _lender,
-            "OriumSftMarketplace: commitmentId grantor does not match offer's lender"
-        );
-        require(
-            _rolesRegistry.tokenAddressOf(_commitmentId) == _tokenAddress,
-            "OriumSftMarketplace: commitmentId tokenAddress does not match offer's tokenAddress"
-        );
-        require(
-            _rolesRegistry.tokenIdOf(_commitmentId) == _tokenId,
-            "OriumSftMarketplace: commitmentId tokenId does not match offer's tokenId"
-        );
-    }
-
-    /**
-     * @dev Validates the accept rental offer.
-     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
-     * @param _expirationDate The expiration date of the rental.
-     */
-    function _validateAcceptRentalOffer(RentalOffer calldata _offer, uint64 _expirationDate) internal view {
-        bytes32 _offerHash = hashRentalOffer(_offer);
-        require(
-            rentals[_offerHash].expirationDate <= block.timestamp,
-            "OriumSftMarketplace: This offer has an ongoing rental"
-        );
-        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
-        require(
-            address(0) == _offer.borrower || msg.sender == _offer.borrower,
-            "OriumSftMarketplace: Sender is not allowed to rent this SFT"
-        );
-        require(
-            nonceDeadline[_offer.lender][_offer.nonce] > _expirationDate,
-            "OriumSftMarketplace: expiration date is greater than offer deadline"
-        );
     }
 
     /**
@@ -466,43 +393,27 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         uint256 _feeAmount = _feeAmountPerSecond * _duration;
         if (_feeAmount == 0) return;
 
-        uint256 _marketplaceFeeAmount = _getAmountFromPercentage(_feeAmount, marketplaceFeeOf(_tokenAddress));
-        if (_marketplaceFeeAmount > 0) {
-            require(
-                IERC20(_feeTokenAddress).transferFrom(msg.sender, owner(), _marketplaceFeeAmount),
-                "OriumSftMarketplace: Transfer failed"
-            );
-        }
-
-        uint256 _royaltyAmount = _getAmountFromPercentage(
+        uint256 _marketplaceFeeAmount = LibOriumSftMarketplace.getAmountFromPercentage(
             _feeAmount,
-            tokenAddressToRoyaltyInfo[_tokenAddress].royaltyPercentageInWei
+            marketplaceFeeOf(_tokenAddress)
         );
-        if (_royaltyAmount > 0) {
-            require(
-                IERC20(_feeTokenAddress).transferFrom(
-                    msg.sender,
-                    tokenAddressToRoyaltyInfo[_tokenAddress].treasury,
-                    _royaltyAmount
-                ),
-                "OriumSftMarketplace: Transfer failed"
-            );
-        }
+        RoyaltyInfo storage _royaltyInfo = tokenAddressToRoyaltyInfo[_tokenAddress];
 
+        uint256 _royaltyAmount = LibOriumSftMarketplace.getAmountFromPercentage(
+            _feeAmount,
+            _royaltyInfo.royaltyPercentageInWei
+        );
         uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
-        require(
-            IERC20(_feeTokenAddress).transferFrom(msg.sender, _lenderAddress, _lenderAmount),
-            "OriumSftMarketplace: Transfer failed"
-        );
-    }
 
-    /**
-     * @dev All values needs to be in wei.
-     * @param _amount The amount to calculate the percentage from.
-     * @param _percentage The percentage to calculate.
-     */
-    function _getAmountFromPercentage(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
-        return (_amount * _percentage) / MAX_PERCENTAGE;
+        LibOriumSftMarketplace.transferFees(
+            _feeTokenAddress,
+            _marketplaceFeeAmount,
+            _royaltyAmount,
+            _lenderAmount,
+            owner(),
+            _royaltyInfo.treasury,
+            _lenderAddress
+        );
     }
 
     /** ============================ Core Functions  ================================== **/
@@ -539,7 +450,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     ) external onlyOwner {
         uint256 _royaltyPercentage = tokenAddressToRoyaltyInfo[_tokenAddress].royaltyPercentageInWei;
         require(
-            _royaltyPercentage + _feePercentageInWei < MAX_PERCENTAGE,
+            _royaltyPercentage + _feePercentageInWei < LibOriumSftMarketplace.MAX_PERCENTAGE,
             "OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
         );
 
@@ -570,25 +481,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             require(msg.sender == _creator, "OriumSftMarketplace: sender and creator mismatch");
         }
 
-        _setRoyalty(_creator, _tokenAddress, _royaltyPercentageInWei, _treasury);
-    }
-
-    /**
-     * @notice Sets the royalty info.
-     * @dev Only owner can associate a collection with a creator.
-     * @param _creator The address of the creator.
-     * @param _tokenAddress The SFT address.
-     * @param _royaltyPercentageInWei The royalty percentage in wei.
-     * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
-     */
-    function _setRoyalty(
-        address _creator,
-        address _tokenAddress,
-        uint256 _royaltyPercentageInWei,
-        address _treasury
-    ) internal {
         require(
-            _royaltyPercentageInWei + marketplaceFeeOf(_tokenAddress) < MAX_PERCENTAGE,
+            _royaltyPercentageInWei + marketplaceFeeOf(_tokenAddress) < LibOriumSftMarketplace.MAX_PERCENTAGE,
             "OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
         );
 
@@ -652,7 +546,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _tokenAddress The SFT address.
      */
     function marketplaceFeeOf(address _tokenAddress) public view returns (uint256) {
-        return feeInfo[_tokenAddress].isCustomFee ? feeInfo[_tokenAddress].feePercentageInWei : DEFAULT_FEE_PERCENTAGE;
+        return
+            feeInfo[_tokenAddress].isCustomFee
+                ? feeInfo[_tokenAddress].feePercentageInWei
+                : LibOriumSftMarketplace.DEFAULT_FEE_PERCENTAGE;
     }
 
     /**
