@@ -517,7 +517,7 @@ describe('OriumSftMarketplace', () => {
             it('Should cancel a rental offer and releaseTokens from rolesRegistry', async () => {
               await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
                 .to.emit(marketplace, 'RentalOfferCancelled')
-                .withArgs(rentalOffer.nonce)
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
                 .to.emit(rolesRegistry, 'TokensReleased')
                 .withArgs(rentalOffer.commitmentId)
             })
@@ -547,11 +547,13 @@ describe('OriumSftMarketplace', () => {
 
           describe('Batch Release Tokens', async () => {
             it('Should release tokens from rolesRegistry', async () => {
+              await time.increase(ONE_DAY)
               await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer]))
                 .to.emit(rolesRegistry, 'TokensReleased')
                 .withArgs(rentalOffer.commitmentId)
             })
             it('Should NOT release tokens twice', async function () {
+              await time.increase(ONE_DAY)
               await marketplace.connect(lender).batchReleaseTokens([rentalOffer])
               await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
                 'SftRolesRegistry: account not approved',
@@ -607,7 +609,7 @@ describe('OriumSftMarketplace', () => {
                 await ethers.provider.send('evm_increaseTime', [timeToMove])
 
                 await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                  'OriumSftMarketplace: There are no active Rental',
+                  'OriumSftMarketplace: There are no active Rentals',
                 )
               })
               it('Should NOT end a rental if the role was revoked by borrower directly in registry', async () => {
@@ -624,7 +626,7 @@ describe('OriumSftMarketplace', () => {
               it('Should NOT end rental twice', async () => {
                 await marketplace.connect(borrower).endRental(rentalOffer)
                 await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                  'OriumSftMarketplace: There are no active Rental',
+                  'OriumSftMarketplace: There are no active Rentals',
                 )
               })
             })
@@ -633,14 +635,15 @@ describe('OriumSftMarketplace', () => {
               it('Should cancel a rental offer if it has an active rental but NOT releaseTokens from rolesRegistry', async () => {
                 await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
                   .to.emit(marketplace, 'RentalOfferCancelled')
-                  .withArgs(rentalOffer.nonce)
+                  .withArgs(rentalOffer.lender, rentalOffer.nonce)
                   .to.not.emit(rolesRegistry, 'TokensReleased')
               })
             })
 
             describe('Batch Release Tokens', async () => {
-              it('Should release tokens after rental is ended', async () => {
+              it('Should release tokens after rental is ended and rental offer expired', async () => {
                 await marketplace.connect(borrower).endRental(rentalOffer)
+                await time.increase(ONE_DAY)
                 await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer]))
                   .to.emit(rolesRegistry, 'TokensReleased')
                   .withArgs(rentalOffer.commitmentId)
@@ -649,6 +652,13 @@ describe('OriumSftMarketplace', () => {
                 await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
                   'OriumSftMarketplace: Offer has an active Rental',
                 )
+              })
+              it('Should NOT release tokens if rental offer still active', async function () {
+                await expect(
+                  marketplace
+                    .connect(lender)
+                    .batchReleaseTokens([{ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }]),
+                ).to.be.revertedWith('OriumSftMarketplace: Offer not created')
               })
             })
           })

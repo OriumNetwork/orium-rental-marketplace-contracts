@@ -140,9 +140,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     );
 
     /**
+     * @param lender The address of the lender
      * @param nonce The nonce of the rental offer
      */
-    event RentalOfferCancelled(uint256 indexed nonce);
+    event RentalOfferCancelled(address indexed lender, uint256 indexed nonce);
 
     /**
      * @param lender The address of the lender
@@ -272,13 +273,13 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Nonce expired or not used yet"
         );
 
-        // if there are no active rentals, release tokens (else, tokens will be released via `batchReleaseTokens`)
+        // if There are no active Rentalss, release tokens (else, tokens will be released via `batchReleaseTokens`)
         if (rentals[_offerHash].expirationDate < block.timestamp) {
             IERC7589(rolesRegistryOf(_offer.tokenAddress)).releaseTokens(_offer.commitmentId);
         }
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
-        emit RentalOfferCancelled(_offer.nonce);
+        emit RentalOfferCancelled(_offer.lender, _offer.nonce);
     }
 
     /**
@@ -294,7 +295,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         require(msg.sender == rentals[_offerHash].borrower, "OriumSftMarketplace: Only borrower can end a rental");
         require(
             rentals[_offerHash].expirationDate > block.timestamp,
-            "OriumSftMarketplace: There are no active Rental"
+            "OriumSftMarketplace: There are no active Rentals"
         );
 
         IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
@@ -323,6 +324,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
                 rentals[_offerHash].expirationDate < block.timestamp,
                 "OriumSftMarketplace: Offer has an active Rental"
             );
+            require(
+                nonceDeadline[_offer[i].lender][_offer[i].nonce] < block.timestamp,
+                "OriumSftMarketplace: Offer still active");
 
             IERC7589(rolesRegistryOf(_offer[i].tokenAddress)).releaseTokens(_offer[i].commitmentId);
         }
