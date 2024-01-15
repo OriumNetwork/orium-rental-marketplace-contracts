@@ -61,6 +61,15 @@ library LibOriumSftMarketplace {
         return (_amount * _percentage) / MAX_PERCENTAGE;
     }
 
+    /**
+     * @notice Validates the commitmentId.
+     * @param _commitmentId The commitmentId to validate.
+     * @param _tokenAddress The token address.
+     * @param _tokenId The token id.
+     * @param _tokenAmount The token amount.
+     * @param _lender The lender address.
+     * @param _rolesRegistryAddress The roles registry address.
+     */
     function validateCommitmentId(
         uint256 _commitmentId,
         address _tokenAddress,
@@ -89,6 +98,10 @@ library LibOriumSftMarketplace {
         );
     }
 
+    /**
+     * @notice Validates the rental offer.
+     * @param _offer The rental offer struct to be validated.
+     */
     function validateOffer(RentalOffer memory _offer) external view {
         require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
         require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
@@ -104,6 +117,17 @@ library LibOriumSftMarketplace {
         );
     }
 
+    /**
+     * @notice Transfers the fees.
+     * @dev The fee token address should be approved before calling this function.
+     * @param _feeTokenAddress The fee token address.
+     * @param _marketplaceFeeAmount The marketplace fee amount.
+     * @param _royaltyAmount The royalty amount.
+     * @param _lenderAmount The lender amount.
+     * @param _marketplaceTreasuryAddress The marketplace treasury address.
+     * @param _royaltyTreasuryAddress The royalty treasury address.
+     * @param _lenderAddress The lender address.
+     */
     function transferFees(
         address _feeTokenAddress,
         uint256 _marketplaceFeeAmount,

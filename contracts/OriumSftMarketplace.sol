@@ -127,21 +127,15 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     );
 
     /**
-     * @param nonce The nonce of the rental offer
-     * @param tokenAddress The address of the contract of the SFT rented
-     * @param tokenId The tokenId of the rented SFT
-     * @param commitmentId The commitmentId of the rented SFT
      * @param lender The address of the lender
+     * @param nonce The nonce of the rental offer
      * @param borrower The address of the borrower
      * @param expirationDate The expiration date of the rental
      */
     event RentalStarted(
+        address indexed lender,
         uint256 indexed nonce,
-        address indexed tokenAddress,
-        uint256 indexed tokenId,
-        uint256 commitmentId,
-        address lender,
-        address borrower,
+        address indexed borrower,
         uint64 expirationDate
     );
 
@@ -258,11 +252,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
 
         emit RentalStarted(
-            _offer.nonce,
-            _offer.tokenAddress,
-            _offer.tokenId,
-            _offer.commitmentId,
             _offer.lender,
+            _offer.nonce,
             msg.sender,
             _expirationDate
         );
@@ -281,6 +272,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Nonce expired or not used yet"
         );
 
+        // if there are no active rentals, release tokens (else, tokens will be released via `batchReleaseTokens`)
         if (rentals[_offerHash].expirationDate < block.timestamp) {
             IERC7589(rolesRegistryOf(_offer.tokenAddress)).releaseTokens(_offer.commitmentId);
         }
@@ -302,7 +294,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         require(msg.sender == rentals[_offerHash].borrower, "OriumSftMarketplace: Only borrower can end a rental");
         require(
             rentals[_offerHash].expirationDate > block.timestamp,
-            "OriumSftMarketplace: There is any active Rental"
+            "OriumSftMarketplace: There are no active Rental"
         );
 
         IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
@@ -317,6 +309,11 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         emit RentalEnded(_offer.lender, _offer.nonce);
     }
 
+    /**
+     * @notice Releases the tokens of a rental offer.
+     * @dev Can only be called by the lender.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
     function batchReleaseTokens(RentalOffer[] calldata _offer) external {
         for (uint256 i = 0; i < _offer.length; i++) {
             bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer[i]);
