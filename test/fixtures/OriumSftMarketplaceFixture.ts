@@ -1,10 +1,10 @@
 import { ethers, upgrades } from 'hardhat'
-import { THREE_MONTHS } from '../../utils/constants'
+import { AddressZero, THREE_MONTHS } from '../../utils/constants'
 import { Contract } from 'ethers'
 /**
  * @dev deployer, operator needs to be the first accounts in the hardhat ethers.getSigners()
  * list respectively. This should be considered to use this fixture in tests
- * @returns [marketplace, rolesRegistry, mockERC1155, mockERC20]
+ * @returns [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20]
  */
 export async function deploySftMarketplaceContracts() {
   const [, operator] = await ethers.getSigners()
@@ -12,6 +12,15 @@ export async function deploySftMarketplaceContracts() {
   const RolesRegistryFactory = await ethers.getContractFactory('SftRolesRegistrySingleRole')
   const rolesRegistry = await RolesRegistryFactory.deploy()
   await rolesRegistry.deployed()
+
+  const MarketplaceRoyaltiesFactory = await ethers.getContractFactory('OriumMarketplaceRoyalties')
+  const marketplaceRoyalties = await upgrades.deployProxy(MarketplaceRoyaltiesFactory, [
+    operator.address,
+    rolesRegistry.address,
+    AddressZero,
+    THREE_MONTHS,
+  ])
+  await marketplaceRoyalties.deployed()
 
   const LibMarketplaceFactory = await ethers.getContractFactory('LibOriumSftMarketplace')
   const libMarketplace = await LibMarketplaceFactory.deploy()
@@ -22,11 +31,9 @@ export async function deploySftMarketplaceContracts() {
       LibOriumSftMarketplace: libMarketplace.address,
     },
   })
-  const marketplace = await upgrades.deployProxy(
-    MarketplaceFactory,
-    [operator.address, rolesRegistry.address, THREE_MONTHS],
-    { unsafeAllowLinkedLibraries: true },
-  )
+  const marketplace = await upgrades.deployProxy(MarketplaceFactory, [operator.address, marketplaceRoyalties.address], {
+    unsafeAllowLinkedLibraries: true,
+  })
   await marketplace.deployed()
 
   const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
@@ -37,5 +44,5 @@ export async function deploySftMarketplaceContracts() {
   const mockERC20 = await MockERC20Factory.deploy()
   await mockERC20.deployed()
 
-  return [marketplace, rolesRegistry, mockERC1155, mockERC20] as Contract[]
+  return [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20] as Contract[]
 }
