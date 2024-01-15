@@ -21,6 +21,17 @@ struct RentalOffer {
     bytes[] rolesData;
 }
 
+struct CommitAndGrantRoleParams {
+    address tokenAddress;
+    uint256 tokenId;
+    uint256 tokenAmount;
+    bytes32 role;
+    address grantee;
+    uint64 expirationDate;
+    bool revocable;
+    bytes data;
+}
+
 library LibOriumSftMarketplace {
     /// @dev 100 ether is 100%
     uint256 public constant MAX_PERCENTAGE = 100 ether;
@@ -146,11 +157,7 @@ library LibOriumSftMarketplace {
 
         if (_royaltyAmount > 0) {
             require(
-                IERC20(_feeTokenAddress).transferFrom(
-                    msg.sender,
-                    _royaltyTreasuryAddress,
-                    _royaltyAmount
-                ),
+                IERC20(_feeTokenAddress).transferFrom(msg.sender, _royaltyTreasuryAddress, _royaltyAmount),
                 "OriumSftMarketplace: Transfer failed"
             );
         }

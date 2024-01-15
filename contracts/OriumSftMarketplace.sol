@@ -7,7 +7,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC7589 } from "./interfaces/IERC7589.sol";
-import { LibOriumSftMarketplace, RentalOffer } from "./libraries/LibOriumSftMarketplace.sol";
+import { ICommitTokensAndGrantRoleExtension } from "./interfaces/ICommitTokensAndGrantRoleExtension.sol";
+import { LibOriumSftMarketplace, RentalOffer, CommitAndGrantRoleParams } from "./libraries/LibOriumSftMarketplace.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -323,6 +324,27 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         }
     }
 
+    /**
+     * @notice batchCommitTokensAndGrantRole commits tokens and grant role in a single transaction.
+     * @param _params The array of CommitAndGrantRoleParams.
+     */
+    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] calldata _params) external {
+        for (uint256 i = 0; i < _params.length; i++) {
+            require(isTrustedTokenAddress[_params[i].tokenAddress], "OriumSftMarketplace: tokenAddress is not trusted");
+            ICommitTokensAndGrantRoleExtension(rolesRegistryOf(_params[i].tokenAddress)).commitTokensAndGrantRole(
+                msg.sender,
+                _params[i].tokenAddress,
+                _params[i].tokenId,
+                _params[i].tokenAmount,
+                _params[i].role,
+                _params[i].grantee,
+                _params[i].expirationDate,
+                _params[i].revocable,
+                _params[i].data
+            );
+        }
+    }
+    
     /** ######### Getters ########### **/
 
     /** ######### Internals ########### **/
