@@ -132,12 +132,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param borrower The address of the borrower
      * @param expirationDate The expiration date of the rental
      */
-    event RentalStarted(
-        address indexed lender,
-        uint256 indexed nonce,
-        address indexed borrower,
-        uint64 expirationDate
-    );
+    event RentalStarted(address indexed lender, uint256 indexed nonce, address indexed borrower, uint64 expirationDate);
 
     /**
      * @param lender The address of the lender
@@ -252,12 +247,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
 
-        emit RentalStarted(
-            _offer.lender,
-            _offer.nonce,
-            msg.sender,
-            _expirationDate
-        );
+        emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
     }
 
     /**
@@ -273,7 +263,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Nonce expired or not used yet"
         );
 
-        // if There are no active Rentalss, release tokens (else, tokens will be released via `batchReleaseTokens`)
+        // if There are no active Rentals, release tokens (else, tokens will be released via `batchReleaseTokens`)
         if (rentals[_offerHash].expirationDate < block.timestamp) {
             IERC7589(rolesRegistryOf(_offer.tokenAddress)).releaseTokens(_offer.commitmentId);
         }
@@ -326,7 +316,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             );
             require(
                 nonceDeadline[_offer[i].lender][_offer[i].nonce] < block.timestamp,
-                "OriumSftMarketplace: Offer still active");
+                "OriumSftMarketplace: Offer still active"
+            );
 
             IERC7589(rolesRegistryOf(_offer[i].tokenAddress)).releaseTokens(_offer[i].commitmentId);
         }
