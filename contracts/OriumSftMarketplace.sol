@@ -329,9 +329,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
 
         for (uint256 i = 0; i < _commitmentIds.length; i++) {
-            IERC7589(
-                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_tokenAddresses[i])
-            ).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
+            IERC7589(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_tokenAddresses[i]))
+                .revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
         }
     }
 
