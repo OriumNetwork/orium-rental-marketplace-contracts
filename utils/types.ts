@@ -38,3 +38,15 @@ export interface SftRentalOffer extends RentalOffer {
   tokenAmount: BigNumber
   commitmentId: BigNumber
 }
+
+export interface CommitAndGrantRoleParams {
+  commitmentId: BigNumber
+  tokenAddress: string
+  tokenId: number
+  tokenAmount: BigNumber
+  role: string
+  grantee: string
+  expirationDate: number
+  revocable: boolean
+  data: string
+}

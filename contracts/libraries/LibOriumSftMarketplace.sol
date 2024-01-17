@@ -22,6 +22,7 @@ struct RentalOffer {
 }
 
 struct CommitAndGrantRoleParams {
+    uint256 commitmentId;
     address tokenAddress;
     uint256 tokenId;
     uint256 tokenAmount;

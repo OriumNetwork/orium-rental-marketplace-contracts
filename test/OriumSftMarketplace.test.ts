@@ -5,7 +5,7 @@ import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers'
 import { deploySftMarketplaceContracts } from './fixtures/OriumSftMarketplaceFixture'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
-import { RoyaltyInfo, SftRentalOffer } from '../utils/types'
+import { CommitAndGrantRoleParams, RoyaltyInfo, SftRentalOffer } from '../utils/types'
 import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { UNIQUE_ROLE } from '../utils/roles'
@@ -575,6 +575,11 @@ describe('OriumSftMarketplace', () => {
                 'OriumSftMarketplace: Only lender can release tokens',
               )
             })
+            it('Should NOT release tokens if offer is active', async function () {
+              await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
+                'OriumSftMarketplace: Offer still active',
+              )
+            })
           })
 
           describe('When Rental Offer is accepted', async () => {
@@ -669,6 +674,101 @@ describe('OriumSftMarketplace', () => {
           })
         })
       })
+
+      describe('Direct Rentals', async () => {
+        describe('When tokens are not committed', async () => {
+          describe('batchCommitTokensAndGrantRole', async () => {
+            let commitAndGrantRoleParams: CommitAndGrantRoleParams[]
+            beforeEach(async () => {
+              commitAndGrantRoleParams = [
+                {
+                  commitmentId: BigNumber.from(0),
+                  tokenAddress: mockERC1155.address,
+                  tokenId,
+                  tokenAmount,
+                  role: UNIQUE_ROLE,
+                  grantee: borrower.address,
+                  expirationDate: (await ethers.provider.getBlock('latest')).timestamp + ONE_DAY,
+                  revocable: true,
+                  data: EMPTY_BYTES,
+                },
+              ]
+              await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+              await mockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
+            })
+            it('Should commit tokens and grant role', async () => {
+              await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+                .to.emit(rolesRegistry, 'TokensCommitted')
+                .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
+                .to.emit(rolesRegistry, 'RoleGranted')
+                .withArgs(
+                  1,
+                  commitAndGrantRoleParams[0].role,
+                  commitAndGrantRoleParams[0].grantee,
+                  commitAndGrantRoleParams[0].expirationDate,
+                  commitAndGrantRoleParams[0].revocable,
+                  commitAndGrantRoleParams[0].data,
+                )
+            })
+            it('Should only grant role when a commitmentId is passed', async () => {
+              commitAndGrantRoleParams[0].commitmentId = BigNumber.from(1)
+              await rolesRegistry
+                .connect(lender)
+                .commitTokens(lender.address, mockERC1155.address, tokenId, tokenAmount)
+              await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+                .to.emit(rolesRegistry, 'RoleGranted')
+                .withArgs(
+                  1,
+                  commitAndGrantRoleParams[0].role,
+                  commitAndGrantRoleParams[0].grantee,
+                  commitAndGrantRoleParams[0].expirationDate,
+                  commitAndGrantRoleParams[0].revocable,
+                  commitAndGrantRoleParams[0].data,
+                )
+            })
+          })
+        })
+
+        describe('When tokens are committed', async () => {
+          let commitAndGrantRoleParams: CommitAndGrantRoleParams[]
+          beforeEach(async () => {
+            commitAndGrantRoleParams = [
+              {
+                commitmentId: BigNumber.from(0),
+                tokenAddress: mockERC1155.address,
+                tokenId,
+                tokenAmount,
+                role: UNIQUE_ROLE,
+                grantee: borrower.address,
+                expirationDate: (await ethers.provider.getBlock('latest')).timestamp + ONE_DAY,
+                revocable: true,
+                data: EMPTY_BYTES,
+              },
+            ]
+            await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+            await mockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
+            await marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams)
+          })
+          describe('batchRevokeRole', async () => {
+            it('Should batch revoke role', async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
+              )
+                .to.emit(rolesRegistry, 'RoleRevoked')
+                .withArgs(1, UNIQUE_ROLE, borrower.address)
+            })
+            it("Should NOT batch revoke role if array's length are different", async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole([1], [UNIQUE_ROLE, UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
+              ).to.be.revertedWith('OriumSftMarketplace: arrays length mismatch')
+            })
+          })
+        })
+      })
     })
     describe('Core Functions', async () => {
       describe('Initialize', async () => {
@@ -705,6 +805,17 @@ describe('OriumSftMarketplace', () => {
               'Ownable: caller is not the owner',
             )
           })
+        })
+      })
+
+      describe('OriumMarketplaceRoyalties', async function () {
+        it('Should set the marketplace royalties contract', async function () {
+          await marketplace.connect(operator).setOriumMarketplaceRoyalties(marketplaceRoyalties.address)
+          expect(await marketplace.oriumMarketplaceRoyalties()).to.be.equal(marketplaceRoyalties.address)
+        })
+        it("Should NOT set the marketplace royalties contract if caller isn't the operator", async function () {
+          await expect(marketplace.connect(notOperator).setOriumMarketplaceRoyalties(marketplaceRoyalties.address)).to
+            .be.reverted
         })
       })
     })

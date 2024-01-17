@@ -7,7 +7,6 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC7589 } from "./interfaces/IERC7589.sol";
-import { ICommitTokensAndGrantRoleExtension } from "./interfaces/ICommitTokensAndGrantRoleExtension.sol";
 import { LibOriumSftMarketplace, RentalOffer, CommitAndGrantRoleParams } from "./libraries/LibOriumSftMarketplace.sol";
 import { IOriumMarketplaceRoyalties } from "./interfaces/IOriumMarketplaceRoyalties.sol";
 
@@ -282,22 +281,57 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @notice batchCommitTokensAndGrantRole commits tokens and grant role in a single transaction.
      * @param _params The array of CommitAndGrantRoleParams.
      */
-    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] calldata _params) external {
+    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] memory _params) external {
         for (uint256 i = 0; i < _params.length; i++) {
-            require(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedTokenAddress(_params[i].tokenAddress), "OriumSftMarketplace: tokenAddress is not trusted");
-            ICommitTokensAndGrantRoleExtension(
+            IERC7589 _rolesRegistry = IERC7589(
                 IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_params[i].tokenAddress)
-            ).commitTokensAndGrantRole(
+            );
+
+            if (_params[i].commitmentId == 0) {
+                _params[i].commitmentId = _rolesRegistry.commitTokens(
                     msg.sender,
                     _params[i].tokenAddress,
                     _params[i].tokenId,
-                    _params[i].tokenAmount,
-                    _params[i].role,
-                    _params[i].grantee,
-                    _params[i].expirationDate,
-                    _params[i].revocable,
-                    _params[i].data
+                    _params[i].tokenAmount
                 );
+            }
+
+            _rolesRegistry.grantRole(
+                _params[i].commitmentId,
+                _params[i].role,
+                _params[i].grantee,
+                _params[i].expirationDate,
+                _params[i].revocable,
+                _params[i].data
+            );
+        }
+    }
+
+    /**
+     * @notice batchRevokeRole revokes role in a single transaction.
+     * @dev grantor will be msg.sender and it must approve the marketplace to revoke the roles.
+     * @param _commitmentIds The array of commitmentIds
+     * @param _roles The array of roles
+     * @param _grantees The array of grantees
+     * @param _tokenAddresses The array of tokenAddresses
+     */
+    function batchRevokeRole(
+        uint256[] memory _commitmentIds,
+        bytes32[] memory _roles,
+        address[] memory _grantees,
+        address[] memory _tokenAddresses
+    ) external {
+        require(
+            _commitmentIds.length == _roles.length &&
+                _commitmentIds.length == _grantees.length &&
+                _commitmentIds.length == _tokenAddresses.length,
+            "OriumSftMarketplace: arrays length mismatch"
+        );
+
+        for (uint256 i = 0; i < _commitmentIds.length; i++) {
+            IERC7589(
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_tokenAddresses[i])
+            ).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
         }
     }
 
@@ -316,7 +350,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
         LibOriumSftMarketplace.validateOffer(_offer);
         require(
-            _offer.deadline <= block.timestamp +  IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).maxDeadline() && _offer.deadline > block.timestamp,
+            _offer.deadline <= block.timestamp + IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).maxDuration() &&
+                _offer.deadline > block.timestamp,
             "OriumSftMarketplace: Invalid deadline"
         );
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
@@ -368,7 +403,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             _feeAmount,
             IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).marketplaceFeeOf(_tokenAddress)
         );
-        IOriumMarketplaceRoyalties.RoyaltyInfo memory _royaltyInfo = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).royaltyInfoOf(_tokenAddress);
+        IOriumMarketplaceRoyalties.RoyaltyInfo memory _royaltyInfo = IOriumMarketplaceRoyalties(
+            oriumMarketplaceRoyalties
+        ).royaltyInfoOf(_tokenAddress);
 
         uint256 _royaltyAmount = LibOriumSftMarketplace.getAmountFromPercentage(
             _feeAmount,
@@ -407,6 +444,11 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         _unpause();
     }
 
+    /**
+     * @notice Sets the address of the OriumMarketplaceRoyalties contract.
+     * @dev Only owner can set the address of the OriumMarketplaceRoyalties contract.s
+     * @param _oriumMarketplaceRoyalties The address of the OriumMarketplaceRoyalties contract.
+     */
     function setOriumMarketplaceRoyalties(address _oriumMarketplaceRoyalties) external onlyOwner {
         oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
     }

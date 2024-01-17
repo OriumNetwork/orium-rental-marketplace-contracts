@@ -31,8 +31,8 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
     /// @dev tokenAddress => sftRolesRegistry
     mapping(address => address) public tokenAddressToRolesRegistry;
 
-    /// @dev deadline is set in seconds
-    uint64 public maxDeadline;
+    /// @dev maxDuration in seconds
+    uint64 public maxDuration;
 
     /// @dev tokenAddress => feePercentageInWei
     mapping(address => FeeInfo) public feeInfo;
@@ -45,12 +45,6 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
 
     /** ######### Structs ########### **/
 
-    /// @dev Marketplace fee info.
-    struct FeeInfo {
-        uint256 feePercentageInWei;
-        bool isCustomFee;
-    }
-
     /** ######### Events ########### **/
 
     /**
@@ -59,6 +53,7 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
      * @param isCustomFee If the fee is custom or not. Used to allow collections with no fee.
      */
     event MarketplaceFeeSet(address indexed tokenAddress, uint256 feePercentageInWei, bool isCustomFee);
+
     /**
      * @param tokenAddress The NFT or SFT address.
      * @param creator The address of the creator.
@@ -93,19 +88,19 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
      * @param _owner The owner of the protocol.
      * @param _defaultSftRolesRegistry The address of the roles registry.
      * @param _defaultNftRolesRegistry The address of the roles registry.
-     * @param _maxDeadline The maximum deadline.
+     * @param _maxDuration The maximum duration of a rental offer.
      */
     function initialize(
         address _owner,
         address _defaultSftRolesRegistry,
         address _defaultNftRolesRegistry,
-        uint64 _maxDeadline
+        uint64 _maxDuration
     ) public initializer {
         __Ownable_init();
 
         defaultSftRolesRegistry = _defaultSftRolesRegistry;
         defaultNftRolesRegistry = _defaultNftRolesRegistry;
-        maxDeadline = _maxDeadline;
+        maxDuration = _maxDuration;
 
         transferOwnership(_owner);
     }
@@ -174,13 +169,13 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
     }
 
     /**
-     * @notice Sets the maximum deadline.
-     * @dev Only owner can set the maximum deadline.
-     * @param _maxDeadline The maximum deadline.
+     * @notice Sets the Max duration for a rental offer.
+     * @dev Only owner can set the maximum duration.
+     * @param _maxDuration The maximum duration of a rental offer.
      */
-    function setMaxDeadline(uint64 _maxDeadline) external onlyOwner {
-        require(_maxDeadline > 0, "OriumMarketplaceRoyalties: Max deadline should be greater than 0");
-        maxDeadline = _maxDeadline;
+    function setMaxDuration(uint64 _maxDuration) external onlyOwner {
+        require(_maxDuration > 0, "OriumMarketplaceRoyalties: Max duration should be greater than 0");
+        maxDuration = _maxDuration;
     }
 
     /**

@@ -3,6 +3,12 @@
 pragma solidity 0.8.9;
 
 interface IOriumMarketplaceRoyalties {
+    /// @dev Marketplace fee info.
+    struct FeeInfo {
+        uint256 feePercentageInWei;
+        bool isCustomFee;
+    }
+
     /// @dev Royalty info. Used to charge fees for the creator.
     struct RoyaltyInfo {
         address creator;
@@ -44,8 +50,8 @@ interface IOriumMarketplaceRoyalties {
     function royaltyInfoOf(address _tokenAddress) external view returns (RoyaltyInfo memory _royaltyInfo);
 
     /**
-     * @notice Gets the max deadline.
-     * @dev The max deadline is the max amount of seconds a rental offer can be.
+     * @notice Gets the max duration for a rental offer.
+     * @dev The max duration is the maximum amount of time that a rental offer can be created for.
      */
-    function maxDeadline() external view returns (uint64);
+    function maxDuration() external view returns (uint64);
 }

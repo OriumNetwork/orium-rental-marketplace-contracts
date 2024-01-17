@@ -23,7 +23,7 @@ describe('OriumMarketplaceRoyalties', () => {
   let creatorTreasury: SignerWithAddress
 
   // Values to be used across tests
-  const maxDeadline = THREE_MONTHS
+  const maxDuration = THREE_MONTHS
   const feeInfo: FeeInfo = {
     feePercentageInWei: toWei('5'),
     isCustomFee: true,
@@ -234,19 +234,19 @@ describe('OriumMarketplaceRoyalties', () => {
 
     describe('Max Deadline', async () => {
       it('Should set the max deadline by operator', async () => {
-        await marketplaceRoyalties.connect(operator).setMaxDeadline(maxDeadline)
-        expect(await marketplaceRoyalties.maxDeadline()).to.be.equal(maxDeadline)
+        await marketplaceRoyalties.connect(operator).setMaxDuration(maxDuration)
+        expect(await marketplaceRoyalties.maxDuration()).to.be.equal(maxDuration)
       })
 
       it('Should NOT set the max deadline if caller is not the operator', async () => {
-        await expect(marketplaceRoyalties.connect(notOperator).setMaxDeadline(maxDeadline)).to.be.revertedWith(
+        await expect(marketplaceRoyalties.connect(notOperator).setMaxDuration(maxDuration)).to.be.revertedWith(
           'Ownable: caller is not the owner',
         )
       })
 
       it('Should NOT set the max deadline 0', async () => {
-        await expect(marketplaceRoyalties.connect(operator).setMaxDeadline(0)).to.be.revertedWith(
-          'OriumMarketplaceRoyalties: Max deadline should be greater than 0',
+        await expect(marketplaceRoyalties.connect(operator).setMaxDuration(0)).to.be.revertedWith(
+          'OriumMarketplaceRoyalties: Max duration should be greater than 0',
         )
       })
     })
@@ -258,6 +258,7 @@ describe('OriumMarketplaceRoyalties', () => {
         )
           .to.emit(marketplaceRoyalties, 'RolesRegistrySet')
           .withArgs(mockERC1155.address, rolesRegistry.address)
+        expect(await marketplaceRoyalties.nftRolesRegistryOf(mockERC1155.address)).to.be.equal(rolesRegistry.address)
       })
 
       it('Should NOT set the roles registry if caller is not the operator', async () => {
@@ -284,6 +285,7 @@ describe('OriumMarketplaceRoyalties', () => {
       it('Should set the default roles registry for a collection', async () => {
         await expect(marketplaceRoyalties.connect(operator).setDefaultNftRolesRegistry(rolesRegistry.address)).to.not.be
           .reverted
+        expect(await marketplaceRoyalties.nftRolesRegistryOf(AddressZero)).to.be.equal(rolesRegistry.address)
       })
 
       it('Should NOT set the default roles registry if caller is not the operator', async () => {
