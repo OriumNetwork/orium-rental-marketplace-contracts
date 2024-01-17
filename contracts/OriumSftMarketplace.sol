@@ -281,14 +281,15 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @notice batchCommitTokensAndGrantRole commits tokens and grant role in a single transaction.
      * @param _params The array of CommitAndGrantRoleParams.
      */
-    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] memory _params) external {
+    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] calldata _params) external {
         for (uint256 i = 0; i < _params.length; i++) {
             IERC7589 _rolesRegistry = IERC7589(
                 IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_params[i].tokenAddress)
             );
 
+            uint256 _validCommitmentId = _params[i].commitmentId;
             if (_params[i].commitmentId == 0) {
-                _params[i].commitmentId = _rolesRegistry.commitTokens(
+                _validCommitmentId = _rolesRegistry.commitTokens(
                     msg.sender,
                     _params[i].tokenAddress,
                     _params[i].tokenId,
@@ -297,7 +298,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             }
 
             _rolesRegistry.grantRole(
-                _params[i].commitmentId,
+                _validCommitmentId,
                 _params[i].role,
                 _params[i].grantee,
                 _params[i].expirationDate,
