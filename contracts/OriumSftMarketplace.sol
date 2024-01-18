@@ -7,7 +7,8 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC7589 } from "./interfaces/IERC7589.sol";
-import { LibOriumSftMarketplace, RentalOffer } from "./libraries/LibOriumSftMarketplace.sol";
+import { LibOriumSftMarketplace, RentalOffer, CommitAndGrantRoleParams } from "./libraries/LibOriumSftMarketplace.sol";
+import { IOriumMarketplaceRoyalties } from "./interfaces/IOriumMarketplaceRoyalties.sol";
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -19,20 +20,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /** ######### Global Variables ########### **/
 
-    /// @dev rolesRegistry is a ERC-7589 contract
-    address public defaultRolesRegistry;
-
-    /// @dev tokenAddress => rolesRegistry
-    mapping(address => address) public tokenAddressToRolesRegistry;
-
-    /// @dev deadline is set in seconds
-    uint256 public maxDeadline;
-
-    /// @dev tokenAddress => feePercentageInWei
-    mapping(address => FeeInfo) public feeInfo;
-
-    /// @dev tokenAddress => tokenAddressToRoyaltyInfo
-    mapping(address => RoyaltyInfo) public tokenAddressToRoyaltyInfo;
+    /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
+    address public oriumMarketplaceRoyalties;
 
     /// @dev hashedOffer => bool
     mapping(bytes32 => bool) public isCreated;
@@ -43,26 +32,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /// @dev rolesRegistry => commitmentId => nonce
     mapping(address => mapping(uint256 => uint256)) public commitmentIdToNonce;
 
-    /// @dev tokenAddress => bool
-    mapping(address => bool) public isTrustedTokenAddress;
-
     /// @dev hashedOffer => Rental
     mapping(bytes32 => Rental) public rentals;
 
     /** ######### Structs ########### **/
-
-    /// @dev Royalty info. Used to charge fees for the creator.
-    struct RoyaltyInfo {
-        address creator;
-        uint256 royaltyPercentageInWei;
-        address treasury;
-    }
-
-    /// @dev Marketplace fee info.
-    struct FeeInfo {
-        uint256 feePercentageInWei;
-        bool isCustomFee;
-    }
 
     /// @dev Rental info.
     struct Rental {
@@ -71,31 +44,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /** ######### Events ########### **/
-
-    /**
-     * @param tokenAddress The SFT address.
-     * @param feePercentageInWei The fee percentage in wei.
-     * @param isCustomFee If the fee is custom or not. Used to allow collections with no fee.
-     */
-    event MarketplaceFeeSet(address indexed tokenAddress, uint256 feePercentageInWei, bool isCustomFee);
-    /**
-     * @param tokenAddress The SFT address.
-     * @param creator The address of the creator.
-     * @param royaltyPercentageInWei The royalty percentage in wei.
-     * @param treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
-     */
-    event CreatorRoyaltySet(
-        address indexed tokenAddress,
-        address indexed creator,
-        uint256 royaltyPercentageInWei,
-        address treasury
-    );
-
-    /**
-     * @param tokenAddress The SFT address.
-     * @param rolesRegistry The address of the roles registry.
-     */
-    event RolesRegistrySet(address indexed tokenAddress, address indexed rolesRegistry);
 
     /**
      * @param nonce The nonce of the rental offer
@@ -153,15 +101,13 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @notice Initializes the contract.
      * @dev The owner of the contract will be the owner of the protocol.
      * @param _owner The owner of the protocol.
-     * @param _defaultRolesRegistry The address of the roles registry.
-     * @param _maxDeadline The maximum deadline.
+     * @param _oriumMarketplaceRoyalties The address of the OriumMarketplaceRoyalties contract.
      */
-    function initialize(address _owner, address _defaultRolesRegistry, uint256 _maxDeadline) public initializer {
+    function initialize(address _owner, address _oriumMarketplaceRoyalties) public initializer {
         __Pausable_init();
         __Ownable_init();
 
-        defaultRolesRegistry = _defaultRolesRegistry;
-        maxDeadline = _maxDeadline;
+        oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
 
         transferOwnership(_owner);
     }
@@ -175,7 +121,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct.
      */
     function createRentalOffer(RentalOffer memory _offer) external whenNotPaused {
-        address _rolesRegistryAddress = rolesRegistryOf(_offer.tokenAddress);
+        address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
+            _offer.tokenAddress
+        );
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
 
         if (_offer.commitmentId == 0) {
@@ -233,7 +181,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
         _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
-        IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
+        IERC7589 _rolesRegistry = IERC7589(
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
+        );
         for (uint256 i = 0; i < _offer.roles.length; i++) {
             _rolesRegistry.grantRole(
                 _offer.commitmentId,
@@ -265,7 +215,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
         // if There are no active Rentals, release tokens (else, tokens will be released via `batchReleaseTokens`)
         if (rentals[_offerHash].expirationDate < block.timestamp) {
-            IERC7589(rolesRegistryOf(_offer.tokenAddress)).releaseTokens(_offer.commitmentId);
+            IERC7589(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress))
+                .releaseTokens(_offer.commitmentId);
         }
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
@@ -288,7 +239,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: There are no active Rentals"
         );
 
-        IERC7589 _rolesRegistry = IERC7589(rolesRegistryOf(_offer.tokenAddress));
+        IERC7589 _rolesRegistry = IERC7589(
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
+        );
         address _borrower = rentals[_offerHash].borrower;
 
         for (uint256 i = 0; i < _offer.roles.length; i++) {
@@ -319,7 +272,66 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
                 "OriumSftMarketplace: Offer still active"
             );
 
-            IERC7589(rolesRegistryOf(_offer[i].tokenAddress)).releaseTokens(_offer[i].commitmentId);
+            IERC7589(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer[i].tokenAddress))
+                .releaseTokens(_offer[i].commitmentId);
+        }
+    }
+
+    /**
+     * @notice batchCommitTokensAndGrantRole commits tokens and grant role in a single transaction.
+     * @param _params The array of CommitAndGrantRoleParams.
+     */
+    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] calldata _params) external {
+        for (uint256 i = 0; i < _params.length; i++) {
+            IERC7589 _rolesRegistry = IERC7589(
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_params[i].tokenAddress)
+            );
+
+            uint256 _validCommitmentId = _params[i].commitmentId;
+            if (_params[i].commitmentId == 0) {
+                _validCommitmentId = _rolesRegistry.commitTokens(
+                    msg.sender,
+                    _params[i].tokenAddress,
+                    _params[i].tokenId,
+                    _params[i].tokenAmount
+                );
+            }
+
+            _rolesRegistry.grantRole(
+                _validCommitmentId,
+                _params[i].role,
+                _params[i].grantee,
+                _params[i].expirationDate,
+                _params[i].revocable,
+                _params[i].data
+            );
+        }
+    }
+
+    /**
+     * @notice batchRevokeRole revokes role in a single transaction.
+     * @dev grantor will be msg.sender and it must approve the marketplace to revoke the roles.
+     * @param _commitmentIds The array of commitmentIds
+     * @param _roles The array of roles
+     * @param _grantees The array of grantees
+     * @param _tokenAddresses The array of tokenAddresses
+     */
+    function batchRevokeRole(
+        uint256[] memory _commitmentIds,
+        bytes32[] memory _roles,
+        address[] memory _grantees,
+        address[] memory _tokenAddresses
+    ) external {
+        require(
+            _commitmentIds.length == _roles.length &&
+                _commitmentIds.length == _grantees.length &&
+                _commitmentIds.length == _tokenAddresses.length,
+            "OriumSftMarketplace: arrays length mismatch"
+        );
+
+        for (uint256 i = 0; i < _commitmentIds.length; i++) {
+            IERC7589(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_tokenAddresses[i]))
+                .revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
         }
     }
 
@@ -332,12 +344,14 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function _validateCreateRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal view {
         require(
-            isTrustedTokenAddress[_offer.tokenAddress] && isTrustedTokenAddress[_offer.feeTokenAddress],
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedTokenAddress(_offer.tokenAddress) &&
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedTokenAddress(_offer.feeTokenAddress),
             "OriumSftMarketplace: tokenAddress is not trusted"
         );
         LibOriumSftMarketplace.validateOffer(_offer);
         require(
-            _offer.deadline <= block.timestamp + maxDeadline && _offer.deadline > block.timestamp,
+            _offer.deadline <= block.timestamp + IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).maxDuration() &&
+                _offer.deadline > block.timestamp,
             "OriumSftMarketplace: Invalid deadline"
         );
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
@@ -387,9 +401,11 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
         uint256 _marketplaceFeeAmount = LibOriumSftMarketplace.getAmountFromPercentage(
             _feeAmount,
-            marketplaceFeeOf(_tokenAddress)
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).marketplaceFeeOf(_tokenAddress)
         );
-        RoyaltyInfo storage _royaltyInfo = tokenAddressToRoyaltyInfo[_tokenAddress];
+        IOriumMarketplaceRoyalties.RoyaltyInfo memory _royaltyInfo = IOriumMarketplaceRoyalties(
+            oriumMarketplaceRoyalties
+        ).royaltyInfoOf(_tokenAddress);
 
         uint256 _royaltyAmount = LibOriumSftMarketplace.getAmountFromPercentage(
             _feeAmount,
@@ -429,130 +445,13 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
-     * @notice Sets the marketplace fee for a collection.
-     * @dev If no fee is set, the default fee will be used.
-     * @param _tokenAddress The SFT address.
-     * @param _feePercentageInWei The fee percentage in wei.
-     * @param _isCustomFee If the fee is custom or not.
+     * @notice Sets the address of the OriumMarketplaceRoyalties contract.
+     * @dev Only owner can set the address of the OriumMarketplaceRoyalties contract.s
+     * @param _oriumMarketplaceRoyalties The address of the OriumMarketplaceRoyalties contract.
      */
-    function setMarketplaceFeeForCollection(
-        address _tokenAddress,
-        uint256 _feePercentageInWei,
-        bool _isCustomFee
-    ) external onlyOwner {
-        uint256 _royaltyPercentage = tokenAddressToRoyaltyInfo[_tokenAddress].royaltyPercentageInWei;
-        require(
-            _royaltyPercentage + _feePercentageInWei < LibOriumSftMarketplace.MAX_PERCENTAGE,
-            "OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
-        );
-
-        feeInfo[_tokenAddress] = FeeInfo({ feePercentageInWei: _feePercentageInWei, isCustomFee: _isCustomFee });
-
-        emit MarketplaceFeeSet(_tokenAddress, _feePercentageInWei, _isCustomFee);
-    }
-
-    /**
-     * @notice Sets the royalty info.
-     * @dev Only owner can associate a collection with a creator.
-     * @param _creator The address of the creator.
-     * @param _tokenAddress The SFT address.
-     * @param _royaltyPercentageInWei The royalty percentage in wei.
-     * @param _treasury The address where the fees will be sent. If the treasury is address(0), the fees will be burned.
-     */
-    function setRoyaltyInfo(
-        address _creator,
-        address _tokenAddress,
-        uint256 _royaltyPercentageInWei,
-        address _treasury
-    ) external {
-        if (msg.sender != owner()) {
-            require(
-                msg.sender == tokenAddressToRoyaltyInfo[_tokenAddress].creator,
-                "OriumSftMarketplace: Only creator or owner can set the royalty info"
-            );
-            require(msg.sender == _creator, "OriumSftMarketplace: sender and creator mismatch");
-        }
-
-        require(
-            _royaltyPercentageInWei + marketplaceFeeOf(_tokenAddress) < LibOriumSftMarketplace.MAX_PERCENTAGE,
-            "OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%"
-        );
-
-        tokenAddressToRoyaltyInfo[_tokenAddress] = RoyaltyInfo({
-            creator: _creator,
-            royaltyPercentageInWei: _royaltyPercentageInWei,
-            treasury: _treasury
-        });
-
-        emit CreatorRoyaltySet(_tokenAddress, _creator, _royaltyPercentageInWei, _treasury);
-    }
-
-    /**
-     * @notice Sets the maximum deadline.
-     * @dev Only owner can set the maximum deadline.
-     * @param _maxDeadline The maximum deadline.
-     */
-    function setMaxDeadline(uint256 _maxDeadline) external onlyOwner {
-        require(_maxDeadline > 0, "OriumSftMarketplace: Max deadline should be greater than 0");
-        maxDeadline = _maxDeadline;
-    }
-
-    /**
-     * @notice Sets the roles registry for a collection.
-     * @dev Only owner can set the roles registry for a collection.
-     * @param _tokenAddress The SFT address.
-     * @param _rolesRegistry The roles registry address.
-     */
-    function setRolesRegistry(address _tokenAddress, address _rolesRegistry) external onlyOwner {
-        tokenAddressToRolesRegistry[_tokenAddress] = _rolesRegistry;
-        emit RolesRegistrySet(_tokenAddress, _rolesRegistry);
-    }
-
-    /**
-     * @notice Sets the default roles registry.
-     * @dev Only owner can set the default roles registry.
-     * @param _rolesRegistry The roles registry address.
-     */
-    function setDefaultRolesRegistry(address _rolesRegistry) external onlyOwner {
-        defaultRolesRegistry = _rolesRegistry;
-    }
-
-    /**
-     * @notice Sets the trusted token addresses.
-     * @dev Can only be called by the owner. Used to allow collections with no custom fee set.
-     * @param _tokenAddresses The SFT addresses.
-     * @param _isTrusted The boolean array.
-     */
-    function setTrustedTokens(address[] calldata _tokenAddresses, bool[] calldata _isTrusted) external onlyOwner {
-        require(_tokenAddresses.length == _isTrusted.length, "OriumSftMarketplace: Arrays should have the same length");
-        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
-            isTrustedTokenAddress[_tokenAddresses[i]] = _isTrusted[i];
-        }
+    function setOriumMarketplaceRoyalties(address _oriumMarketplaceRoyalties) external onlyOwner {
+        oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
     }
 
     /** ######### Getters ########### **/
-
-    /**
-     * @notice Gets the marketplace fee for a collection.
-     * @dev If no custom fee is set, the default fee will be used.
-     * @param _tokenAddress The SFT address.
-     */
-    function marketplaceFeeOf(address _tokenAddress) public view returns (uint256) {
-        return
-            feeInfo[_tokenAddress].isCustomFee
-                ? feeInfo[_tokenAddress].feePercentageInWei
-                : LibOriumSftMarketplace.DEFAULT_FEE_PERCENTAGE;
-    }
-
-    /**
-     * @notice Gets the roles registry for a collection.
-     * @dev If no custom roles registry is set, the default roles registry will be used.
-     * @param _tokenAddress The SFT address.
-     */
-    function rolesRegistryOf(address _tokenAddress) public view returns (address) {
-        return
-            tokenAddressToRolesRegistry[_tokenAddress] == address(0)
-                ? defaultRolesRegistry
-                : tokenAddressToRolesRegistry[_tokenAddress];
-    }
 }

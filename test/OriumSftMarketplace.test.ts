@@ -5,13 +5,14 @@ import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers'
 import { deploySftMarketplaceContracts } from './fixtures/OriumSftMarketplaceFixture'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
-import { FeeInfo, RoyaltyInfo, SftRentalOffer } from '../utils/types'
+import { CommitAndGrantRoleParams, RoyaltyInfo, SftRentalOffer } from '../utils/types'
 import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { UNIQUE_ROLE } from '../utils/roles'
 
 describe('OriumSftMarketplace', () => {
   let marketplace: Contract
+  let marketplaceRoyalties: Contract
   let rolesRegistry: Contract
   let mockERC1155: Contract
   let mockERC20: Contract
@@ -28,10 +29,6 @@ describe('OriumSftMarketplace', () => {
 
   // Values to be used across tests
   const maxDeadline = THREE_MONTHS
-  const feeInfo: FeeInfo = {
-    feePercentageInWei: toWei('5'),
-    isCustomFee: true,
-  }
 
   before(async function () {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
@@ -42,7 +39,7 @@ describe('OriumSftMarketplace', () => {
   beforeEach(async () => {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [marketplace, rolesRegistry, mockERC1155, mockERC20] = await loadFixture(deploySftMarketplaceContracts)
+    [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20] = await loadFixture(deploySftMarketplaceContracts)
   })
 
   describe('Main Functions', async () => {
@@ -53,14 +50,18 @@ describe('OriumSftMarketplace', () => {
 
       beforeEach(async () => {
         await mockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
-        await marketplace.connect(operator).setTrustedTokens([mockERC1155.address, mockERC20.address], [true, true])
+        await marketplaceRoyalties
+          .connect(operator)
+          .setTrustedTokens([mockERC1155.address, mockERC20.address], [true, true])
       })
 
       describe('Rental Offers', async () => {
         let rentalOffer: SftRentalOffer
 
         beforeEach(async () => {
-          await marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
+          await marketplaceRoyalties
+            .connect(operator)
+            .setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
 
           const royaltyInfo: RoyaltyInfo = {
             creator: creator.address,
@@ -68,7 +69,7 @@ describe('OriumSftMarketplace', () => {
             treasury: creatorTreasury.address,
           }
 
-          await marketplace
+          await marketplaceRoyalties
             .connect(creator)
             .setRoyaltyInfo(
               creator.address,
@@ -124,7 +125,9 @@ describe('OriumSftMarketplace', () => {
                   .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
               })
               it('Should create a rental offer if collection has a custom roles registry', async function () {
-                await marketplace.connect(operator).setRolesRegistry(mockERC1155.address, rolesRegistry.address)
+                await marketplaceRoyalties
+                  .connect(operator)
+                  .setRolesRegistry(mockERC1155.address, rolesRegistry.address)
                 await mockERC1155.setApprovalForAll(rolesRegistry.address, true)
                 await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
                   .to.emit(marketplace, 'RentalOfferCreated')
@@ -314,7 +317,7 @@ describe('OriumSftMarketplace', () => {
                 await anotherMockERC1155.deployed()
                 await anotherMockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
                 await anotherMockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
-                await marketplace.connect(operator).setTrustedTokens([anotherMockERC1155.address], [true])
+                await marketplaceRoyalties.connect(operator).setTrustedTokens([anotherMockERC1155.address], [true])
                 await rolesRegistry
                   .connect(lender)
                   .commitTokens(lender.address, anotherMockERC1155.address, tokenId, tokenAmount)
@@ -377,7 +380,7 @@ describe('OriumSftMarketplace', () => {
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
             })
             it('Should accept a rental offer if token has a different registry', async () => {
-              await marketplace.connect(operator).setRolesRegistry(mockERC1155.address, rolesRegistry.address)
+              await marketplaceRoyalties.connect(operator).setRolesRegistry(mockERC1155.address, rolesRegistry.address)
               const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
               const expirationDate = blockTimestamp + duration + 1
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
@@ -471,14 +474,16 @@ describe('OriumSftMarketplace', () => {
                   .to.emit(mockERC20, 'Transfer')
               })
               it('Should accept a rental offer if marketplace fee is 0', async () => {
-                await marketplace.connect(operator).setMarketplaceFeeForCollection(mockERC1155.address, 0, true)
+                await marketplaceRoyalties
+                  .connect(operator)
+                  .setMarketplaceFeeForCollection(mockERC1155.address, 0, true)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
                   marketplace,
                   'RentalStarted',
                 )
               })
               it('Should accept a rental offer if royalty fee is 0', async () => {
-                await marketplace
+                await marketplaceRoyalties
                   .connect(creator)
                   .setRoyaltyInfo(creator.address, mockERC1155.address, '0', creatorTreasury.address)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
@@ -568,6 +573,11 @@ describe('OriumSftMarketplace', () => {
             it('Should NOT release tokens if caller is not the lender', async function () {
               await expect(marketplace.connect(notOperator).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
                 'OriumSftMarketplace: Only lender can release tokens',
+              )
+            })
+            it('Should NOT release tokens if offer is active', async function () {
+              await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
+                'OriumSftMarketplace: Offer still active',
               )
             })
           })
@@ -664,11 +674,106 @@ describe('OriumSftMarketplace', () => {
           })
         })
       })
+
+      describe('Direct Rentals', async () => {
+        describe('When tokens are not committed', async () => {
+          describe('batchCommitTokensAndGrantRole', async () => {
+            let commitAndGrantRoleParams: CommitAndGrantRoleParams[]
+            beforeEach(async () => {
+              commitAndGrantRoleParams = [
+                {
+                  commitmentId: BigNumber.from(0),
+                  tokenAddress: mockERC1155.address,
+                  tokenId,
+                  tokenAmount,
+                  role: UNIQUE_ROLE,
+                  grantee: borrower.address,
+                  expirationDate: (await ethers.provider.getBlock('latest')).timestamp + ONE_DAY,
+                  revocable: true,
+                  data: EMPTY_BYTES,
+                },
+              ]
+              await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+              await mockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
+            })
+            it('Should commit tokens and grant role', async () => {
+              await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+                .to.emit(rolesRegistry, 'TokensCommitted')
+                .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
+                .to.emit(rolesRegistry, 'RoleGranted')
+                .withArgs(
+                  1,
+                  commitAndGrantRoleParams[0].role,
+                  commitAndGrantRoleParams[0].grantee,
+                  commitAndGrantRoleParams[0].expirationDate,
+                  commitAndGrantRoleParams[0].revocable,
+                  commitAndGrantRoleParams[0].data,
+                )
+            })
+            it('Should only grant role when a commitmentId is passed', async () => {
+              commitAndGrantRoleParams[0].commitmentId = BigNumber.from(1)
+              await rolesRegistry
+                .connect(lender)
+                .commitTokens(lender.address, mockERC1155.address, tokenId, tokenAmount)
+              await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+                .to.emit(rolesRegistry, 'RoleGranted')
+                .withArgs(
+                  1,
+                  commitAndGrantRoleParams[0].role,
+                  commitAndGrantRoleParams[0].grantee,
+                  commitAndGrantRoleParams[0].expirationDate,
+                  commitAndGrantRoleParams[0].revocable,
+                  commitAndGrantRoleParams[0].data,
+                )
+            })
+          })
+        })
+
+        describe('When tokens are committed', async () => {
+          let commitAndGrantRoleParams: CommitAndGrantRoleParams[]
+          beforeEach(async () => {
+            commitAndGrantRoleParams = [
+              {
+                commitmentId: BigNumber.from(0),
+                tokenAddress: mockERC1155.address,
+                tokenId,
+                tokenAmount,
+                role: UNIQUE_ROLE,
+                grantee: borrower.address,
+                expirationDate: (await ethers.provider.getBlock('latest')).timestamp + ONE_DAY,
+                revocable: true,
+                data: EMPTY_BYTES,
+              },
+            ]
+            await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+            await mockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
+            await marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams)
+          })
+          describe('batchRevokeRole', async () => {
+            it('Should batch revoke role', async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
+              )
+                .to.emit(rolesRegistry, 'RoleRevoked')
+                .withArgs(1, UNIQUE_ROLE, borrower.address)
+            })
+            it("Should NOT batch revoke role if array's length are different", async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole([1], [UNIQUE_ROLE, UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
+              ).to.be.revertedWith('OriumSftMarketplace: arrays length mismatch')
+            })
+          })
+        })
+      })
     })
     describe('Core Functions', async () => {
       describe('Initialize', async () => {
         it("Should NOT initialize the contract if it's already initialized", async () => {
-          await expect(marketplace.initialize(operator.address, ethers.constants.AddressZero, 0)).to.be.revertedWith(
+          await expect(marketplace.initialize(operator.address, ethers.constants.AddressZero)).to.be.revertedWith(
             'Initializable: contract is already initialized',
           )
         })
@@ -703,235 +808,14 @@ describe('OriumSftMarketplace', () => {
         })
       })
 
-      describe('Marketplace Fee', async () => {
-        it('Should set the marketplace for a collection', async () => {
-          await expect(
-            marketplace
-              .connect(operator)
-              .setMarketplaceFeeForCollection(mockERC1155.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
-          )
-            .to.emit(marketplace, 'MarketplaceFeeSet')
-            .withArgs(mockERC1155.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee)
-          expect(await marketplace.feeInfo(mockERC1155.address)).to.have.deep.members([
-            feeInfo.feePercentageInWei,
-            feeInfo.isCustomFee,
-          ])
-          expect(await marketplace.marketplaceFeeOf(mockERC1155.address)).to.be.equal(feeInfo.feePercentageInWei)
+      describe('OriumMarketplaceRoyalties', async function () {
+        it('Should set the marketplace royalties contract', async function () {
+          await marketplace.connect(operator).setOriumMarketplaceRoyalties(marketplaceRoyalties.address)
+          expect(await marketplace.oriumMarketplaceRoyalties()).to.be.equal(marketplaceRoyalties.address)
         })
-
-        it('Should NOT set the marketplace fee if caller is not the operator', async () => {
-          await expect(
-            marketplace
-              .connect(notOperator)
-              .setMarketplaceFeeForCollection(mockERC1155.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
-          ).to.be.revertedWith('Ownable: caller is not the owner')
-        })
-
-        it("Should NOT set the marketplace fee if marketplace fee + creator royalty it's greater than 100%", async () => {
-          await marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
-
-          const royaltyInfo: RoyaltyInfo = {
-            creator: creator.address,
-            royaltyPercentageInWei: toWei('10'),
-            treasury: creatorTreasury.address,
-          }
-
-          await marketplace
-            .connect(creator)
-            .setRoyaltyInfo(
-              creator.address,
-              mockERC1155.address,
-              royaltyInfo.royaltyPercentageInWei,
-              royaltyInfo.treasury,
-            )
-
-          const feeInfo: FeeInfo = {
-            feePercentageInWei: toWei('95'),
-            isCustomFee: true,
-          }
-          await expect(
-            marketplace
-              .connect(operator)
-              .setMarketplaceFeeForCollection(mockERC1155.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
-          ).to.be.revertedWith('OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%')
-        })
-      })
-
-      describe('Creator Royalties', async () => {
-        describe('Operator', async () => {
-          it('Should set the creator royalties for a collection', async () => {
-            const royaltyInfo: RoyaltyInfo = {
-              creator: creator.address,
-              royaltyPercentageInWei: toWei('0'),
-              treasury: ethers.constants.AddressZero,
-            }
-
-            await expect(
-              marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero),
-            )
-              .to.emit(marketplace, 'CreatorRoyaltySet')
-              .withArgs(mockERC1155.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
-
-            expect(await marketplace.tokenAddressToRoyaltyInfo(mockERC1155.address)).to.have.deep.members([
-              royaltyInfo.creator,
-              royaltyInfo.royaltyPercentageInWei,
-              royaltyInfo.treasury,
-            ])
-          })
-
-          it('Should NOT set the creator royalties if caller is not the operator', async () => {
-            await expect(
-              marketplace.connect(notOperator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero),
-            ).to.be.revertedWith('OriumSftMarketplace: Only creator or owner can set the royalty info')
-          })
-        })
-
-        describe('Creator', async () => {
-          beforeEach(async () => {
-            await marketplace.connect(operator).setRoyaltyInfo(creator.address, mockERC1155.address, 0, AddressZero)
-          })
-
-          it("Should update the creator royalties for a collection if it's already set", async () => {
-            const royaltyInfo: RoyaltyInfo = {
-              creator: creator.address,
-              royaltyPercentageInWei: toWei('0'),
-              treasury: creatorTreasury.address,
-            }
-
-            await expect(
-              marketplace
-                .connect(creator)
-                .setRoyaltyInfo(
-                  creator.address,
-                  mockERC1155.address,
-                  royaltyInfo.royaltyPercentageInWei,
-                  royaltyInfo.treasury,
-                ),
-            )
-              .to.emit(marketplace, 'CreatorRoyaltySet')
-              .withArgs(mockERC1155.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
-          })
-
-          it('Should NOT update the creator royalties for a collection if caller is not the creator', async () => {
-            const royaltyInfo: RoyaltyInfo = {
-              creator: creator.address,
-              royaltyPercentageInWei: toWei('0'),
-              treasury: creatorTreasury.address,
-            }
-
-            await expect(
-              marketplace
-                .connect(notOperator)
-                .setRoyaltyInfo(
-                  creator.address,
-                  mockERC1155.address,
-                  royaltyInfo.royaltyPercentageInWei,
-                  royaltyInfo.treasury,
-                ),
-            ).to.be.revertedWith('OriumSftMarketplace: Only creator or owner can set the royalty info')
-          })
-
-          it("Should NOT update the creator royalties for a collection if creator's royalty percentage + marketplace fee is greater than 100%", async () => {
-            const royaltyInfo: RoyaltyInfo = {
-              creator: creator.address,
-              royaltyPercentageInWei: toWei('99'),
-              treasury: creatorTreasury.address,
-            }
-
-            await expect(
-              marketplace
-                .connect(creator)
-                .setRoyaltyInfo(
-                  creator.address,
-                  mockERC1155.address,
-                  royaltyInfo.royaltyPercentageInWei,
-                  royaltyInfo.treasury,
-                ),
-            ).to.be.revertedWith(
-              'OriumSftMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%',
-            )
-          })
-          it("Should NOT update the creator royalties if caller and creator's address are different", async () => {
-            const royaltyInfo: RoyaltyInfo = {
-              creator: creator.address,
-              royaltyPercentageInWei: toWei('0'),
-              treasury: creatorTreasury.address,
-            }
-
-            await expect(
-              marketplace
-                .connect(creator)
-                .setRoyaltyInfo(
-                  notOperator.address,
-                  mockERC1155.address,
-                  royaltyInfo.royaltyPercentageInWei,
-                  royaltyInfo.treasury,
-                ),
-            ).to.be.revertedWith('OriumSftMarketplace: sender and creator mismatch')
-          })
-        })
-      })
-
-      describe('Max Deadline', async () => {
-        it('Should set the max deadline by operator', async () => {
-          await marketplace.connect(operator).setMaxDeadline(maxDeadline)
-          expect(await marketplace.maxDeadline()).to.be.equal(maxDeadline)
-        })
-
-        it('Should NOT set the max deadline if caller is not the operator', async () => {
-          await expect(marketplace.connect(notOperator).setMaxDeadline(maxDeadline)).to.be.revertedWith(
-            'Ownable: caller is not the owner',
-          )
-        })
-
-        it('Should NOT set the max deadline 0', async () => {
-          await expect(marketplace.connect(operator).setMaxDeadline(0)).to.be.revertedWith(
-            'OriumSftMarketplace: Max deadline should be greater than 0',
-          )
-        })
-      })
-
-      describe('Roles Registry', async () => {
-        it('Should set the roles registry for a collection', async () => {
-          await expect(marketplace.connect(operator).setRolesRegistry(mockERC1155.address, rolesRegistry.address))
-            .to.emit(marketplace, 'RolesRegistrySet')
-            .withArgs(mockERC1155.address, rolesRegistry.address)
-        })
-
-        it('Should NOT set the roles registry if caller is not the operator', async () => {
-          await expect(
-            marketplace.connect(notOperator).setRolesRegistry(mockERC1155.address, rolesRegistry.address),
-          ).to.be.revertedWith('Ownable: caller is not the owner')
-        })
-      })
-
-      describe('Default Roles Registry', async () => {
-        it('Should set the default roles registry for a collection', async () => {
-          await expect(marketplace.connect(operator).setDefaultRolesRegistry(rolesRegistry.address)).to.not.be.reverted
-        })
-
-        it('Should NOT set the default roles registry if caller is not the operator', async () => {
-          await expect(
-            marketplace.connect(notOperator).setDefaultRolesRegistry(rolesRegistry.address),
-          ).to.be.revertedWith('Ownable: caller is not the owner')
-        })
-      })
-
-      describe('Trusted Tokens', async () => {
-        it('Should set the trusted tokens', async () => {
-          await marketplace.connect(operator).setTrustedTokens([mockERC1155.address], [true])
-          expect(await marketplace.isTrustedTokenAddress(mockERC1155.address)).to.be.true
-        })
-
-        it('Should NOT set the trusted tokens if caller is not the operator', async () => {
-          await expect(
-            marketplace.connect(notOperator).setTrustedTokens([mockERC1155.address], [true]),
-          ).to.be.revertedWith('Ownable: caller is not the owner')
-        })
-        it('Should NOT set the trusted tokens if token address and isTrusted have different lengths', async () => {
-          await expect(
-            marketplace.connect(operator).setTrustedTokens([mockERC1155.address, mockERC20.address], [true]),
-          ).to.be.revertedWith('OriumSftMarketplace: Arrays should have the same length')
+        it("Should NOT set the marketplace royalties contract if caller isn't the operator", async function () {
+          await expect(marketplace.connect(notOperator).setOriumMarketplaceRoyalties(marketplaceRoyalties.address)).to
+            .be.reverted
         })
       })
     })

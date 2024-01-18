@@ -3,7 +3,7 @@
 pragma solidity 0.8.9;
 
 import { IERC7589 } from '../interfaces/IERC7589.sol';
-import { ICommitTokensAndGrantRoleExtension } from './interfaces/ICommitTokensAndGrantRoleExtension.sol';
+import { ICommitTokensAndGrantRoleExtension } from '../interfaces/ICommitTokensAndGrantRoleExtension.sol';
 import { IERC165 } from '@openzeppelin/contracts/utils/introspection/IERC165.sol';
 import { IERC1155 } from '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import { IERC1155Receiver } from '@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
