@@ -16,5 +16,11 @@
 	},
 	"ImmutableOwnerCreate2Factory": {
 		"address": "0x066f91a9Aa4C33D4ea4c12aBee6f4cb4e919F71d"
+	},
+	"OriumMarketplaceRoyalties": {
+		"address": "",
+		"operator": "",
+		"implementation": "",
+		"proxyAdmin": ""
 	}
 }

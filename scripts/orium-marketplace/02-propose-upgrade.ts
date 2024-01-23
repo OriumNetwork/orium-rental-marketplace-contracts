@@ -1,8 +1,8 @@
 import { ethers, network as hardhatNetwork, defender, upgrades } from 'hardhat'
 import hre from 'hardhat'
-import config, { Network } from '../addresses'
-import { colors, print, confirmOrDie } from '../utils/misc'
-import { updateJsonFile } from '../utils/json'
+import config, { Network } from '../../addresses'
+import { colors, print, confirmOrDie } from '../../utils/misc'
+import { updateJsonFile } from '../../utils/json'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network
