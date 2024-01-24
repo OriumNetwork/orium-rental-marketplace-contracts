@@ -54,7 +54,7 @@ const BASE_CONFIG = {
         network: 'cronos',
         chainId: 25,
         urls: {
-          apiURL: 'https://cronos.org/explorer/api',
+          apiURL: 'https://api.cronoscan.com/api',
           blockExplorerURL: 'https://cronos.org/explorer',
         },
       },
