@@ -22,5 +22,11 @@
 		"operator": "0x61c22C4e709c3027ecCCdd6ee562BB583Db9a17f",
 		"implementation": "0x69C4c9D8B8D815c57Cb252f228159b2794094a17",
 		"proxyAdmin": "0x3033689fB46FDe57789A8c84AD1C9bD3A8217985"
+	},
+	"OriumSftMarketplace": {
+		"address": "0xF992Cf6815aC9c08B3631b5587e16d561ef9a969",
+		"operator": "0x61c22C4e709c3027ecCCdd6ee562BB583Db9a17f",
+		"implementation": "0x7F431494c9014d7159Ccc14c64d7Fd433354835a",
+		"proxyAdmin": "0x3033689fB46FDe57789A8c84AD1C9bD3A8217985"
 	}
 }

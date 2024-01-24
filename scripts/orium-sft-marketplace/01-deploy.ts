@@ -20,14 +20,30 @@ const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, OriumMarketplaceRoyal
 
 const networkConfig: any = network.config
 const provider = new ethers.providers.JsonRpcProvider(networkConfig.url || '')
+/* const FEE_DATA: any = {
+  maxFeePerGas: ethers.utils.parseUnits('80', 'gwei'),
+  maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei'),
+}
+provider.getFeeData = async () => FEE_DATA */
 const deployer = new AwsKmsSigner(kmsCredentials).connect(provider)
 
 async function main() {
   const deployerAddress = await deployer.getAddress()
   confirmOrDie(`Deploying ${CONTRACT_NAME} contract on: ${NETWORK} network with ${deployerAddress}. Continue?`)
 
-  const ContractFactory = await ethers.getContractFactory(CONTRACT_NAME, deployer)
-  const contract = await upgrades.deployProxy(ContractFactory, INITIALIZER_ARGUMENTS)
+  const LibraryFactory = await ethers.getContractFactory('LibOriumSftMarketplace', deployer)
+  const library = await LibraryFactory.deploy()
+  await library.deployed()
+
+  const ContractFactory = await ethers.getContractFactory(CONTRACT_NAME, {
+    signer: deployer,
+    libraries: {
+      LibOriumSftMarketplace: library.address,
+    },
+  })
+  const contract = await upgrades.deployProxy(ContractFactory, INITIALIZER_ARGUMENTS, {
+    unsafeAllowLinkedLibraries: true,
+  })
   await contract.deployed()
   print(colors.success, `${CONTRACT_NAME} deployed to: ${contract.address}`)
 

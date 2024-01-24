@@ -102,6 +102,7 @@ const PROD_CONFIG = {
       chainId: 137,
       url: POLYGON_PROVIDER_URL,
       accounts: [PROD_PRIVATE_KEY],
+      pollingInterval: 15000,
     },
     cronosTestnet: {
       chainId: 338,
