@@ -1,9 +1,9 @@
 import hre, { ethers, network, upgrades } from 'hardhat'
 import { AwsKmsSigner } from '@govtechsg/ethers-aws-kms-signer'
-import { confirmOrDie, print, colors } from '../utils/misc'
-import { updateJsonFile } from '../utils/json'
-import addresses, { Network } from '../addresses'
-import { THREE_MONTHS } from '../utils/constants'
+import { confirmOrDie, print, colors } from '../../utils/misc'
+import { updateJsonFile } from '../../utils/json'
+import addresses, { Network } from '../../addresses'
+import { AddressZero, THREE_MONTHS } from '../../utils/constants'
 
 const kmsCredentials = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'AKIAxxxxxxxxxxxxxxxx', // credentials for your IAM user with KMS access
@@ -15,13 +15,18 @@ const kmsCredentials = {
 const NETWORK = network.name as Network
 const { Multisig, RolesRegistry } = addresses[NETWORK]
 
-const CONTRACT_NAME = 'OriumMarketplace'
+const CONTRACT_NAME = 'OriumMarketplaceRoyalties'
 const OPERATOR_ADDRESS = Multisig.address
 const MAX_DEADLINE = THREE_MONTHS.toString()
-const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, RolesRegistry.address, MAX_DEADLINE]
+const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, AddressZero, RolesRegistry.address, MAX_DEADLINE]
 
 const networkConfig: any = network.config
 const provider = new ethers.providers.JsonRpcProvider(networkConfig.url || '')
+/* const FEE_DATA: any = {
+  maxFeePerGas: ethers.utils.parseUnits('80', 'gwei'),
+  maxPriorityFeePerGas: ethers.utils.parseUnits('50', 'gwei'),
+}
+provider.getFeeData = async () => FEE_DATA */
 const deployer = new AwsKmsSigner(kmsCredentials).connect(provider)
 
 async function main() {

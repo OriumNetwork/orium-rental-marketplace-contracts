@@ -9,6 +9,16 @@
       "address": "0x0BA6c992049b3219e733424E24bE7829d7736f6b",
       "txHash": "0x75e874e9db574e6549a398b290123679a17f2f2dd10c001e40974c0058cfa52d",
       "kind": "transparent"
+    },
+    {
+      "address": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD",
+      "txHash": "0xcf98266bc6b8226fa56cb9880980a3454caf40c55865285e8b3ac6f580f9e60c",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x3Af779a00868B3Ac35Ea9424340ec8A23ADDCfB4",
+      "txHash": "0x32a11b7ba2bf6cf30dbb80d099da7e521cf5dda82297999f01fa88c37207055d",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -248,6 +258,382 @@
               }
             ],
             "numberOfBytes": "96"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "081c4d54a3bc93f1d6cd6c89917d52411d4120f59c498485a9fa57e8149cbc13": {
+      "address": "0x17ecC3620cE4062fA5eC4298a6BDc6d5A25d75Fe",
+      "txHash": "0xa019b7ae606e77e317f3f52f8fcac6c261e25d4972eb6fcd40c7e5d8e7ec58a2",
+      "layout": {
+        "solcVersion": "0.8.9",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "defaultSftRolesRegistry",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_address",
+            "contract": "OriumMarketplaceRoyalties",
+            "src": "contracts/OriumMarketplaceRoyalties.sol:26"
+          },
+          {
+            "label": "defaultNftRolesRegistry",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_address",
+            "contract": "OriumMarketplaceRoyalties",
+            "src": "contracts/OriumMarketplaceRoyalties.sol:29"
+          },
+          {
+            "label": "tokenAddressToRolesRegistry",
+            "offset": 0,
+            "slot": "103",
+            "type": "t_mapping(t_address,t_address)",
+            "contract": "OriumMarketplaceRoyalties",
+            "src": "contracts/OriumMarketplaceRoyalties.sol:32"
+          },
+          {
+            "label": "maxDuration",
+            "offset": 0,
+            "slot": "104",
+            "type": "t_uint64",
+            "contract": "OriumMarketplaceRoyalties",
+            "src": "contracts/OriumMarketplaceRoyalties.sol:35"
+          },
+          {
+            "label": "feeInfo",
+            "offset": 0,
+            "slot": "105",
+            "type": "t_mapping(t_address,t_struct(FeeInfo)1062_storage)",
+            "contract": "OriumMarketplaceRoyalties",
+            "src": "contracts/OriumMarketplaceRoyalties.sol:38"
+          },
+          {
+            "label": "tokenAddressToRoyaltyInfo",
+            "offset": 0,
+            "slot": "106",
+            "type": "t_mapping(t_address,t_struct(RoyaltyInfo)1069_storage)",
+            "contract": "OriumMarketplaceRoyalties",
+            "src": "contracts/OriumMarketplaceRoyalties.sol:41"
+          },
+          {
+            "label": "isTrustedTokenAddress",
+            "offset": 0,
+            "slot": "107",
+            "type": "t_mapping(t_address,t_bool)",
+            "contract": "OriumMarketplaceRoyalties",
+            "src": "contracts/OriumMarketplaceRoyalties.sol:44"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_mapping(t_address,t_address)": {
+            "label": "mapping(address => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_bool)": {
+            "label": "mapping(address => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(FeeInfo)1062_storage)": {
+            "label": "mapping(address => struct IOriumMarketplaceRoyalties.FeeInfo)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_struct(RoyaltyInfo)1069_storage)": {
+            "label": "mapping(address => struct IOriumMarketplaceRoyalties.RoyaltyInfo)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(FeeInfo)1062_storage": {
+            "label": "struct IOriumMarketplaceRoyalties.FeeInfo",
+            "members": [
+              {
+                "label": "feePercentageInWei",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "isCustomFee",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(RoyaltyInfo)1069_storage": {
+            "label": "struct IOriumMarketplaceRoyalties.RoyaltyInfo",
+            "members": [
+              {
+                "label": "creator",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "royaltyPercentageInWei",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "treasury",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "2"
+              }
+            ],
+            "numberOfBytes": "96"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "7ae83f5165d9372d1fb60953b490459cda367ea768015ef07e2a2cec1136af48": {
+      "address": "0xe359D2353D8f2E6Bd574E49F34c987729380EA1C",
+      "txHash": "0xe62fc264d145cc4224e254f0129326090d7165c00edbec41e5b8cd9cc8a3febc",
+      "layout": {
+        "solcVersion": "0.8.9",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:62",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:67"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:29"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:116"
+          },
+          {
+            "label": "oriumMarketplaceRoyalties",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "OriumSftMarketplace",
+            "src": "contracts/OriumSftMarketplace.sol:24"
+          },
+          {
+            "label": "isCreated",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_mapping(t_bytes32,t_bool)",
+            "contract": "OriumSftMarketplace",
+            "src": "contracts/OriumSftMarketplace.sol:27"
+          },
+          {
+            "label": "nonceDeadline",
+            "offset": 0,
+            "slot": "153",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint64))",
+            "contract": "OriumSftMarketplace",
+            "src": "contracts/OriumSftMarketplace.sol:30"
+          },
+          {
+            "label": "commitmentIdToNonce",
+            "offset": 0,
+            "slot": "154",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))",
+            "contract": "OriumSftMarketplace",
+            "src": "contracts/OriumSftMarketplace.sol:33"
+          },
+          {
+            "label": "rentals",
+            "offset": 0,
+            "slot": "155",
+            "type": "t_mapping(t_bytes32,t_struct(Rental)1023_storage)",
+            "contract": "OriumSftMarketplace",
+            "src": "contracts/OriumSftMarketplace.sol:36"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_uint256))": {
+            "label": "mapping(address => mapping(uint256 => uint256))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_uint64))": {
+            "label": "mapping(address => mapping(uint256 => uint64))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_bool)": {
+            "label": "mapping(bytes32 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Rental)1023_storage)": {
+            "label": "mapping(bytes32 => struct OriumSftMarketplace.Rental)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint256)": {
+            "label": "mapping(uint256 => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint64)": {
+            "label": "mapping(uint256 => uint64)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Rental)1023_storage": {
+            "label": "struct OriumSftMarketplace.Rental",
+            "members": [
+              {
+                "label": "borrower",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "expirationDate",
+                "type": "t_uint64",
+                "offset": 20,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
           },
           "t_uint256": {
             "label": "uint256",

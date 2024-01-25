@@ -16,5 +16,17 @@
 	},
 	"ImmutableOwnerCreate2Factory": {
 		"address": "0x066f91a9Aa4C33D4ea4c12aBee6f4cb4e919F71d"
+	},
+	"OriumMarketplaceRoyalties": {
+		"address": "0x060Ec866243596851938c8CB42d023d9f7017862",
+		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
+		"implementation": "0x9c5852A1B518B39660f47c8790d36294602cEa77",
+		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
+	},
+	"OriumSftMarketplace": {
+		"address": "0xB1D47B09aa6D81d7B00C3A37705a6A157B83C49F",
+		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
+		"implementation": "0xBE5dCA83143571f6668021E08b94fDFDf48DBcBc",
+		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
 	}
 }

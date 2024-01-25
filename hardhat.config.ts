@@ -54,7 +54,7 @@ const BASE_CONFIG = {
         network: 'cronos',
         chainId: 25,
         urls: {
-          apiURL: 'https://cronos.org/explorer/api',
+          apiURL: 'https://api.cronoscan.com/api',
           blockExplorerURL: 'https://cronos.org/explorer',
         },
       },
@@ -102,6 +102,7 @@ const PROD_CONFIG = {
       chainId: 137,
       url: POLYGON_PROVIDER_URL,
       accounts: [PROD_PRIVATE_KEY],
+      pollingInterval: 15000,
     },
     cronosTestnet: {
       chainId: 338,

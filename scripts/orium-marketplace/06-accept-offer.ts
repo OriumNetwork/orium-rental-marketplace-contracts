@@ -1,11 +1,11 @@
 import { ethers, network as hardhatNetwork } from 'hardhat'
-import config, { Network } from '../addresses'
-import { colors, print, confirmOrDie } from '../utils/misc'
+import config, { Network } from '../../addresses'
+import { colors, print, confirmOrDie } from '../../utils/misc'
 import { BigNumber } from 'ethers'
-import { RentalOffer } from '../utils/types'
-import { AddressZero, ONE_DAY } from '../utils/constants'
+import { RentalOffer } from '../../utils/types'
+import { AddressZero, ONE_DAY } from '../../utils/constants'
 import { role1, role1Data, role2, role2Data } from './data/metadata'
-import { toWei } from '../utils/bignumber'
+import { toWei } from '../../utils/bignumber'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network

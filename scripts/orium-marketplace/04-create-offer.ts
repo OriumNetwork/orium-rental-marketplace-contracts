@@ -1,14 +1,14 @@
 import { ethers, network as hardhatNetwork } from 'hardhat'
-import config, { Network } from '../addresses'
-import { colors, print, confirmOrDie } from '../utils/misc'
-import { RentalOffer } from '../utils/types'
-import { AddressZero, ONE_DAY } from '../utils/constants'
+import config, { Network } from '../../addresses'
+import { colors, print, confirmOrDie } from '../../utils/misc'
+import { RentalOffer } from '../../utils/types'
+import { AddressZero, ONE_DAY } from '../../utils/constants'
 import { randomBytes } from 'crypto'
-import { toWei } from '../utils/bignumber'
+import { toWei } from '../../utils/bignumber'
 import { BigNumber } from 'ethers'
 import { data1, data2, role1, role1Data, role2, role2Data, roleMetadata1, roleMetadata2 } from './data/metadata'
 import { defaultAbiCoder as abi } from 'ethers/lib/utils'
-import { inputsToTypes } from '../utils/role-metadata'
+import { inputsToTypes } from '../../utils/role-metadata'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network
