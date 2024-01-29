@@ -5,6 +5,9 @@
 	"RolesRegistry": {
 		"address": "0xB1b599Ec67ad23AF7FAC240191319822e674571A"
 	},
+	"SftRolesRegistrySingleRole": {
+		"address": "0x071BC9F5aA747A9A8E8cE796e006d10dBf241E04"
+	},
 	"KMSDeployer": {
 		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
 	},
