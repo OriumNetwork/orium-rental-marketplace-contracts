@@ -295,20 +295,38 @@ describe('OriumMarketplaceRoyalties', () => {
       })
     })
 
-    describe('Trusted Tokens', async () => {
+    describe('Trusted Nft Tokens', async () => {
       it('Should set the trusted tokens', async () => {
-        await marketplaceRoyalties.connect(operator).setTrustedTokens([mockERC1155.address], [true])
+        await marketplaceRoyalties.connect(operator).setTrustedNftTokens([mockERC1155.address], [true])
         expect(await marketplaceRoyalties.isTrustedTokenAddress(mockERC1155.address)).to.be.true
       })
 
       it('Should NOT set the trusted tokens if caller is not the operator', async () => {
         await expect(
-          marketplaceRoyalties.connect(notOperator).setTrustedTokens([mockERC1155.address], [true]),
+          marketplaceRoyalties.connect(notOperator).setTrustedNftTokens([mockERC1155.address], [true]),
         ).to.be.revertedWith('Ownable: caller is not the owner')
       })
       it('Should NOT set the trusted tokens if token address and isTrusted have different lengths', async () => {
         await expect(
-          marketplaceRoyalties.connect(operator).setTrustedTokens([mockERC1155.address, mockERC20.address], [true]),
+          marketplaceRoyalties.connect(operator).setTrustedNftTokens([mockERC1155.address, mockERC20.address], [true]),
+        ).to.be.revertedWith('OriumMarketplaceRoyalties: Arrays should have the same length')
+      })
+    })
+
+    describe('Trusted Fee Tokens', async () => {
+      it('Should set the trusted tokens', async () => {
+        await marketplaceRoyalties.connect(operator).setTrustedFeeTokens([mockERC20.address], [true])
+        expect(await marketplaceRoyalties.isTrustedFeeTokenAddress(mockERC20.address)).to.be.true
+      })
+
+      it('Should NOT set the trusted tokens if caller is not the operator', async () => {
+        await expect(
+          marketplaceRoyalties.connect(notOperator).setTrustedFeeTokens([mockERC20.address], [true]),
+        ).to.be.revertedWith('Ownable: caller is not the owner')
+      })
+      it('Should NOT set the trusted tokens if token address and isTrusted have different lengths', async () => {
+        await expect(
+          marketplaceRoyalties.connect(operator).setTrustedFeeTokens([mockERC1155.address, mockERC20.address], [true]),
         ).to.be.revertedWith('OriumMarketplaceRoyalties: Arrays should have the same length')
       })
     })

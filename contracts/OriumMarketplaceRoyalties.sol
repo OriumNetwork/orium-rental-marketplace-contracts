@@ -43,6 +43,9 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
     /// @dev tokenAddress => bool
     mapping(address => bool) public isTrustedTokenAddress;
 
+    /// @dev feeTokenAddress => bool
+    mapping(address => bool) public isTrustedFeeTokenAddress;
+
     /** ######### Structs ########### **/
 
     /** ######### Events ########### **/
@@ -213,13 +216,29 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
      * @param _tokenAddresses The NFT or SFT addresses.
      * @param _isTrusted The boolean array.
      */
-    function setTrustedTokens(address[] calldata _tokenAddresses, bool[] calldata _isTrusted) external onlyOwner {
+    function setTrustedNftTokens(address[] calldata _tokenAddresses, bool[] calldata _isTrusted) external onlyOwner {
         require(
             _tokenAddresses.length == _isTrusted.length,
             "OriumMarketplaceRoyalties: Arrays should have the same length"
         );
         for (uint256 i = 0; i < _tokenAddresses.length; i++) {
             isTrustedTokenAddress[_tokenAddresses[i]] = _isTrusted[i];
+        }
+    }
+
+    /**
+     * @notice Sets the trusted fee token addresses.
+     * @dev Can only be called by the owner. Used to allow collections with no custom fee set.
+     * @param _feeTokenAddresses The fee token addresses.
+     * @param _isTrusted The boolean array.
+     */
+    function setTrustedFeeTokens(address[] calldata _feeTokenAddresses, bool[] calldata _isTrusted) external onlyOwner {
+        require(
+            _feeTokenAddresses.length == _isTrusted.length,
+            "OriumMarketplaceRoyalties: Arrays should have the same length"
+        );
+        for (uint256 i = 0; i < _feeTokenAddresses.length; i++) {
+            isTrustedFeeTokenAddress[_feeTokenAddresses[i]] = _isTrusted[i];
         }
     }
 
