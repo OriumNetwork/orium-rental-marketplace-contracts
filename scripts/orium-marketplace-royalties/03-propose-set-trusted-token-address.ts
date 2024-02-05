@@ -8,7 +8,7 @@ const TOKEN_ADDRESSES = ['0x58de9AaBCaeEC0f69883C94318810ad79Cc6a44f', '0x385Eea
 const IS_APPROVED = [true, false]
 async function main() {
   await confirmOrDie(
-    `Are you sure you want to create Defender Proposal to set trusted token address on ${network} network?`,
+    `Are you sure you want to create Defender Proposal to set trusted Nft token address on ${network} network?`,
   )
   print(colors.highlight, `Create Defender Upgrade Proposal...`)
   const DEFENDER_API_KEY = process.env.DEFENDER_TEAM_API_KEY
@@ -26,11 +26,11 @@ async function main() {
 
   const proposal = await adminClient.createProposal({
     contract: { address: config[network].OriumMarketplaceRoyalties.address, network: customNetwork },
-    title: 'Proposal to set Trusted Token Addresses for Orium Marketplace Royalties Contract',
+    title: 'Proposal to set Trusted Nft Token Addresses for Orium Marketplace Royalties Contract',
     description: '',
     type: 'custom',
     functionInterface: {
-      name: 'setTrustedTokens',
+      name: 'setTrustedNftTokens',
       inputs: [
         { type: 'address[]', name: '_tokenAddresses' },
         { type: 'bool[]', name: '_isTrusted' },
