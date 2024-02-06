@@ -23,13 +23,16 @@
 	"OriumMarketplaceRoyalties": {
 		"address": "0x060Ec866243596851938c8CB42d023d9f7017862",
 		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
-		"implementation": "0x9c5852A1B518B39660f47c8790d36294602cEa77",
+		"implementation": "0xd1fB10d0BEa69237953f2751235a17E4b24Cf269",
 		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
 	},
 	"OriumSftMarketplace": {
 		"address": "0xB1D47B09aa6D81d7B00C3A37705a6A157B83C49F",
 		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
-		"implementation": "0xBE5dCA83143571f6668021E08b94fDFDf48DBcBc",
-		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
+		"implementation": "0xBCb15E3bA0BdB225099BbBef81B148a0B1d6B72b",
+		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD",
+		"libraries": [
+			"0xA7c62aDC386c8860Aa538028C8cFF6F286daC9e4"
+		]
 	}
 }
