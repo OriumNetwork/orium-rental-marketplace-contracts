@@ -6,6 +6,7 @@ import { AddressZero, ONE_DAY } from '../../utils/constants'
 import { randomBytes } from 'crypto'
 import { BigNumber } from 'ethers'
 import { UNIQUE_ROLE } from '../../utils/roles'
+import { etherPerDayToWeiPerSecond } from '../../utils/bignumber'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network
@@ -29,12 +30,12 @@ async function main() {
      * 252 - helmet
      * 350 - t-shirt
      */
-    tokenId: 350,
+    tokenId: 253,
     tokenAmount: BigNumber.from('1'),
     commitmentId: BigNumber.from('0'),
     feeTokenAddress: '0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7', // GHST address
-    feeAmountPerSecond: BigNumber.from('1'),
-    deadline: blockTimestamp + ONE_DAY * 60,
+    feeAmountPerSecond: etherPerDayToWeiPerSecond('5.2'),
+    deadline: blockTimestamp + ONE_DAY * 9,
     roles: [UNIQUE_ROLE],
     rolesData: ['0x'],
   }

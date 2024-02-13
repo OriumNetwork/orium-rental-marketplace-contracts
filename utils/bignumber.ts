@@ -20,3 +20,12 @@ export function toWei(amount: string, decimals = 18) {
 export function fromWei(amount: BigNumber, decimals = 18) {
   return ethers.utils.formatUnits(amount, decimals)
 }
+
+/**
+ * @dev Converts ether per day to wei per second
+ * @param amount The amount of ether per day
+ * @returns The amount of wei per second
+ */
+export function etherPerDayToWeiPerSecond(amount: string) {
+  return toWei(amount).div(60 * 60 * 24)
+}
