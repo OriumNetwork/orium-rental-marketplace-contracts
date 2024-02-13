@@ -79,7 +79,7 @@ library LibOriumSftMarketplace {
      * @param _tokenAddress The token address.
      * @param _tokenId The token id.
      * @param _tokenAmount The token amount.
-     * @param _lender The lender address.
+     * @param _expectedGrantor The expected grantor.
      * @param _rolesRegistryAddress The roles registry address.
      */
     function validateCommitmentId(
@@ -87,26 +87,25 @@ library LibOriumSftMarketplace {
         address _tokenAddress,
         uint256 _tokenId,
         uint256 _tokenAmount,
-        address _lender,
+        address _expectedGrantor,
         address _rolesRegistryAddress
     ) external view {
         IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
         require(
             _rolesRegistry.tokenAmountOf(_commitmentId) == _tokenAmount,
-            "OriumSftMarketplace: commitmentId token amount does not match offer's token amount"
+            "OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount"
         );
-
         require(
-            _rolesRegistry.grantorOf(_commitmentId) == _lender,
-            "OriumSftMarketplace: commitmentId grantor does not match offer's lender"
+            _rolesRegistry.grantorOf(_commitmentId) == _expectedGrantor,
+            "OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId"
         );
         require(
             _rolesRegistry.tokenAddressOf(_commitmentId) == _tokenAddress,
-            "OriumSftMarketplace: commitmentId tokenAddress does not match offer's tokenAddress"
+            "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
         );
         require(
             _rolesRegistry.tokenIdOf(_commitmentId) == _tokenId,
-            "OriumSftMarketplace: commitmentId tokenId does not match offer's tokenId"
+            "OriumSftMarketplace: tokenId provided does not match commitment's tokenId"
         );
     }
 
