@@ -566,51 +566,11 @@ describe('OriumSftMarketplace', () => {
             })
           })
 
-          describe('Batch Release Tokens from Rental Offer', async () => {
-            it('Should release tokens from rolesRegistry', async () => {
-              await time.increase(ONE_DAY)
-              await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer]))
-                .to.emit(rolesRegistry, 'TokensReleased')
-                .withArgs(rentalOffer.commitmentId)
-            })
-            it('Should NOT release tokens if contract is paused', async () => {
-              await marketplace.connect(operator).pause()
-              await expect(marketplace.connect(borrower).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
-                'Pausable: paused',
-              )
-            })
-            it('Should NOT release tokens twice', async function () {
-              await time.increase(ONE_DAY)
-              await marketplace.connect(lender).batchReleaseTokens([rentalOffer])
-              await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
-                'SftRolesRegistry: account not approved',
-              )
-            })
-            it("Should NOT release tokens if offer isn't created", async function () {
-              const notCreatedOffer = { ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }
-              await expect(marketplace.connect(lender).batchReleaseTokens([notCreatedOffer])).to.be.revertedWith(
-                'OriumSftMarketplace: Offer not created',
-              )
-            })
-            it('Should NOT release tokens if caller is not the lender', async function () {
-              await expect(marketplace.connect(notOperator).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
-                'OriumSftMarketplace: Only lender can release tokens',
-              )
-            })
-            it('Should NOT release tokens if offer is active', async function () {
-              await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
-                'OriumSftMarketplace: Offer still active',
-              )
-            })
-          })
-
-          describe('Batch Release Tokens from Commitment', async () => {
+          describe('Batch Release Tokens', async () => {
             it('Should release tokens from rolesRegistry', async () => {
               await time.increase(ONE_DAY)
               await expect(
-                marketplace
-                  .connect(lender)
-                  .batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+                marketplace.connect(lender).batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
               )
                 .to.emit(rolesRegistry, 'TokensReleased')
                 .withArgs(rentalOffer.commitmentId)
@@ -618,28 +578,24 @@ describe('OriumSftMarketplace', () => {
             it('Should NOT release tokens if contract is paused', async () => {
               await marketplace.connect(operator).pause()
               await expect(
-                marketplace
-                  .connect(lender)
-                  .batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+                marketplace.connect(lender).batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
               ).to.be.revertedWith('Pausable: paused')
             })
             it('Should NOT release tokens if array mismatch', async () => {
               await expect(
-                marketplace.connect(lender).batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], []),
+                marketplace.connect(lender).batchReleaseTokens([rentalOffer.tokenAddress], []),
               ).to.be.revertedWith('OriumSftMarketplace: arrays length mismatch')
             })
             it('Should NOT release tokens if sender is not the grantor', async () => {
               await expect(
                 marketplace
                   .connect(borrower)
-                  .batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+                  .batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
               ).to.be.revertedWith("OriumSftMarketplace: sender is not the commitment's grantor")
             })
             it('Should NOT release tokens if tokenAddress does not match commitment', async () => {
               await expect(
-                marketplace
-                  .connect(lender)
-                  .batchReleaseTokensFromCommitment([secondMockERC1155.address], [rentalOffer.commitmentId]),
+                marketplace.connect(lender).batchReleaseTokens([secondMockERC1155.address], [rentalOffer.commitmentId]),
               ).to.be.revertedWith(
                 "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress",
               )
@@ -722,21 +678,20 @@ describe('OriumSftMarketplace', () => {
               it('Should release tokens after rental is ended and rental offer expired', async () => {
                 await marketplace.connect(borrower).endRental(rentalOffer)
                 await time.increase(ONE_DAY)
-                await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer]))
+                await expect(
+                  marketplace
+                    .connect(lender)
+                    .batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+                )
                   .to.emit(rolesRegistry, 'TokensReleased')
                   .withArgs(rentalOffer.commitmentId)
               })
               it('Should NOT release tokens if rental is active', async function () {
-                await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
-                  'OriumSftMarketplace: Offer has an active Rental',
-                )
-              })
-              it('Should NOT release tokens if rental offer still active', async function () {
                 await expect(
                   marketplace
                     .connect(lender)
-                    .batchReleaseTokens([{ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }]),
-                ).to.be.revertedWith('OriumSftMarketplace: Offer not created')
+                    .batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+                ).to.be.revertedWith('SftRolesRegistry: commitment has an active non-revocable role')
               })
             })
           })

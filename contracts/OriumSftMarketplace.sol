@@ -254,36 +254,12 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
-     * @notice Releases the tokens of a rental offer.
-     * @dev Can only be called by the lender.
-     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
-     */
-    function batchReleaseTokens(RentalOffer[] calldata _offer) whenNotPaused external {
-        for (uint256 i = 0; i < _offer.length; i++) {
-            bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer[i]);
-            require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
-            require(msg.sender == _offer[i].lender, "OriumSftMarketplace: Only lender can release tokens");
-            require(
-                rentals[_offerHash].expirationDate < block.timestamp,
-                "OriumSftMarketplace: Offer has an active Rental"
-            );
-            require(
-                nonceDeadline[_offer[i].lender][_offer[i].nonce] < block.timestamp,
-                "OriumSftMarketplace: Offer still active"
-            );
-
-            IERC7589(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer[i].tokenAddress))
-                .releaseTokens(_offer[i].commitmentId);
-        }
-    }
-
-    /**
      * @notice Releases the tokens in the commitment batch.
      * @dev Can only be called by the commitment's grantor.
      * @param _tokenAddresses The SFT tokenAddresses.
      * @param _commitmentIds The commitmentIds to release.
      */
-    function batchReleaseTokensFromCommitment(
+    function batchReleaseTokens(
         address[] calldata _tokenAddresses,
         uint256[] calldata _commitmentIds
     ) whenNotPaused external {
