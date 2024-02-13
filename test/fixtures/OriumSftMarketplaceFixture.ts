@@ -40,9 +40,12 @@ export async function deploySftMarketplaceContracts() {
   const mockERC1155 = await MockERC1155Factory.deploy()
   await mockERC1155.deployed()
 
+  const secondMockERC1155 = await MockERC1155Factory.deploy()
+  await secondMockERC1155.deployed()
+
   const MockERC20Factory = await ethers.getContractFactory('MockERC20')
   const mockERC20 = await MockERC20Factory.deploy()
   await mockERC20.deployed()
 
-  return [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20] as Contract[]
+  return [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20, secondMockERC1155] as Contract[]
 }

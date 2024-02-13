@@ -15,6 +15,7 @@ describe('OriumSftMarketplace', () => {
   let marketplaceRoyalties: Contract
   let rolesRegistry: Contract
   let mockERC1155: Contract
+  let secondMockERC1155: Contract
   let mockERC20: Contract
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
@@ -39,7 +40,7 @@ describe('OriumSftMarketplace', () => {
   beforeEach(async () => {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20] = await loadFixture(deploySftMarketplaceContracts)
+    [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20, secondMockERC1155] = await loadFixture(deploySftMarketplaceContracts)
   })
 
   describe('Main Functions', async () => {
@@ -50,8 +51,12 @@ describe('OriumSftMarketplace', () => {
 
       beforeEach(async () => {
         await mockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
-        await marketplaceRoyalties.connect(operator).setTrustedNftTokens([mockERC1155.address], [true])
+        await secondMockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
+        await marketplaceRoyalties
+          .connect(operator)
+          .setTrustedNftTokens([mockERC1155.address, secondMockERC1155.address], [true, true])
         await marketplaceRoyalties.connect(operator).setTrustedFeeTokens([mockERC20.address], [true])
+        await marketplaceRoyalties.connect(operator).setRolesRegistry(secondMockERC1155.address, rolesRegistry.address)
       })
 
       describe('Rental Offers', async () => {
@@ -561,12 +566,18 @@ describe('OriumSftMarketplace', () => {
             })
           })
 
-          describe('Batch Release Tokens', async () => {
+          describe('Batch Release Tokens from Rental Offer', async () => {
             it('Should release tokens from rolesRegistry', async () => {
               await time.increase(ONE_DAY)
               await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer]))
                 .to.emit(rolesRegistry, 'TokensReleased')
                 .withArgs(rentalOffer.commitmentId)
+            })
+            it('Should NOT release tokens if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(marketplace.connect(borrower).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
+                'Pausable: paused',
+              )
             })
             it('Should NOT release tokens twice', async function () {
               await time.increase(ONE_DAY)
@@ -589,6 +600,48 @@ describe('OriumSftMarketplace', () => {
             it('Should NOT release tokens if offer is active', async function () {
               await expect(marketplace.connect(lender).batchReleaseTokens([rentalOffer])).to.be.revertedWith(
                 'OriumSftMarketplace: Offer still active',
+              )
+            })
+          })
+
+          describe('Batch Release Tokens from Commitment', async () => {
+            it('Should release tokens from rolesRegistry', async () => {
+              await time.increase(ONE_DAY)
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+              )
+                .to.emit(rolesRegistry, 'TokensReleased')
+                .withArgs(rentalOffer.commitmentId)
+            })
+            it('Should NOT release tokens if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+              ).to.be.revertedWith('Pausable: paused')
+            })
+            it('Should NOT release tokens if array mismatch', async () => {
+              await expect(
+                marketplace.connect(lender).batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], []),
+              ).to.be.revertedWith('OriumSftMarketplace: arrays length mismatch')
+            })
+            it('Should NOT release tokens if sender is not the grantor', async () => {
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  .batchReleaseTokensFromCommitment([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
+              ).to.be.revertedWith("OriumSftMarketplace: sender is not the commitment's grantor")
+            })
+            it('Should NOT release tokens if tokenAddress does not match commitment', async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchReleaseTokensFromCommitment([secondMockERC1155.address], [rentalOffer.commitmentId]),
+              ).to.be.revertedWith(
+                "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress",
               )
             })
           })

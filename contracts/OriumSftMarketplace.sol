@@ -258,7 +258,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev Can only be called by the lender.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
-    function batchReleaseTokens(RentalOffer[] calldata _offer) external {
+    function batchReleaseTokens(RentalOffer[] calldata _offer) external whenNotPaused {
         for (uint256 i = 0; i < _offer.length; i++) {
             bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer[i]);
             require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
@@ -274,6 +274,33 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
             IERC7589(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer[i].tokenAddress))
                 .releaseTokens(_offer[i].commitmentId);
+        }
+    }
+
+    /**
+     * @notice Releases the tokens in the commitment batch.
+     * @dev Can only be called by the commitment's grantor.
+     * @param _tokenAddresses The SFT tokenAddresses.
+     * @param _commitmentIds The commitmentIds to release.
+     */
+    function batchReleaseTokensFromCommitment(
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _commitmentIds
+    ) external whenNotPaused {
+        require(_tokenAddresses.length == _commitmentIds.length, "OriumSftMarketplace: arrays length mismatch");
+        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+            address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
+                _tokenAddresses[i]
+            );
+            require(
+                IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
+                "OriumSftMarketplace: sender is not the commitment's grantor"
+            );
+            require(
+                IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
+                "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
+            );
+            IERC7589(_rolesRegistryAddress).releaseTokens(_commitmentIds[i]);
         }
     }
 
