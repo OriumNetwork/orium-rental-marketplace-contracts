@@ -7,7 +7,7 @@ import { AddressZero } from '../../utils/constants'
 const SubgraphUrl =
   'https://subgraph.satsuma-prod.com/83d01390f7d3/8c268d3e8b83112a7d0c732a9b88ba1c732da600bffaf68790171b9a0b5d5394/polygon-mainnet_orium-rental-marketplace/api'
 const RentalOfferId =
-  '0xb1d47b09aa6d81d7b00c3a37705a6a157b83c49f-0xe3a75c99cd21674188bea652fe378ca5cf7e7906-88503925159079469072461611536684263787861271681407587493144538997301870344226'
+  '0xb1d47b09aa6d81d7b00c3a37705a6a157b83c49f-0xe3a75c99cd21674188bea652fe378ca5cf7e7906-14344696136470398584960849697232759012848660868945066915928195870336883158802'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network
@@ -20,7 +20,7 @@ async function main() {
   await confirmOrDie(`Are you sure you want to cancel a rental offer in ${CONTRACT_NAME} on ${NETWORK} network?`)
 
   const contract = await ethers.getContractAt(CONTRACT_NAME, CONTRACT_ADDRESS)
-  const tx = await contract.cancelRentalOffer(rentalOffer)
+  const tx = await contract.cancelRentalOffer(rentalOffer, { gasPrice: 50 * 1e9 })
 
   print(colors.highlight, `Transaction hash: ${tx.hash}`)
   print(colors.success, `Cancelled rental offer in ${CONTRACT_NAME} on ${NETWORK} network!`)
