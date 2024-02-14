@@ -5,16 +5,13 @@ import { SftRentalOffer } from '../../utils/types'
 import { AddressZero, ONE_DAY } from '../../utils/constants'
 import { randomBytes } from 'crypto'
 import { BigNumber } from 'ethers'
-import { UNIQUE_ROLE } from '../../utils/roles'
+import { PLAYER_ROLE } from '../../utils/roles'
+import { etherPerDayToWeiPerSecond } from '../../utils/bignumber'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network
   const CONTRACT_NAME = 'OriumSftMarketplace'
   const CONTRACT_ADDRESS = config[NETWORK][CONTRACT_NAME].address
-
-  await confirmOrDie(
-    `Are you sure you want to create a rental offer ${config[NETWORK].OriumSftMarketplace.address} for ${CONTRACT_NAME} on ${NETWORK} network?`,
-  )
 
   const contract = await ethers.getContractAt(CONTRACT_NAME, CONTRACT_ADDRESS)
 
@@ -23,26 +20,28 @@ async function main() {
   const rentalOffer: SftRentalOffer = {
     nonce: BigNumber.from(`0x${randomBytes(32).toString('hex')}`).toString(),
     lender: '0xe3A75c99cD21674188bea652Fe378cA5cf7e7906', // dev wallet
-    borrower: AddressZero,
+    borrower: AddressZero, // 0x31A14626579c3197B43DE563128c2171F4F840aD
     tokenAddress: '0x58de9AaBCaeEC0f69883C94318810ad79Cc6a44f', // wearables
-    /**
-     * 252 - helmet
-     * 350 - t-shirt
-     */
-    tokenId: 350,
-    tokenAmount: BigNumber.from('1'),
-    commitmentId: BigNumber.from('0'),
     feeTokenAddress: '0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7', // GHST address
-    feeAmountPerSecond: BigNumber.from('1'),
-    deadline: blockTimestamp + ONE_DAY * 60,
-    roles: [UNIQUE_ROLE],
+    roles: [PLAYER_ROLE],
     rolesData: ['0x'],
-  }
+    commitmentId: BigNumber.from('0'),
 
-  const tx = await contract.createRentalOffer(rentalOffer)
+    // parameters to update
+    tokenAmount: BigNumber.from('1'),
+    tokenId: 137,
+    feeAmountPerSecond: etherPerDayToWeiPerSecond('0.173'),
+    deadline: blockTimestamp + ONE_DAY * 19,
+  }
 
   console.log('rentalOffer', rentalOffer)
   console.log(`offerId: ${rentalOffer.lender.toLowerCase()}-${BigNumber.from(rentalOffer.nonce).toString()}`)
+
+  await confirmOrDie(
+    `Are you sure you want to create a rental offer ${config[NETWORK].OriumSftMarketplace.address} for ${CONTRACT_NAME} on ${NETWORK} network?`,
+  )
+
+  const tx = await contract.createRentalOffer(rentalOffer, { gasPrice: 50 * 1e9 })
 
   print(colors.highlight, `Transaction hash: ${tx.hash}`)
   print(colors.success, `Created rental offer in ${CONTRACT_NAME} on ${NETWORK} network!`)

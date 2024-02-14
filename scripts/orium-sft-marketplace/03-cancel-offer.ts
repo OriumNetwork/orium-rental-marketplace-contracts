@@ -1,38 +1,92 @@
 import { ethers, network as hardhatNetwork } from 'hardhat'
 import config, { Network } from '../../addresses'
 import { colors, print, confirmOrDie } from '../../utils/misc'
-import { BigNumber } from 'ethers'
 import { SftRentalOffer } from '../../utils/types'
-import { UNIQUE_ROLE } from '../../utils/roles'
+import { AddressZero } from '../../utils/constants'
+
+const SubgraphUrl =
+  'https://subgraph.satsuma-prod.com/83d01390f7d3/8c268d3e8b83112a7d0c732a9b88ba1c732da600bffaf68790171b9a0b5d5394/polygon-mainnet_orium-rental-marketplace/api'
+const RentalOfferId =
+  '0xb1d47b09aa6d81d7b00c3a37705a6a157b83c49f-0xe3a75c99cd21674188bea652fe378ca5cf7e7906-14344696136470398584960849697232759012848660868945066915928195870336883158802'
 
 async function main() {
   const NETWORK = hardhatNetwork.name as Network
   const CONTRACT_NAME = 'OriumSftMarketplace'
   const CONTRACT_ADDRESS = config[NETWORK][CONTRACT_NAME].address
 
+  const rentalOffer = await fetchRentalOffer(RentalOfferId)
+  console.log('Rental offer:', rentalOffer)
+
   await confirmOrDie(`Are you sure you want to cancel a rental offer in ${CONTRACT_NAME} on ${NETWORK} network?`)
 
   const contract = await ethers.getContractAt(CONTRACT_NAME, CONTRACT_ADDRESS)
-
-  const rentalOffer: SftRentalOffer = {
-    nonce: '5928844861723570350162087238045846869618317702381369314165749520973527938609',
-    lender: '0xe3A75c99cD21674188bea652Fe378cA5cf7e7906', // dev wallet
-    borrower: '0x596aa1f9EF171075860dFf6062Fe2009991B2323',
-    tokenAddress: '0x58de9AaBCaeEC0f69883C94318810ad79Cc6a44f', // wearables
-    tokenId: 350,
-    tokenAmount: BigNumber.from('1'),
-    commitmentId: BigNumber.from('7'),
-    feeTokenAddress: '0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7', // GHST address
-    feeAmountPerSecond: BigNumber.from('1'),
-    deadline: 1712092456,
-    roles: [UNIQUE_ROLE],
-    rolesData: ['0x'],
-  }
-
-  const tx = await contract.cancelRentalOffer(rentalOffer)
+  const tx = await contract.cancelRentalOffer(rentalOffer, { gasPrice: 50 * 1e9 })
 
   print(colors.highlight, `Transaction hash: ${tx.hash}`)
   print(colors.success, `Cancelled rental offer in ${CONTRACT_NAME} on ${NETWORK} network!`)
+}
+
+async function fetchRentalOffer(rentalOfferId: string): Promise<SftRentalOffer> {
+  const query = `
+    {
+      rentalOffer(id: "${rentalOfferId}") {
+        nonce
+        lender {
+          id
+        }
+        borrower {
+          id
+        }
+        nft {
+          tokenAddress
+          tokenId
+        }
+        tokenAmount
+        tokenCommitment {
+          commitmentId
+        }
+        feeTokenAddress
+        feeAmountPerSecond
+        deadline
+        isCancelled
+        roles {
+          roleHash
+        }
+        rolesData
+      }
+    }
+  `
+
+  const response = await fetch(SubgraphUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  })
+
+  const { data, errors } = await response.json()
+  if (errors) {
+    throw new Error(JSON.stringify(errors, null, 2))
+  }
+
+  // console.log('Rental offer:', data)
+  if (data.rentalOffer.isCancelled) {
+    throw new Error('Rental offer is already cancelled')
+  }
+
+  return {
+    nonce: data.rentalOffer.nonce,
+    lender: data.rentalOffer.lender.id,
+    borrower: data.rentalOffer.borrower?.id.toLowerCase() || AddressZero,
+    tokenAddress: data.rentalOffer.nft.tokenAddress,
+    tokenId: data.rentalOffer.nft.tokenId,
+    tokenAmount: data.rentalOffer.tokenAmount,
+    commitmentId: data.rentalOffer.tokenCommitment.commitmentId,
+    feeTokenAddress: data.rentalOffer.feeTokenAddress,
+    feeAmountPerSecond: data.rentalOffer.feeAmountPerSecond,
+    deadline: data.rentalOffer.deadline,
+    roles: data.rentalOffer.roles.map((role: { roleHash: string }) => role.roleHash),
+    rolesData: data.rentalOffer.rolesData,
+  }
 }
 
 main()

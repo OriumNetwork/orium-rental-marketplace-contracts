@@ -29,10 +29,10 @@
 	"OriumSftMarketplace": {
 		"address": "0xB1D47B09aa6D81d7B00C3A37705a6A157B83C49F",
 		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
-		"implementation": "0xBCb15E3bA0BdB225099BbBef81B148a0B1d6B72b",
+		"implementation": "0x382f30C4B4D6c7C6c6008a56709926b56609dB1c",
 		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD",
 		"libraries": [
-			"0xA7c62aDC386c8860Aa538028C8cFF6F286daC9e4"
+			"0x3f480CbeB1e6a3624C3470b0593A428d06E17F02"
 		]
 	}
 }
