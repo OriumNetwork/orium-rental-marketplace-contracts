@@ -3,6 +3,7 @@
 pragma solidity 0.8.9;
 
 import { IERC7589 } from "../interfaces/IERC7589.sol";
+import { IOriumMarketplaceRoyalties } from "../interfaces/IOriumMarketplaceRoyalties.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @dev Rental offer info.
@@ -166,5 +167,33 @@ library LibOriumSftMarketplace {
             IERC20(_feeTokenAddress).transferFrom(msg.sender, _lenderAddress, _lenderAmount),
             "OriumSftMarketplace: Transfer failed"
         );
+    }
+
+    /**
+     * @notice Releases the tokens in the commitment batch.
+     * @dev Can only be called by the commitment's grantor.
+     * @param _oriumMarketplaceRoyaltiesAddress The address of the OriumMarketplaceRoyalties contract.
+     * @param _tokenAddresses The SFT tokenAddresses.
+     * @param _commitmentIds The commitmentIds to release.
+     */
+    function batchReleaseTokens(
+        address _oriumMarketplaceRoyaltiesAddress,
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _commitmentIds
+    ) external {
+        require(_tokenAddresses.length == _commitmentIds.length, "OriumSftMarketplace: arrays length mismatch");
+        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+            address _rolesRegistryAddress = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyaltiesAddress)
+                .sftRolesRegistryOf(_tokenAddresses[i]);
+            require(
+                IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
+                "OriumSftMarketplace: sender is not the commitment's grantor"
+            );
+            require(
+                IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
+                "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
+            );
+            IERC7589(_rolesRegistryAddress).releaseTokens(_commitmentIds[i]);
+        }
     }
 }

@@ -118,7 +118,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
-    function createRentalOffer(RentalOffer memory _offer) whenNotPaused external {
+    function createRentalOffer(RentalOffer memory _offer) external whenNotPaused {
         address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
             _offer.tokenAddress
         );
@@ -159,7 +159,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _duration The duration of the rental.
      */
-    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) whenNotPaused external {
+    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(
@@ -203,7 +203,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @notice Cancels a rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
-    function cancelRentalOffer(RentalOffer calldata _offer) whenNotPaused external {
+    function cancelRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(msg.sender == _offer.lender, "OriumSftMarketplace: Only lender can cancel a rental offer");
@@ -229,7 +229,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev Borrower needs to approve marketplace to revoke the roles.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
-    function endRental(RentalOffer calldata _offer) whenNotPaused external {
+    function endRental(RentalOffer calldata _offer) external whenNotPaused {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
 
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
@@ -262,29 +262,15 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function batchReleaseTokens(
         address[] calldata _tokenAddresses,
         uint256[] calldata _commitmentIds
-    ) whenNotPaused external {
-        require(_tokenAddresses.length == _commitmentIds.length, "OriumSftMarketplace: arrays length mismatch");
-        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
-            address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
-                _tokenAddresses[i]
-            );
-            require(
-                IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
-                "OriumSftMarketplace: sender is not the commitment's grantor"
-            );
-            require(
-                IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
-                "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
-            );
-            IERC7589(_rolesRegistryAddress).releaseTokens(_commitmentIds[i]);
-        }
+    ) external whenNotPaused {
+        LibOriumSftMarketplace.batchReleaseTokens(oriumMarketplaceRoyalties, _tokenAddresses, _commitmentIds);
     }
 
     /**
      * @notice batchCommitTokensAndGrantRole commits tokens and grant role in a single transaction.
      * @param _params The array of CommitAndGrantRoleParams.
      */
-    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] calldata _params) whenNotPaused external {
+    function batchCommitTokensAndGrantRole(CommitAndGrantRoleParams[] calldata _params) external whenNotPaused {
         for (uint256 i = 0; i < _params.length; i++) {
             address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
                 _params[i].tokenAddress
@@ -336,7 +322,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         bytes32[] memory _roles,
         address[] memory _grantees,
         address[] memory _tokenAddresses
-    ) whenNotPaused external {
+    ) external whenNotPaused {
         require(
             _commitmentIds.length == _roles.length &&
                 _commitmentIds.length == _grantees.length &&
