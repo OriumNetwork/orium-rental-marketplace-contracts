@@ -12,9 +12,9 @@
     "contract-size": "npx hardhat size-contracts",
     "deploy:mumbai": "npx hardhat run --network mumbai scripts/01-deploy.ts",
     "deploy:polygon": "npx hardhat run --network polygon scripts/01-deploy.ts",
-    "create-offer:polygon": "npx hardhat run scripts/orium-sft-marketplace/02-create-offer.ts --network polygon",
-    "cancel-offer:polygon": "npx hardhat run scripts/orium-sft-marketplace/03-cancel-offer.ts --network polygon",
-    "propose-upgrade:polygon": "npx hardhat run scripts/orium-sft-marketplace/06-propose-upgrade.ts --network polygon"
+    "create-offer:orium-sft-marketplace:polygon": "npx hardhat run scripts/orium-sft-marketplace/02-create-offer.ts --network polygon",
+    "cancel-offer:orium-sft-marketplace:polygon": "npx hardhat run scripts/orium-sft-marketplace/03-cancel-offer.ts --network polygon",
+    "propose-upgrade:orium-sft-marketplace:polygon": "npx hardhat run scripts/orium-sft-marketplace/06-propose-upgrade.ts --network polygon"
   },
   "husky": {
     "hooks": {
