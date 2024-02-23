@@ -212,11 +212,14 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             "OriumSftMarketplace: Nonce expired or not used yet"
         );
 
+        IERC7589 _rolesRegistry = IERC7589(
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
+        );
         // if There are no active rentals, release tokens (else, tokens will be released via `batchReleaseTokens`)
         // this is ok for single-role tokens, but tokens with multiple roles might revert if another non-revocable role exists
-        if (rentals[_offerHash].expirationDate < block.timestamp) {
-            IERC7589(IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress))
-                .releaseTokens(_offer.commitmentId);
+        // if token amount is 0, it means that the tokens were already released, trying to release it again would revert the transaction
+        if (rentals[_offerHash].expirationDate < block.timestamp && _rolesRegistry.tokenAmountOf(_offer.commitmentId) > 0) {
+            _rolesRegistry.releaseTokens(_offer.commitmentId);
         }
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
