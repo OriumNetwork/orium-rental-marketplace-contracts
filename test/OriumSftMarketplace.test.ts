@@ -536,6 +536,12 @@ describe('OriumSftMarketplace', () => {
                 .to.emit(rolesRegistry, 'TokensReleased')
                 .withArgs(rentalOffer.commitmentId)
             })
+            it('Should cancel a rental offer if tokens was released before directly from registry', async () => {
+              await rolesRegistry.connect(lender).releaseTokens(rentalOffer.commitmentId)
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+            })
             it('Should NOT cancel a rental offer if contract is paused', async () => {
               await marketplace.connect(operator).pause()
               await expect(marketplace.connect(borrower).cancelRentalOffer(rentalOffer)).to.be.revertedWith(
