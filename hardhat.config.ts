@@ -7,6 +7,7 @@ import 'hardhat-spdx-license-identifier'
 import '@nomicfoundation/hardhat-toolbox'
 import '@openzeppelin/hardhat-defender'
 import 'hardhat-contract-sizer'
+import '@nomicfoundation/hardhat-foundry'
 
 dotenv.config()
 
