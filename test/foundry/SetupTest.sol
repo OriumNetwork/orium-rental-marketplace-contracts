@@ -2,12 +2,12 @@
 
 pragma solidity 0.8.9;
 
-import { Test } from "forge-std/Test.sol";
-import { OriumSftMarketplace } from "../OriumSftMarketplace.sol";
-import { OriumMarketplaceRoyalties } from "../OriumMarketplaceRoyalties.sol";
-import { SftRolesRegistrySingleRole } from "../mocks/SftRolesRegistrySingleRole.sol";
-import { MockERC1155 } from "../mocks/MockERC1155.sol";
-import { MockERC20 } from "../mocks/MockERC20.sol";
+import { Test } from "../../lib/forge-std/src/Test.sol";
+import { OriumSftMarketplace } from "../../contracts/OriumSftMarketplace.sol";
+import { OriumMarketplaceRoyalties } from "../../contracts/OriumMarketplaceRoyalties.sol";
+import { SftRolesRegistrySingleRole } from "../../contracts/mocks/SftRolesRegistrySingleRole.sol";
+import { MockERC1155 } from "../../contracts/mocks/MockERC1155.sol";
+import { MockERC20 } from "../../contracts/mocks/MockERC20.sol";
 
 contract SetupTest is Test {
     OriumSftMarketplace public marketplace;

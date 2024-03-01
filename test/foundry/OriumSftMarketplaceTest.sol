@@ -3,10 +3,12 @@
 pragma solidity 0.8.9;
 
 import { SetupTest } from "./SetupTest.sol";
-import { RentalOffer } from "../libraries/LibOriumSftMarketplace.sol";
+import { RentalOffer } from "../../contracts/libraries/LibOriumSftMarketplace.sol";
+import "hardhat/console.sol";
 
 contract OriumSftMarketplaceTest is SetupTest {
     uint256 nonceCounter;
+    uint256 commitmentIdCounter;
 
     constructor() {
         setUp();
@@ -14,6 +16,7 @@ contract OriumSftMarketplaceTest is SetupTest {
 
     function test_fuzz_createRentalOffer(address lenderFuzz, address borrowerFuzz) public {
         vm.assume(lenderFuzz != address(0));
+        vm.assume(borrowerFuzz != address(0));
 
         bytes32[] memory roles = new bytes32[](1);
         roles[0] = UNIQUE_ROLE;
@@ -44,7 +47,62 @@ contract OriumSftMarketplaceTest is SetupTest {
         vm.stopPrank();
     }
 
-    function invariant_offerHash() public {
+   function test_fuzz_acceptRentalOffer(address lenderFuzz, address borrowerFuzz, uint64 duration) public {
+        vm.assume(lenderFuzz != address(0) && lenderFuzz != address(this));
+        vm.assume(borrowerFuzz != address(0) && borrowerFuzz != address(this));
+        uint64 deadline = uint64(block.timestamp + 30 days);
+        vm.assume(duration > block.timestamp && duration < deadline);
+
+        bytes32[] memory roles = new bytes32[](1);
+        roles[0] = UNIQUE_ROLE;
+
+        bytes[] memory rolesData = new bytes[](1);
+        rolesData[0] = "0x";
+
+        RentalOffer memory _offer = RentalOffer({
+            lender: lenderFuzz,
+            borrower: borrowerFuzz,
+            tokenAddress: address(sft),
+            tokenId: tokenId,
+            tokenAmount: tokenAmount,
+            feeTokenAddress: address(feeToken),
+            feeAmountPerSecond: 0,
+            nonce: ++nonceCounter,
+            commitmentId: 0,
+            deadline: deadline,
+            roles: roles,
+            rolesData: rolesData
+        });
+
+        console.log("Offer: ");
+        console.log("lender: ", _offer.lender);
+        console.log("borrower: ", _offer.borrower);
+        console.log("tokenAddress: ", _offer.tokenAddress);
+        console.log("tokenId: ", _offer.tokenId);
+        console.log("tokenAmount: ", _offer.tokenAmount);
+        console.log("feeTokenAddress: ", _offer.feeTokenAddress);
+        console.log("feeAmountPerSecond: ", _offer.feeAmountPerSecond);
+        console.log("nonce: ", _offer.nonce);
+        console.log("commitmentId: ", _offer.commitmentId);
+        console.log("deadline: ", _offer.deadline);
+        console.logBytes32(_offer.roles[0]);
+        console.logBytes(_offer.rolesData[0]);
+
+        vm.startPrank(lenderFuzz);
+        sft.mint(lenderFuzz, tokenId, tokenAmount, "");
+        sft.setApprovalForAll(address(rolesRegistry), true);
+        rolesRegistry.setRoleApprovalForAll(address(sft), address(marketplace), true);
+        marketplace.createRentalOffer(_offer);
+        vm.stopPrank();
+
+        _offer.commitmentId = ++commitmentIdCounter;
+
+        vm.startPrank(borrowerFuzz);
+        marketplace.acceptRentalOffer(_offer, duration);
+        vm.stopPrank();
+    }
+
+     function invariant_offerHash() public {
         bytes32[] memory roles = new bytes32[](1);
         roles[0] = UNIQUE_ROLE;
 
@@ -53,12 +111,12 @@ contract OriumSftMarketplaceTest is SetupTest {
 
         RentalOffer memory _offer = RentalOffer({
             lender: lender,
-            borrower: borrower,
+            borrower: address(0),
             tokenAddress: address(sft),
             tokenId: tokenId,
             tokenAmount: tokenAmount,
             feeTokenAddress: address(feeToken),
-            feeAmountPerSecond: 0,
+            feeAmountPerSecond: 1,
             nonce: ++nonceCounter,
             commitmentId: 0,
             deadline: uint64(block.timestamp + 1 days),
@@ -83,7 +141,7 @@ contract OriumSftMarketplaceTest is SetupTest {
                 _offer.feeTokenAddress,
                 _offer.feeAmountPerSecond,
                 _offer.nonce,
-                _offer.commitmentId,
+                ++commitmentIdCounter,
                 _offer.deadline,
                 _offer.roles,
                 _offer.rolesData
