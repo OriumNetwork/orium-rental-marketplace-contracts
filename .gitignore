@@ -8,6 +8,9 @@ coverage
 coverage.json
 .DS_Store
 .vscode
+out
+cache_forge
+forge-artifacts
 
 
 .openzeppelin/unknown-31337.json
