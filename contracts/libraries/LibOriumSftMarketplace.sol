@@ -210,7 +210,7 @@ library LibOriumSftMarketplace {
         bytes32[] memory _roles,
         address[] memory _grantees,
         address[] memory _tokenAddresses,
-        address oriumMarketplaceRoyalties
+        address _oriumMarketplaceRoyalties
     ) external {
         require(
             _commitmentIds.length == _roles.length &&
@@ -220,19 +220,18 @@ library LibOriumSftMarketplace {
         );
 
         for (uint256 i = 0; i < _commitmentIds.length; i++) {
-            address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
+            address _rolesRegistryAddress = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).sftRolesRegistryOf(
                 _tokenAddresses[i]
             );
             require(
                 IERC7589(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i], _grantees[i]),
                 "OriumSftMarketplace: role is not revocable"
             );
-            if (msg.sender == _grantees[i]) {
-                require(
+            require(
                     IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i], _grantees[i]) > block.timestamp,
                     "OriumSftMarketplace: role is expired"
-                );
-            } else {
+            );
+            if (msg.sender != _grantees[i]) {
                 require(
                     IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
                     "OriumSftMarketplace: sender is not the commitment's grantor"
