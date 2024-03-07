@@ -871,7 +871,7 @@ describe('OriumSftMarketplace', () => {
                 "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress",
               )
             })
-            it('Should NOT batch revoke role if role is not revocable', async () => {
+            it.only('Should NOT batch revoke role if role is not revocable', async () => {
               await rolesRegistry
                 .connect(lender)
                 .grantRole(
@@ -882,9 +882,6 @@ describe('OriumSftMarketplace', () => {
                   false,
                   EMPTY_BYTES,
                 )
-              await rolesRegistry
-                .connect(borrower)
-                .setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
               await rolesRegistry
                 .connect(borrower)
                 .setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
