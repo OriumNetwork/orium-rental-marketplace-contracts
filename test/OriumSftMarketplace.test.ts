@@ -862,7 +862,7 @@ describe('OriumSftMarketplace', () => {
                 marketplace
                   .connect(notOperator)
                   .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
-              ).to.be.revertedWith("OriumSftMarketplace: sender is not the commitment's grantor")
+              ).to.be.revertedWith("OriumSftMarketplace: sender is not the commitment's grantor or grantee")
             })
             it('Should NOT batch revoke role if tokenAddress does not match commitment', async () => {
               await expect(

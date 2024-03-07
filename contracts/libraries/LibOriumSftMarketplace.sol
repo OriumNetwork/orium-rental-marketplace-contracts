@@ -228,15 +228,13 @@ library LibOriumSftMarketplace {
                 "OriumSftMarketplace: role is not revocable"
             );
             require(
-                    IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i], _grantees[i]) > block.timestamp,
-                    "OriumSftMarketplace: role is expired"
+                IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i], _grantees[i]) > block.timestamp,
+                "OriumSftMarketplace: role is expired"
             );
-            if (msg.sender != _grantees[i]) {
-                require(
-                    IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
-                    "OriumSftMarketplace: sender is not the commitment's grantor"
-                );
-            }
+            require(
+                msg.sender == _grantees[i] || IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
+                "OriumSftMarketplace: sender is not the commitment's grantor or grantee"
+            );
             require(
                 IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
                 "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
