@@ -199,7 +199,7 @@ library LibOriumSftMarketplace {
 
       /**
      * @notice batchRevokeRole revokes role in a single transaction.
-     * @dev grantor will be msg.sender and it must approve the marketplace to revoke the roles.
+     * @dev only the grantor and grantee can call this function. Be careful as the marketplace have approvals from other users.
      * @param _commitmentIds The array of commitmentIds
      * @param _roles The array of roles
      * @param _grantees The array of grantees
