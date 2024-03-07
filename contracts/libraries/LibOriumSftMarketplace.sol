@@ -233,6 +233,10 @@ library LibOriumSftMarketplace {
                     IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
                     "OriumSftMarketplace: sender is not the commitment's grantor"
                 );
+                require(
+                    IERC7589(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i], _grantees[i]),
+                    "OriumSftMarketplace: role is not revocable"
+                );
             }
             require(
                 IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
