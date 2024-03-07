@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.9;
 
-import { IERC7589 } from '../interfaces/IERC7589.sol';
-import { IOriumMarketplaceRoyalties } from '../interfaces/IOriumMarketplaceRoyalties.sol';
-import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import { IERC7589 } from "../interfaces/IERC7589.sol";
+import { IOriumMarketplaceRoyalties } from "../interfaces/IOriumMarketplaceRoyalties.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @dev Rental offer info.
 struct RentalOffer {
@@ -98,7 +98,7 @@ library LibOriumSftMarketplace {
         );
         require(
             _rolesRegistry.grantorOf(_commitmentId) == _expectedGrantor,
-            'OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId'
+            "OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId"
         );
         require(
             _rolesRegistry.tokenAddressOf(_commitmentId) == _tokenAddress,
@@ -115,17 +115,17 @@ library LibOriumSftMarketplace {
      * @param _offer The rental offer struct to be validated.
      */
     function validateOffer(RentalOffer memory _offer) external view {
-        require(_offer.tokenAmount > 0, 'OriumSftMarketplace: tokenAmount should be greater than 0');
-        require(_offer.nonce != 0, 'OriumSftMarketplace: Nonce cannot be 0');
-        require(msg.sender == _offer.lender, 'OriumSftMarketplace: Sender and Lender mismatch');
-        require(_offer.roles.length > 0, 'OriumSftMarketplace: roles should not be empty');
+        require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
+        require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
+        require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
+        require(_offer.roles.length > 0, "OriumSftMarketplace: roles should not be empty");
         require(
             _offer.roles.length == _offer.rolesData.length,
-            'OriumSftMarketplace: roles and rolesData should have the same length'
+            "OriumSftMarketplace: roles and rolesData should have the same length"
         );
         require(
             _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
-            'OriumSftMarketplace: feeAmountPerSecond should be greater than 0'
+            "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
         );
     }
 
@@ -152,20 +152,20 @@ library LibOriumSftMarketplace {
         if (_marketplaceFeeAmount > 0) {
             require(
                 IERC20(_feeTokenAddress).transferFrom(msg.sender, _marketplaceTreasuryAddress, _marketplaceFeeAmount),
-                'OriumSftMarketplace: Transfer failed'
+                "OriumSftMarketplace: Transfer failed"
             );
         }
 
         if (_royaltyAmount > 0) {
             require(
                 IERC20(_feeTokenAddress).transferFrom(msg.sender, _royaltyTreasuryAddress, _royaltyAmount),
-                'OriumSftMarketplace: Transfer failed'
+                "OriumSftMarketplace: Transfer failed"
             );
         }
 
         require(
             IERC20(_feeTokenAddress).transferFrom(msg.sender, _lenderAddress, _lenderAmount),
-            'OriumSftMarketplace: Transfer failed'
+            "OriumSftMarketplace: Transfer failed"
         );
     }
 
@@ -181,7 +181,7 @@ library LibOriumSftMarketplace {
         address[] calldata _tokenAddresses,
         uint256[] calldata _commitmentIds
     ) external {
-        require(_tokenAddresses.length == _commitmentIds.length, 'OriumSftMarketplace: arrays length mismatch');
+        require(_tokenAddresses.length == _commitmentIds.length, "OriumSftMarketplace: arrays length mismatch");
         for (uint256 i = 0; i < _tokenAddresses.length; i++) {
             address _rolesRegistryAddress = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyaltiesAddress)
                 .sftRolesRegistryOf(_tokenAddresses[i]);
@@ -197,7 +197,7 @@ library LibOriumSftMarketplace {
         }
     }
 
-    /**
+      /**
      * @notice batchRevokeRole revokes role in a single transaction.
      * @dev only the grantor and grantee can call this function. Be careful as the marketplace have approvals from other users.
      * @param _commitmentIds The array of commitmentIds
@@ -216,7 +216,7 @@ library LibOriumSftMarketplace {
             _commitmentIds.length == _roles.length &&
                 _commitmentIds.length == _grantees.length &&
                 _commitmentIds.length == _tokenAddresses.length,
-            'OriumSftMarketplace: arrays length mismatch'
+            "OriumSftMarketplace: arrays length mismatch"
         );
 
         for (uint256 i = 0; i < _commitmentIds.length; i++) {
@@ -225,13 +225,12 @@ library LibOriumSftMarketplace {
             );
             require(
                 IERC7589(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i], _grantees[i]),
-                'OriumSftMarketplace: role is not revocable'
+                "OriumSftMarketplace: role is not revocable"
             );
             if (msg.sender == _grantees[i]) {
                 require(
-                    IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i], _grantees[i]) >
-                        block.timestamp,
-                    'OriumSftMarketplace: role is expired'
+                    IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i], _grantees[i]) > block.timestamp,
+                    "OriumSftMarketplace: role is expired"
                 );
             } else {
                 require(
