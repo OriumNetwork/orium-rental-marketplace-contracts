@@ -196,4 +196,51 @@ library LibOriumSftMarketplace {
             IERC7589(_rolesRegistryAddress).releaseTokens(_commitmentIds[i]);
         }
     }
+
+      /**
+     * @notice batchRevokeRole revokes role in a single transaction.
+     * @dev only the grantor and grantee can call this function. Be careful as the marketplace have approvals from other users.
+     * @param _commitmentIds The array of commitmentIds
+     * @param _roles The array of roles
+     * @param _grantees The array of grantees
+     * @param _tokenAddresses The array of tokenAddresses
+     */
+    function batchRevokeRole(
+        uint256[] memory _commitmentIds,
+        bytes32[] memory _roles,
+        address[] memory _grantees,
+        address[] memory _tokenAddresses,
+        address _oriumMarketplaceRoyalties
+    ) external {
+        require(
+            _commitmentIds.length == _roles.length &&
+                _commitmentIds.length == _grantees.length &&
+                _commitmentIds.length == _tokenAddresses.length,
+            "OriumSftMarketplace: arrays length mismatch"
+        );
+
+        for (uint256 i = 0; i < _commitmentIds.length; i++) {
+            address _rolesRegistryAddress = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).sftRolesRegistryOf(
+                _tokenAddresses[i]
+            );
+            require(
+                IERC7589(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i], _grantees[i]),
+                "OriumSftMarketplace: role is not revocable"
+            );
+            require(
+                IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i], _grantees[i]) > block.timestamp,
+                "OriumSftMarketplace: role is expired"
+            );
+            require(
+                msg.sender == _grantees[i] || IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
+                "OriumSftMarketplace: sender is not the commitment's grantor or grantee"
+            );
+            require(
+                IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
+                "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
+            );
+
+            IERC7589(_rolesRegistryAddress).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
+        }
+    }
 }

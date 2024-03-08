@@ -848,12 +848,21 @@ describe('OriumSftMarketplace', () => {
                   .batchRevokeRole([1], [UNIQUE_ROLE, UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
               ).to.be.revertedWith('OriumSftMarketplace: arrays length mismatch')
             })
-            it("Should NOT batch revoke role if sender is not commitment's grantor", async () => {
+            it("Should batch revoke role if sender is commitment's grantee", async () => {
               await expect(
                 marketplace
                   .connect(borrower)
                   .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
-              ).to.be.revertedWith("OriumSftMarketplace: sender is not the commitment's grantor")
+              )
+                .to.emit(rolesRegistry, 'RoleRevoked')
+                .withArgs(1, UNIQUE_ROLE, borrower.address)
+            })
+            it("Should NOT batch revoke role if sender is not commitment's grantor neither grantee", async () => {
+              await expect(
+                marketplace
+                  .connect(notOperator)
+                  .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
+              ).to.be.revertedWith("OriumSftMarketplace: sender is not the commitment's grantor or grantee")
             })
             it('Should NOT batch revoke role if tokenAddress does not match commitment', async () => {
               await expect(
@@ -861,6 +870,26 @@ describe('OriumSftMarketplace', () => {
               ).to.be.revertedWith(
                 "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress",
               )
+            })
+            it('Should NOT batch revoke role if role is not revocable', async () => {
+              await rolesRegistry
+                .connect(lender)
+                .grantRole(
+                  1,
+                  UNIQUE_ROLE,
+                  borrower.address,
+                  (await ethers.provider.getBlock('latest')).timestamp + ONE_DAY,
+                  false,
+                  EMPTY_BYTES,
+                )
+              await rolesRegistry
+                .connect(borrower)
+                .setRoleApprovalForAll(mockERC1155.address, marketplace.address, true)
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [mockERC1155.address]),
+              ).to.be.revertedWith('OriumSftMarketplace: role is not revocable')
             })
           })
         })

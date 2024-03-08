@@ -326,29 +326,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address[] memory _grantees,
         address[] memory _tokenAddresses
     ) external whenNotPaused {
-        require(
-            _commitmentIds.length == _roles.length &&
-                _commitmentIds.length == _grantees.length &&
-                _commitmentIds.length == _tokenAddresses.length,
-            "OriumSftMarketplace: arrays length mismatch"
-        );
-
-        for (uint256 i = 0; i < _commitmentIds.length; i++) {
-            address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
-                _tokenAddresses[i]
-            );
-
-            require(
-                IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
-                "OriumSftMarketplace: sender is not the commitment's grantor"
-            );
-            require(
-                IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
-                "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
-            );
-
-            IERC7589(_rolesRegistryAddress).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
-        }
+       LibOriumSftMarketplace.batchRevokeRole(_commitmentIds, _roles, _grantees, _tokenAddresses, oriumMarketplaceRoyalties);
     }
 
     /** ######### Internals ########### **/
