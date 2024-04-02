@@ -308,12 +308,4 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
     function royaltyInfoOf(address _tokenAddress) public view returns (RoyaltyInfo memory _royaltyInfo) {
         _royaltyInfo = tokenAddressToRoyaltyInfo[_tokenAddress];
     }
-
-    /**
-     * @notice Gets the trusted token addresses.
-     * @param _tokenAddress The NFT or SFT address.
-     */
-    function isTrustedTokenAddressOf(address _tokenAddress) public view returns (bool) {
-        return isTrustedTokenAddress[_tokenAddress];
-    }
 }
