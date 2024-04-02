@@ -46,6 +46,9 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
     /// @dev feeTokenAddress => bool
     mapping(address => bool) public isTrustedFeeTokenAddress;
 
+    /// @dev tokenAddress => feeTokenAddress => bool
+    mapping(address => mapping(address => bool)) public isTrustedFeeTokenAddressForToken;
+
     /** ######### Structs ########### **/
 
     /** ######### Events ########### **/
@@ -228,7 +231,7 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
 
     /**
      * @notice Sets the trusted fee token addresses.
-     * @dev Can only be called by the owner. Used to allow collections with no custom fee set.
+     * @dev Can only be called by the owner.
      * @param _feeTokenAddresses The fee token addresses.
      * @param _isTrusted The boolean array.
      */
@@ -239,6 +242,27 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
         );
         for (uint256 i = 0; i < _feeTokenAddresses.length; i++) {
             isTrustedFeeTokenAddress[_feeTokenAddresses[i]] = _isTrusted[i];
+        }
+    }
+
+    /**
+     * @notice Sets the trusted fee token addresses for a token.
+     * @dev Can only be called by the owner. 
+     * @param _tokenAddresses The NFT or SFT addresses.
+     * @param _feeTokenAddresses The fee token addresses.
+     * @param _isTrusted The boolean array.
+     */
+    function setTrustedFeeTokenForToken(
+        address[] calldata _tokenAddresses,
+        address[] calldata _feeTokenAddresses,
+        bool[] calldata _isTrusted
+    ) external onlyOwner {
+        require(
+            _tokenAddresses.length == _feeTokenAddresses.length && _tokenAddresses.length == _isTrusted.length,
+            "OriumMarketplaceRoyalties: Arrays should have the same length"
+        );
+        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+            isTrustedFeeTokenAddressForToken[_tokenAddresses[i]][_feeTokenAddresses[i]] = _isTrusted[i];
         }
     }
 
@@ -283,5 +307,13 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
      */
     function royaltyInfoOf(address _tokenAddress) public view returns (RoyaltyInfo memory _royaltyInfo) {
         _royaltyInfo = tokenAddressToRoyaltyInfo[_tokenAddress];
+    }
+
+    /**
+     * @notice Gets the trusted token addresses.
+     * @param _tokenAddress The NFT or SFT address.
+     */
+    function isTrustedTokenAddressOf(address _tokenAddress) public view returns (bool) {
+        return isTrustedTokenAddress[_tokenAddress];
     }
 }

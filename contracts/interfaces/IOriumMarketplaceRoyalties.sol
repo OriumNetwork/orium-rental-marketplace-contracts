@@ -50,6 +50,13 @@ interface IOriumMarketplaceRoyalties {
     function isTrustedFeeTokenAddress(address _feeTokenAddress) external view returns (bool);
 
     /**
+     * @notice Gets the trusted fee token addresses for a token.
+     * @param _tokenAddress The SFT or NFT address.
+     * @param _feeTokenAddress The fee token address.
+     */
+    function isTrustedFeeTokenAddressForToken(address _tokenAddress, address _feeTokenAddress) external view returns (bool);
+
+    /**
      * @notice Gets the royalty info.
      * @param _tokenAddress The SFT address.
      */

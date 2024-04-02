@@ -56,6 +56,13 @@ describe('OriumSftMarketplace', () => {
           .connect(operator)
           .setTrustedNftTokens([mockERC1155.address, secondMockERC1155.address], [true, true])
         await marketplaceRoyalties.connect(operator).setTrustedFeeTokens([mockERC20.address], [true])
+        await marketplaceRoyalties
+          .connect(operator)
+          .setTrustedFeeTokenForToken(
+            [mockERC1155.address, secondMockERC1155.address],
+            [mockERC20.address, mockERC20.address],
+            [true, true],
+          )
         await marketplaceRoyalties.connect(operator).setRolesRegistry(secondMockERC1155.address, rolesRegistry.address)
       })
 
@@ -321,7 +328,9 @@ describe('OriumSftMarketplace', () => {
                 await anotherMockERC1155.deployed()
                 await anotherMockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
                 await anotherMockERC1155.connect(lender).setApprovalForAll(rolesRegistry.address, true)
-                await marketplaceRoyalties.connect(operator).setTrustedNftTokens([anotherMockERC1155.address], [true])
+                await marketplaceRoyalties
+                  .connect(operator)
+                  .setTrustedFeeTokenForToken([anotherMockERC1155.address], [mockERC20.address], [true])
                 await rolesRegistry
                   .connect(lender)
                   .commitTokens(lender.address, anotherMockERC1155.address, tokenId, tokenAmount)
