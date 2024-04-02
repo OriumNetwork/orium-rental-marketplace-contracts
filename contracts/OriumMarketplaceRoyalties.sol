@@ -231,7 +231,7 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
 
     /**
      * @notice Sets the trusted fee token addresses.
-     * @dev Can only be called by the owner.
+     * @dev Can only be called by the owner. Used to allow collections with no custom fee set.
      * @param _feeTokenAddresses The fee token addresses.
      * @param _isTrusted The boolean array.
      */
