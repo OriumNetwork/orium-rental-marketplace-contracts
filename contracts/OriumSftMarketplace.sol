@@ -336,8 +336,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function _validateCreateRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal view {
         require(
-            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedTokenAddress(_offer.tokenAddress) &&
-                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedFeeTokenAddress(_offer.feeTokenAddress),
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedFeeTokenAddressForToken(_offer.tokenAddress, _offer.feeTokenAddress),
             "OriumSftMarketplace: tokenAddress is not trusted"
         );
         LibOriumSftMarketplace.validateOffer(_offer);

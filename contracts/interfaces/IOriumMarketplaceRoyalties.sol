@@ -38,16 +38,11 @@ interface IOriumMarketplaceRoyalties {
     function marketplaceFeeOf(address _tokenAddress) external view returns (uint256);
 
     /**
-     * @notice Gets the trusted token addresses.
-     * @param _tokenAddresses The SFT addresses.
-     */
-    function isTrustedTokenAddress(address _tokenAddresses) external view returns (bool);
-
-    /**
-     * @notice Gets the fee token address.
+     * @notice Gets the trusted fee token addresses for a token.
+     * @param _tokenAddress The SFT or NFT address.
      * @param _feeTokenAddress The fee token address.
      */
-    function isTrustedFeeTokenAddress(address _feeTokenAddress) external view returns (bool);
+    function isTrustedFeeTokenAddressForToken(address _tokenAddress, address _feeTokenAddress) external view returns (bool);
 
     /**
      * @notice Gets the royalty info.
