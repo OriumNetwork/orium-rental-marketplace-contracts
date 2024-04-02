@@ -54,10 +54,6 @@ describe('OriumSftMarketplace', () => {
         await secondMockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
         await marketplaceRoyalties
           .connect(operator)
-          .setTrustedNftTokens([mockERC1155.address, secondMockERC1155.address], [true, true])
-        await marketplaceRoyalties.connect(operator).setTrustedFeeTokens([mockERC20.address], [true])
-        await marketplaceRoyalties
-          .connect(operator)
           .setTrustedFeeTokenForToken(
             [mockERC1155.address, secondMockERC1155.address],
             [mockERC20.address, mockERC20.address],
