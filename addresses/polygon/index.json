@@ -23,7 +23,7 @@
 	"OriumMarketplaceRoyalties": {
 		"address": "0x060Ec866243596851938c8CB42d023d9f7017862",
 		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
-		"implementation": "0xd1fB10d0BEa69237953f2751235a17E4b24Cf269",
+		"implementation": "0xCcFbd859a5833b2F1f71C6d62Bd5E0AF8d7Eb839",
 		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
 	},
 	"OriumSftMarketplace": {
