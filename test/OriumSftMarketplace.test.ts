@@ -105,7 +105,8 @@ describe('OriumSftMarketplace', () => {
             tokenAmount,
             feeTokenAddress: await mockERC20.getAddress(),
             feeAmountPerSecond: toWei('0.0000001'),
-            deadline: Number(blockTimestamp) + ONE_DAY,
+            deadline: blockTimestamp + ONE_DAY,
+            minDuration: 0,
             roles: [UNIQUE_ROLE],
             rolesData: [EMPTY_BYTES],
           }
@@ -133,6 +134,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    rentalOffer.minDuration,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
@@ -165,6 +167,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    rentalOffer.minDuration,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
@@ -195,6 +198,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    rentalOffer.minDuration,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
@@ -329,6 +333,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    rentalOffer.minDuration,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
