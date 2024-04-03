@@ -47,7 +47,25 @@ library LibOriumSftMarketplace {
      * @param _offer The rental offer struct to be hashed.
      */
     function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
-        return keccak256(abi.encode(_offer));
+        return
+            keccak256(
+                _offer.minDuration == 0
+                    ? abi.encode(
+                        _offer.lender,
+                        _offer.borrower,
+                        _offer.tokenAddress,
+                        _offer.tokenId,
+                        _offer.tokenAmount,
+                        _offer.feeTokenAddress,
+                        _offer.feeAmountPerSecond,
+                        _offer.nonce,
+                        _offer.commitmentId,
+                        _offer.deadline,
+                        _offer.roles,
+                        _offer.rolesData
+                    )
+                    : abi.encode(_offer)
+            );
     }
 
     /**

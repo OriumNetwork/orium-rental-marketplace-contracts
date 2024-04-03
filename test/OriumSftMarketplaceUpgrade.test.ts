@@ -3,7 +3,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import config from '../addresses'
 import { impersonateAccount } from '@nomicfoundation/hardhat-network-helpers'
 
-describe.only('OriumSftMarketplace Upgrade Simulation', () => {
+describe('OriumSftMarketplace Upgrade Simulation', () => {
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let deployer: SignerWithAddress
