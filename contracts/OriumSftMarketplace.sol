@@ -125,7 +125,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             _offer.tokenAddress
         );
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
-
         if (_offer.commitmentId == 0) {
             _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
                 _offer.lender,
