@@ -54,6 +54,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param feeTokenAddress The address of the ERC20 token for rental fees
      * @param feeAmountPerSecond The amount of fee per second
      * @param deadline The deadline until when the rental offer is valid
+     * @param minDuration The minimum duration of the rental
      * @param roles The array of roles to be assigned to the borrower
      * @param rolesData The array of data for each role
      */
@@ -68,6 +69,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address feeTokenAddress,
         uint256 feeAmountPerSecond,
         uint256 deadline,
+        uint64 minDuration,
         bytes32[] roles,
         bytes[] rolesData
     );
@@ -148,6 +150,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             _offer.feeTokenAddress,
             _offer.feeAmountPerSecond,
             _offer.deadline,
+            _offer.minDuration,
             _offer.roles,
             _offer.rolesData
         );
@@ -339,14 +342,14 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedFeeTokenAddressForToken(_offer.tokenAddress, _offer.feeTokenAddress),
             "OriumSftMarketplace: tokenAddress is not trusted"
         );
-        LibOriumSftMarketplace.validateOffer(_offer);
         require(
             _offer.deadline <= block.timestamp + IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).maxDuration() &&
                 _offer.deadline > block.timestamp,
             "OriumSftMarketplace: Invalid deadline"
         );
+        LibOriumSftMarketplace.validateOffer(_offer);
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
-
+        
         if (_offer.commitmentId != 0) {
             uint256 _commitmentNonce = commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId];
 

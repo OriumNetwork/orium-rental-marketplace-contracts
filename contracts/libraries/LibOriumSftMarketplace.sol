@@ -18,6 +18,7 @@ struct RentalOffer {
     uint256 nonce;
     uint256 commitmentId;
     uint64 deadline;
+    uint64 minDuration;
     bytes32[] roles;
     bytes[] rolesData;
 }
@@ -46,23 +47,7 @@ library LibOriumSftMarketplace {
      * @param _offer The rental offer struct to be hashed.
      */
     function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    _offer.lender,
-                    _offer.borrower,
-                    _offer.tokenAddress,
-                    _offer.tokenId,
-                    _offer.tokenAmount,
-                    _offer.feeTokenAddress,
-                    _offer.feeAmountPerSecond,
-                    _offer.nonce,
-                    _offer.commitmentId,
-                    _offer.deadline,
-                    _offer.roles,
-                    _offer.rolesData
-                )
-            );
+        return keccak256(abi.encode(_offer));
     }
 
     /**
@@ -127,6 +112,7 @@ library LibOriumSftMarketplace {
             _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
             "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
         );
+        require(_offer.minDuration <= _offer.deadline - block.timestamp, "OriumSftMarketplace: minDuration is invalid");
     }
 
     /**
@@ -197,7 +183,7 @@ library LibOriumSftMarketplace {
         }
     }
 
-      /**
+    /**
      * @notice batchRevokeRole revokes role in a single transaction.
      * @dev only the grantor and grantee can call this function. Be careful as the marketplace have approvals from other users.
      * @param _commitmentIds The array of commitmentIds
