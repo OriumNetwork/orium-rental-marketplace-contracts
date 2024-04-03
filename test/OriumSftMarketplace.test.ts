@@ -463,6 +463,25 @@ describe('OriumSftMarketplace', () => {
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, notOperator.address, blockTimestamp + duration + 3)
             })
+            it('Should accept a rental offer if duration is greater or equal minDuration', async () => {
+              rentalOffer.minDuration = duration / 2
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) })
+              rentalOffer.commitmentId = BigNumber.from(2)
+              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
+                marketplace,
+                'RentalStarted',
+              )
+            })
+            it('Should NOT accept a rental offer if duration is less than minDuration', async () => {
+              rentalOffer.minDuration = duration
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) })
+              rentalOffer.commitmentId = BigNumber.from(2)
+              await expect(
+                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration / 2),
+              ).to.be.revertedWith('OriumSftMarketplace: Duration is less than the offer minimum duration')
+            })
             it('Should NOT accept a rental offer if contract is paused', async () => {
               await marketplace.connect(operator).pause()
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
