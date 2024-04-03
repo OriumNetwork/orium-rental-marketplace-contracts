@@ -169,6 +169,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             rentals[_offerHash].expirationDate <= block.timestamp,
             "OriumSftMarketplace: This offer has an ongoing rental"
         );
+        require(
+            _duration >= _offer.minDuration,
+            "OriumSftMarketplace: Duration is less than the offer minimum duration"
+        );
 
         uint64 _expirationDate = uint64(block.timestamp + _duration);
         require(
