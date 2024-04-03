@@ -114,7 +114,7 @@ library LibOriumSftMarketplace {
      * @notice Validates the rental offer.
      * @param _offer The rental offer struct to be validated.
      */
-    function validateOffer(RentalOffer memory _offer) external view {
+    function validateOffer(RentalOffer memory _offer, uint256 _minDuration) external view {
         require(_offer.tokenAmount > 0, "OriumSftMarketplace: tokenAmount should be greater than 0");
         require(_offer.nonce != 0, "OriumSftMarketplace: Nonce cannot be 0");
         require(msg.sender == _offer.lender, "OriumSftMarketplace: Sender and Lender mismatch");
@@ -127,6 +127,7 @@ library LibOriumSftMarketplace {
             _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
             "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
         );
+        require(_minDuration < _offer.deadline - block.timestamp, "OriumSftMarketplace: minDuration should be less than deadline");
     }
 
     /**

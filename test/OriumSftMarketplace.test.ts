@@ -110,7 +110,7 @@ describe('OriumSftMarketplace', () => {
           describe('Create Rental Offer', async () => {
             describe("When commitmentId doesn't exist", async () => {
               it('Should create a rental offer', async () => {
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0))
                   .to.emit(marketplace, 'RentalOfferCreated')
                   .withArgs(
                     rentalOffer.nonce,
@@ -123,6 +123,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    0,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
@@ -136,7 +137,7 @@ describe('OriumSftMarketplace', () => {
                   .connect(operator)
                   .setRolesRegistry(mockERC1155.address, rolesRegistry.address)
                 await mockERC1155.setApprovalForAll(rolesRegistry.address, true)
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0))
                   .to.emit(marketplace, 'RentalOfferCreated')
                   .withArgs(
                     rentalOffer.nonce,
@@ -149,6 +150,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    0,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
@@ -160,7 +162,7 @@ describe('OriumSftMarketplace', () => {
               it('Should create a rental offer with feeAmountPerSecond equal to 0 if offer is private', async function () {
                 rentalOffer.feeAmountPerSecond = BigNumber.from(0)
                 rentalOffer.borrower = lender.address
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0))
                   .to.emit(marketplace, 'RentalOfferCreated')
                   .withArgs(
                     rentalOffer.nonce,
@@ -173,6 +175,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    0,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
@@ -182,89 +185,89 @@ describe('OriumSftMarketplace', () => {
                   .withArgs(lender.address, 1, mockERC1155.address, tokenId, tokenAmount)
               })
               it('Should NOT create a rental offer if caller is not the lender', async () => {
-                await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: Sender and Lender mismatch',
                 )
               })
               it("Should NOT create a rental offer if lender is not the caller's address", async () => {
                 rentalOffer.lender = creator.address
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: Sender and Lender mismatch',
                 )
               })
               it("Should NOT create a rental offer if roles and rolesData don't have the same length", async () => {
                 rentalOffer.roles = [`0x${randomBytes(32).toString('hex')}`]
                 rentalOffer.rolesData = [`0x${randomBytes(32).toString('hex')}`, `0x${randomBytes(32).toString('hex')}`]
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: roles and rolesData should have the same length',
                 )
               })
               it('Should NOT create a rental offer if deadline is greater than maxDeadline', async () => {
                 rentalOffer.deadline = maxDeadline + 1
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: Invalid deadline',
                 )
               })
               it("Should NOT create a rental offer if deadline is less than block's timestamp", async () => {
                 rentalOffer.deadline = (await ethers.provider.getBlock('latest')).timestamp - 1
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: Invalid deadline',
                 )
               })
               it('Should NOT create the same rental offer twice', async () => {
-                await marketplace.connect(lender).createRentalOffer(rentalOffer)
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await marketplace.connect(lender).createRentalOffer(rentalOffer, 0)
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: nonce already used',
                 )
               })
               it('Should NOT create a rental offer if roles or rolesData are empty', async () => {
                 rentalOffer.roles = []
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: roles should not be empty',
                 )
               })
               it('Should NOT create a rental offer if nonce is 0', async () => {
                 rentalOffer.nonce = '0'
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: Nonce cannot be 0',
                 )
               })
               it('Should NOT create a rental offer if tokenAmount is 0', async () => {
                 rentalOffer.tokenAmount = BigNumber.from(0)
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: tokenAmount should be greater than 0',
                 )
               })
               it('Should NOT create a rental offer with the same commitmentId is in an active rental offer', async () => {
-                await marketplace.connect(lender).createRentalOffer(rentalOffer)
+                await marketplace.connect(lender).createRentalOffer(rentalOffer, 0)
 
                 rentalOffer.commitmentId = BigNumber.from(1)
                 rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: commitmentId is in an active rental offer',
                 )
               })
               it("Should NOT create a rental offer if SFT address isn't trusted", async () => {
                 rentalOffer.tokenAddress = AddressZero
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: tokenAddress is not trusted',
                 )
               })
               it("Should NOT create a rental offer if fee token address isn't trusted", async () => {
                 rentalOffer.feeTokenAddress = AddressZero
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: tokenAddress is not trusted',
                 )
               })
               it('Should NOT create a rental offer if contract is paused', async () => {
                 await marketplace.connect(operator).pause()
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'Pausable: paused',
                 )
               })
               it('Should NOT create a rental offer if offer is public and feeAmountPerSecond is 0', async function () {
                 rentalOffer.feeAmountPerSecond = BigNumber.from(0)
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: feeAmountPerSecond should be greater than 0',
                 )
               })
@@ -273,7 +276,7 @@ describe('OriumSftMarketplace', () => {
                 await mockERC1155
                   .connect(lender)
                   .safeTransferFrom(lender.address, creator.address, tokenId, balance, '0x')
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: caller does not have enough balance for the token',
                 )
               })
@@ -281,14 +284,14 @@ describe('OriumSftMarketplace', () => {
 
             describe('When commitmentId exists and rental offer deadline expired', async () => {
               beforeEach(async () => {
-                await marketplace.connect(lender).createRentalOffer(rentalOffer)
+                await marketplace.connect(lender).createRentalOffer(rentalOffer, 0)
                 await time.increase(ONE_DAY)
                 rentalOffer.commitmentId = BigNumber.from(1)
                 rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
                 rentalOffer.deadline = (await time.latest()) + ONE_DAY
               })
               it("Should create a rental offer if commitmentId already exists and it's not associated with an active rental offer", async () => {
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0))
                   .to.emit(marketplace, 'RentalOfferCreated')
                   .withArgs(
                     rentalOffer.nonce,
@@ -301,6 +304,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.feeTokenAddress,
                     rentalOffer.feeAmountPerSecond,
                     rentalOffer.deadline,
+                    0,
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
@@ -314,7 +318,7 @@ describe('OriumSftMarketplace', () => {
                   .connect(creator)
                   .commitTokens(creator.address, rentalOffer.tokenAddress, rentalOffer.tokenId, rentalOffer.tokenAmount)
                 rentalOffer.commitmentId = BigNumber.from(2)
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   'OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId',
                 )
               })
@@ -332,7 +336,7 @@ describe('OriumSftMarketplace', () => {
                   .commitTokens(lender.address, anotherMockERC1155.address, tokenId, tokenAmount)
 
                 rentalOffer.tokenAddress = anotherMockERC1155.address
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress",
                 )
               })
@@ -344,14 +348,14 @@ describe('OriumSftMarketplace', () => {
                   .connect(lender)
                   .commitTokens(lender.address, rentalOffer.tokenAddress, newTokenId, rentalOffer.tokenAmount)
                 rentalOffer.commitmentId = BigNumber.from(2)
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   "OriumSftMarketplace: tokenId provided does not match commitment's tokenId",
                 )
               })
               it('Should NOT create a rental offer if commitmentId token amount and offer token amount are different', async () => {
                 rentalOffer.commitmentId = BigNumber.from(2)
                 rentalOffer.tokenAmount = BigNumber.from(3)
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer, 0)).to.be.revertedWith(
                   "OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount",
                 )
               })
@@ -363,7 +367,7 @@ describe('OriumSftMarketplace', () => {
           let totalFeeAmount: BigNumber
           beforeEach(async () => {
             totalFeeAmount = rentalOffer.feeAmountPerSecond.mul(duration)
-            await marketplace.connect(lender).createRentalOffer(rentalOffer)
+            await marketplace.connect(lender).createRentalOffer(rentalOffer, 0)
             rentalOffer.commitmentId = BigNumber.from(1)
             await mockERC20.mint(borrower.address, totalFeeAmount)
             await mockERC20.connect(borrower).approve(marketplace.address, totalFeeAmount)
@@ -379,7 +383,9 @@ describe('OriumSftMarketplace', () => {
             it('Should accept a private rental offer', async () => {
               rentalOffer.borrower = borrower.address
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) })
+              await marketplace
+                .connect(lender)
+                .createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) }, 0)
               rentalOffer.commitmentId = BigNumber.from(2)
 
               const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
@@ -414,7 +420,9 @@ describe('OriumSftMarketplace', () => {
             it('Should accept a rental offer by anyone if borrower is the zero address', async () => {
               rentalOffer.borrower = ethers.constants.AddressZero
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) })
+              await marketplace
+                .connect(lender)
+                .createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) }, 0)
               rentalOffer.commitmentId = BigNumber.from(2)
 
               const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
@@ -433,7 +441,9 @@ describe('OriumSftMarketplace', () => {
             it('Should NOT accept a rental offer if caller is not the borrower', async () => {
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               rentalOffer.borrower = borrower.address
-              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) })
+              await marketplace
+                .connect(lender)
+                .createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) }, 0)
               rentalOffer.commitmentId = BigNumber.from(2)
               await mockERC20.mint(notOperator.address, totalFeeAmount)
               await expect(
@@ -474,7 +484,9 @@ describe('OriumSftMarketplace', () => {
               beforeEach(async () => {
                 rentalOffer.feeAmountPerSecond = feeAmountPerSecond
                 rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-                await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) })
+                await marketplace
+                  .connect(lender)
+                  .createRentalOffer({ ...rentalOffer, commitmentId: BigNumber.from(0) }, 0)
                 rentalOffer.commitmentId = BigNumber.from(2)
                 await mockERC20.mint(borrower.address, feeAmount.mul(2))
                 await mockERC20.connect(borrower).approve(marketplace.address, feeAmount.mul(2))

@@ -33,6 +33,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /// @dev hashedOffer => Rental
     mapping(bytes32 => Rental) public rentals;
 
+    // @dev offerHash => minDuration
+    mapping(bytes32 => uint64) public minDuration;
+
     /** ######### Structs ########### **/
 
     /// @dev Rental info.
@@ -68,6 +71,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address feeTokenAddress,
         uint256 feeAmountPerSecond,
         uint256 deadline,
+        uint256 minDuration,
         bytes32[] roles,
         bytes[] rolesData
     );
@@ -118,11 +122,12 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
-    function createRentalOffer(RentalOffer memory _offer) external whenNotPaused {
+
+    function createRentalOffer(RentalOffer memory _offer, uint256 _minDuration) external whenNotPaused {
         address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
             _offer.tokenAddress
         );
-        _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
+        _validateCreateRentalOffer(_offer, _rolesRegistryAddress, _minDuration);
 
         if (_offer.commitmentId == 0) {
             _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
@@ -148,6 +153,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             _offer.feeTokenAddress,
             _offer.feeAmountPerSecond,
             _offer.deadline,
+            _minDuration,
             _offer.roles,
             _offer.rolesData
         );
@@ -165,6 +171,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         require(
             rentals[_offerHash].expirationDate <= block.timestamp,
             "OriumSftMarketplace: This offer has an ongoing rental"
+        );
+        require(
+            _duration >= minDuration[_offerHash],
+            "OriumSftMarketplace: duration is less than the minimum duration"
         );
 
         uint64 _expirationDate = uint64(block.timestamp + _duration);
@@ -334,17 +344,18 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev Validates the create rental offer.
      * @param _offer The rental offer struct.
      */
-    function _validateCreateRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal view {
+    function _validateCreateRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress, uint256 _minDuration) internal view {
         require(
             IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedFeeTokenAddressForToken(_offer.tokenAddress, _offer.feeTokenAddress),
             "OriumSftMarketplace: tokenAddress is not trusted"
         );
-        LibOriumSftMarketplace.validateOffer(_offer);
         require(
             _offer.deadline <= block.timestamp + IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).maxDuration() &&
                 _offer.deadline > block.timestamp,
             "OriumSftMarketplace: Invalid deadline"
         );
+        LibOriumSftMarketplace.validateOffer(_offer, _minDuration);
+    
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
 
         if (_offer.commitmentId != 0) {
