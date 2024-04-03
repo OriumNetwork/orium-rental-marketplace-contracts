@@ -35,6 +35,7 @@ export interface DirectRental {
 }
 
 export interface SftRentalOffer extends RentalOffer {
+  minDuration: number
   tokenAmount: BigNumber
   commitmentId: BigNumber
 }
