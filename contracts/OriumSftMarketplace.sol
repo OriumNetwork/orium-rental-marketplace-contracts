@@ -349,7 +349,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
         LibOriumSftMarketplace.validateOffer(_offer);
         require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
-        
+
         if (_offer.commitmentId != 0) {
             uint256 _commitmentNonce = commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId];
 
