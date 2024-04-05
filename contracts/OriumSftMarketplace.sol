@@ -7,7 +7,7 @@ import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC7589 } from "./interfaces/IERC7589.sol";
-import { LibOriumSftMarketplace, RentalOffer, CommitAndGrantRoleParams } from "./libraries/LibOriumSftMarketplace.sol";
+import { LibOriumSftMarketplace, RentalOffer, RentalOfferLegacy, CommitAndGrantRoleParams } from "./libraries/LibOriumSftMarketplace.sol";
 import { IOriumMarketplaceRoyalties } from "./interfaces/IOriumMarketplaceRoyalties.sol";
 
 /**
@@ -120,7 +120,29 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
-    function createRentalOffer(RentalOffer memory _offer) external whenNotPaused {
+    function createRentalOffer(RentalOfferLegacy calldata _offer) external whenNotPaused {
+        RentalOffer memory _parsedOffer = RentalOffer({
+            nonce: _offer.nonce,
+            tokenAddress: _offer.tokenAddress,
+            tokenId: _offer.tokenId,
+            tokenAmount: _offer.tokenAmount,
+            commitmentId: _offer.commitmentId,
+            lender: _offer.lender,
+            borrower: _offer.borrower,
+            feeTokenAddress: _offer.feeTokenAddress,
+            feeAmountPerSecond: _offer.feeAmountPerSecond,
+            deadline: _offer.deadline,
+            minDuration: 0,
+            roles: _offer.roles,
+            rolesData: _offer.rolesData
+        });
+        _createRentalOffer(_parsedOffer);
+    }
+
+    function createRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
+        _createRentalOffer(_offer);
+    }
+    function _createRentalOffer(RentalOffer memory _offer) internal {
         address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
             _offer.tokenAddress
         );
@@ -162,7 +184,30 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _duration The duration of the rental.
      */
-    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+
+    function acceptReentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+        _acceptRentalOffer(_offer, _duration);
+    }
+
+    function acceptRentalOffer(RentalOfferLegacy calldata _offer, uint64 _duration) external whenNotPaused {
+        RentalOffer memory _parsedOffer = RentalOffer({
+            nonce: _offer.nonce,
+            tokenAddress: _offer.tokenAddress,
+            tokenId: _offer.tokenId,
+            tokenAmount: _offer.tokenAmount,
+            commitmentId: _offer.commitmentId,
+            lender: _offer.lender,
+            borrower: _offer.borrower,
+            feeTokenAddress: _offer.feeTokenAddress,
+            feeAmountPerSecond: _offer.feeAmountPerSecond,
+            deadline: _offer.deadline,
+            minDuration: 0,
+            roles: _offer.roles,
+            rolesData: _offer.rolesData
+        });
+        _acceptRentalOffer(_parsedOffer, _duration);
+    }
+    function _acceptRentalOffer(RentalOffer memory _offer, uint64 _duration) internal {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
          LibOriumSftMarketplace.validateAcceptRentalOffer(
@@ -199,7 +244,29 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @notice Cancels a rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
+
     function cancelRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
+        _cancelRentalOffer(_offer);
+    }
+    function cancelRentalOffer(RentalOfferLegacy calldata _offer) external whenNotPaused {
+        RentalOffer memory _parsedOffer = RentalOffer({
+            nonce: _offer.nonce,
+            tokenAddress: _offer.tokenAddress,
+            tokenId: _offer.tokenId,
+            tokenAmount: _offer.tokenAmount,
+            commitmentId: _offer.commitmentId,
+            lender: _offer.lender,
+            borrower: _offer.borrower,
+            feeTokenAddress: _offer.feeTokenAddress,
+            feeAmountPerSecond: _offer.feeAmountPerSecond,
+            deadline: _offer.deadline,
+            minDuration: 0,
+            roles: _offer.roles,
+            rolesData: _offer.rolesData
+        });
+        _cancelRentalOffer(_parsedOffer);
+    }
+    function _cancelRentalOffer(RentalOffer memory _offer) internal {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(msg.sender == _offer.lender, "OriumSftMarketplace: Only lender can cancel a rental offer");
@@ -228,7 +295,31 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev Borrower needs to approve marketplace to revoke the roles.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
+
     function endRental(RentalOffer calldata _offer) external whenNotPaused {
+        _endRental(_offer);
+    }
+
+    function endRental(RentalOfferLegacy calldata _offer) external whenNotPaused {
+        RentalOffer memory _parsedOffer = RentalOffer({
+            nonce: _offer.nonce,
+            tokenAddress: _offer.tokenAddress,
+            tokenId: _offer.tokenId,
+            tokenAmount: _offer.tokenAmount,
+            commitmentId: _offer.commitmentId,
+            lender: _offer.lender,
+            borrower: _offer.borrower,
+            feeTokenAddress: _offer.feeTokenAddress,
+            feeAmountPerSecond: _offer.feeAmountPerSecond,
+            deadline: _offer.deadline,
+            minDuration: 0,
+            roles: _offer.roles,
+            rolesData: _offer.rolesData
+        });
+        _endRental(_parsedOffer);
+    }
+
+    function _endRental(RentalOffer memory _offer) internal {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
 
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
