@@ -43,7 +43,7 @@ export async function deploySftMarketplaceContracts() {
       unsafeAllowLinkedLibraries: true,
     },
   )
-  await marketplaceProxy.deployed()
+  await marketplaceProxy.waitForDeployment()
   const marketplace: OriumSftMarketplace = await ethers.getContractAt(
     'OriumSftMarketplace',
     await marketplaceProxy.getAddress(),

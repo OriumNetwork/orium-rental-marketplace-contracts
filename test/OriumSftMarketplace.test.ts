@@ -517,7 +517,7 @@ describe('OriumSftMarketplace', () => {
         describe('When Rental Offer is created', async () => {
           let totalFeeAmount: bigint
           beforeEach(async () => {
-            totalFeeAmount = rentalOffer.feeAmountPerSecond.mul(duration)
+            totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
             await marketplace
               .connect(lender)
               [
@@ -531,7 +531,13 @@ describe('OriumSftMarketplace', () => {
             it('Should accept a public rental offer', async () => {
               const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
               const expirationDate = Number(blockTimestamp) + duration + 1
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              )
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
             })
@@ -547,7 +553,13 @@ describe('OriumSftMarketplace', () => {
 
               const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
               const expirationDate = Number(blockTimestamp) + duration + 1
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              )
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
             })
@@ -557,14 +569,26 @@ describe('OriumSftMarketplace', () => {
                 .setRolesRegistry(await mockERC1155.getAddress(), await rolesRegistry.getAddress())
               const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
               const expirationDate = Number(blockTimestamp) + duration + 1
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              )
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
             })
             it('Should accept a rental offer more than once', async () => {
               const rentalExpirationDate1 = Number((await ethers.provider.getBlock('latest'))?.timestamp) + duration + 1
 
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              )
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, rentalExpirationDate1)
 
@@ -572,7 +596,13 @@ describe('OriumSftMarketplace', () => {
               await mockERC20.mint(borrower.address, totalFeeAmount.toString())
               await mockERC20.connect(borrower).approve(await marketplace.getAddress(), totalFeeAmount.toString())
 
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              )
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, rentalExpirationDate1 + duration + 3)
             })
@@ -589,7 +619,13 @@ describe('OriumSftMarketplace', () => {
               const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               await mockERC20.mint(notOperator.address, totalFeeAmount.toString())
               await mockERC20.connect(notOperator).approve(await marketplace.getAddress(), totalFeeAmount.toString())
-              await expect(marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration))
+              await expect(
+                marketplace
+                  .connect(notOperator)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              )
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, notOperator.address, blockTimestamp + duration + 3)
             })
@@ -602,10 +638,13 @@ describe('OriumSftMarketplace', () => {
                   'createRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]))'
                 ]({ ...rentalOffer, commitmentId: BigInt(0) })
               rentalOffer.commitmentId = BigInt(2)
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
-                marketplace,
-                'RentalStarted',
-              )
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              ).to.emit(marketplace, 'RentalStarted')
             })
             it('Should NOT accept a rental offer if duration is less than minDuration', async () => {
               rentalOffer.minDuration = duration
@@ -617,14 +656,22 @@ describe('OriumSftMarketplace', () => {
                 ]({ ...rentalOffer, commitmentId: BigInt(0) })
               rentalOffer.commitmentId = BigInt(2)
               await expect(
-                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration / 2),
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration / 2),
               ).to.be.revertedWith('OriumSftMarketplace: Duration is less than the offer minimum duration')
             })
             it('Should NOT accept a rental offer if contract is paused', async () => {
               await marketplace.connect(operator).pause()
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                'Pausable: paused',
-              )
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              ).to.be.revertedWith('Pausable: paused')
             })
             it('Should NOT accept a rental offer if caller is not the borrower', async () => {
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
@@ -637,7 +684,11 @@ describe('OriumSftMarketplace', () => {
               rentalOffer.commitmentId = BigInt(2)
               await mockERC20.mint(notOperator.address, totalFeeAmount.toString())
               await expect(
-                marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration),
+                marketplace
+                  .connect(notOperator)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
               ).to.be.revertedWith('OriumSftMarketplace: Sender is not allowed to rent this SFT')
             })
             it('Should NOT accept a rental offer if offer is expired', async () => {
@@ -646,27 +697,43 @@ describe('OriumSftMarketplace', () => {
               const timeToMove = rentalOffer.deadline - Number(blockTimestamp) + 1
               await ethers.provider.send('evm_increaseTime', [timeToMove])
 
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                'OriumSftMarketplace: expiration date is greater than offer deadline',
-              )
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              ).to.be.revertedWith('OriumSftMarketplace: expiration date is greater than offer deadline')
             })
             it('Should NOT accept a rental offer if offer is not created', async () => {
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                'OriumSftMarketplace: Offer not created',
-              )
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration),
+              ).to.be.revertedWith('OriumSftMarketplace: Offer not created')
             })
             it('Should NOT accept a rental offer if expiration date is higher than offer deadline', async () => {
               const maxDuration =
                 rentalOffer.deadline - Number((await ethers.provider.getBlock('latest'))?.timestamp) + 1
               await expect(
-                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, maxDuration),
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, maxDuration),
               ).to.be.revertedWith('OriumSftMarketplace: expiration date is greater than offer deadline')
             })
             it('Should NOT accept a rental offer if expiration date is less than block timestamp', async () => {
-              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, 0)).to.be.revertedWith(
-                'SftRolesRegistry: expiration date must be in the future',
-              )
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, 0),
+              ).to.be.revertedWith('SftRolesRegistry: expiration date must be in the future')
             })
             describe('Fees', async function () {
               const feeAmountPerSecond = toWei('1')
@@ -688,7 +755,13 @@ describe('OriumSftMarketplace', () => {
               it('Should accept a rental offer with fee', async () => {
                 const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
                 const expirationDate = Number(blockTimestamp) + duration + 1
-                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    [
+                      'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                    ](rentalOffer, duration),
+                )
                   .to.emit(marketplace, 'RentalStarted')
                   .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
                   .to.emit(mockERC20, 'Transfer')
@@ -697,43 +770,69 @@ describe('OriumSftMarketplace', () => {
                 await marketplaceRoyalties
                   .connect(operator)
                   .setMarketplaceFeeForCollection(await mockERC1155.getAddress(), 0, true)
-                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
-                  marketplace,
-                  'RentalStarted',
-                )
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    [
+                      'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                    ](rentalOffer, duration),
+                ).to.emit(marketplace, 'RentalStarted')
               })
               it('Should accept a rental offer if royalty fee is 0', async () => {
                 await marketplaceRoyalties
                   .connect(creator)
                   .setRoyaltyInfo(creator.address, await mockERC1155.getAddress(), '0', creatorTreasury.address)
-                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
-                  marketplace,
-                  'RentalStarted',
-                )
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    [
+                      'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                    ](rentalOffer, duration),
+                ).to.emit(marketplace, 'RentalStarted')
               })
               it('Should NOT accept a rental offer if marketplace fee transfer fails', async () => {
                 await mockERC20.transferReverts(true, 0)
-                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumSftMarketplace: Transfer failed',
-                )
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    [
+                      'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                    ](rentalOffer, duration),
+                ).to.be.revertedWith('OriumSftMarketplace: Transfer failed')
               })
               it('Should NOT accept a rental offer if royalty fee transfer fails', async () => {
                 await mockERC20.transferReverts(true, 1)
-                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumSftMarketplace: Transfer failed',
-                )
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    [
+                      'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                    ](rentalOffer, duration),
+                ).to.be.revertedWith('OriumSftMarketplace: Transfer failed')
               })
               it('Should NOT accept a rental offer if lender fee transfer fails', async () => {
                 await mockERC20.transferReverts(true, 2)
-                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumSftMarketplace: Transfer failed',
-                )
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    [
+                      'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                    ](rentalOffer, duration),
+                ).to.be.revertedWith('OriumSftMarketplace: Transfer failed')
               })
               it('Should NOT accept a rental offer twice', async () => {
-                await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
-                await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumSftMarketplace: This offer has an ongoing rental',
-                )
+                await marketplace
+                  .connect(borrower)
+                  [
+                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                  ](rentalOffer, duration)
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    [
+                      'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                    ](rentalOffer, duration),
+                ).to.be.revertedWith('OriumSftMarketplace: This offer has an ongoing rental')
               })
             })
           })
@@ -848,7 +947,11 @@ describe('OriumSftMarketplace', () => {
 
           describe('When Rental Offer is accepted', async () => {
             beforeEach(async () => {
-              await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
+              await marketplace
+                .connect(borrower)
+                [
+                  'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
+                ](rentalOffer, duration)
               await rolesRegistry
                 .connect(borrower)
                 .setRoleApprovalForAll(await mockERC1155.getAddress(), await marketplace.getAddress(), true)

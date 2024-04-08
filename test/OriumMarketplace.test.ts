@@ -1,6 +1,4 @@
 import { ethers } from 'hardhat'
-import { Contract } from 'ethers'
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import { deployMarketplaceContracts } from './fixtures/OriumMarketplaceFixture'
 import { expect } from 'chai'
@@ -10,22 +8,23 @@ import { AddressZero, DIRECT_RENTAL_NONCE, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
 import { hashDirectRental } from '../utils/hash'
+import { IERC7432, MockERC20, MockERC721, OriumMarketplace } from '../typechain-types'
 
 describe('OriumMarketplace', () => {
-  let marketplace: Contract
-  let rolesRegistry: Contract
-  let mockERC721: Contract
-  let mockERC20: Contract
+  let marketplace: OriumMarketplace
+  let rolesRegistry: IERC7432
+  let mockERC721: MockERC721
+  let mockERC20: MockERC20
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let deployer: SignerWithAddress
-  let operator: SignerWithAddress
-  let notOperator: SignerWithAddress
-  let creator: SignerWithAddress
-  let creatorTreasury: SignerWithAddress
-  let lender: SignerWithAddress
-  let borrower: SignerWithAddress
+  let deployer: Awaited<ReturnType<typeof ethers.getSigner>>
+  let operator: Awaited<ReturnType<typeof ethers.getSigner>>
+  let notOperator: Awaited<ReturnType<typeof ethers.getSigner>>
+  let creator: Awaited<ReturnType<typeof ethers.getSigner>>
+  let creatorTreasury: Awaited<ReturnType<typeof ethers.getSigner>>
+  let lender: Awaited<ReturnType<typeof ethers.getSigner>>
+  let borrower: Awaited<ReturnType<typeof ethers.getSigner>>
 
   // Values to be used across tests
   const maxDeadline = THREE_MONTHS
@@ -53,14 +52,16 @@ describe('OriumMarketplace', () => {
 
       beforeEach(async () => {
         await mockERC721.mint(lender.address, tokenId)
-        await rolesRegistry.connect(lender).setRoleApprovalForAll(mockERC721.address, marketplace.address, true)
+        await rolesRegistry
+          .connect(lender)
+          .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
       })
 
       describe('Rental Offers', async () => {
         let rentalOffer: RentalOffer
 
         beforeEach(async () => {
-          await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
+          await marketplace.connect(operator).setCreator(await mockERC721.getAddress(), creator.address)
 
           const royaltyInfo: RoyaltyInfo = {
             creator: creator.address,
@@ -70,17 +71,17 @@ describe('OriumMarketplace', () => {
 
           await marketplace
             .connect(creator)
-            .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+            .setRoyaltyInfo(await mockERC721.getAddress(), royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
 
-          const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+          const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
 
           rentalOffer = {
             nonce: `0x${randomBytes(32).toString('hex')}`,
             lender: lender.address,
             borrower: AddressZero,
-            tokenAddress: mockERC721.address,
+            tokenAddress: await mockERC721.getAddress(),
             tokenId,
-            feeTokenAddress: mockERC20.address,
+            feeTokenAddress: await mockERC20.getAddress(),
             feeAmountPerSecond: toWei('0'),
             deadline: blockTimestamp + ONE_DAY,
             roles: [USER_ROLE],
@@ -130,7 +131,7 @@ describe('OriumMarketplace', () => {
               )
             })
             it("Should NOT create a rental offer if deadline is less than block's timestamp", async () => {
-              rentalOffer.deadline = (await ethers.provider.getBlock('latest')).timestamp - 1
+              rentalOffer.deadline = Number((await ethers.provider.getBlock('latest'))?.timestamp) - 1
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
                 'OriumMarketplace: Invalid deadline',
               )
@@ -161,7 +162,7 @@ describe('OriumMarketplace', () => {
           })
           describe('Accept Rental Offer', async () => {
             it('Should accept a public rental offer', async () => {
-              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               const expirationDate = blockTimestamp + duration + 1
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
                 .to.emit(marketplace, 'RentalStarted')
@@ -178,7 +179,7 @@ describe('OriumMarketplace', () => {
               rentalOffer.borrower = borrower.address
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
-              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               const expirationDate = blockTimestamp + duration + 1
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
                 .to.emit(marketplace, 'RentalStarted')
@@ -192,8 +193,10 @@ describe('OriumMarketplace', () => {
                 )
             })
             it('Should accept a rental offer if token has a different registry', async () => {
-              await marketplace.connect(operator).setRolesRegistry(mockERC721.address, rolesRegistry.address)
-              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              await marketplace
+                .connect(operator)
+                .setRolesRegistry(await mockERC721.getAddress(), await rolesRegistry.getAddress())
+              const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               const expirationDate = blockTimestamp + duration + 1
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
                 .to.emit(marketplace, 'RentalStarted')
@@ -207,7 +210,7 @@ describe('OriumMarketplace', () => {
                 )
             })
             it('Should accept a rental offer more than once', async () => {
-              const rentalExpirationDate1 = (await ethers.provider.getBlock('latest')).timestamp + duration + 1
+              const rentalExpirationDate1 = Number((await ethers.provider.getBlock('latest'))?.timestamp) + duration + 1
 
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
                 .to.emit(marketplace, 'RentalStarted')
@@ -238,7 +241,7 @@ describe('OriumMarketplace', () => {
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
 
-              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               await expect(marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration))
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(
@@ -260,7 +263,7 @@ describe('OriumMarketplace', () => {
             })
             it('Should NOT accept a rental offer if offer is expired', async () => {
               // move foward in time to expire the offer
-              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               const timeToMove = rentalOffer.deadline - blockTimestamp + 1
               await ethers.provider.send('evm_increaseTime', [timeToMove])
 
@@ -275,7 +278,8 @@ describe('OriumMarketplace', () => {
               )
             })
             it('Should NOT accept a rental offer if expiration date is higher than offer deadline', async () => {
-              const maxDuration = rentalOffer.deadline - (await ethers.provider.getBlock('latest')).timestamp + 1
+              const maxDuration =
+                rentalOffer.deadline - Number((await ethers.provider.getBlock('latest'))?.timestamp) + 1
               await expect(
                 marketplace.connect(borrower).acceptRentalOffer(rentalOffer, maxDuration),
               ).to.be.revertedWith('OriumMarketplace: expiration date is greater than offer deadline')
@@ -287,18 +291,18 @@ describe('OriumMarketplace', () => {
             })
             describe('Fees', async function () {
               const feeAmountPerSecond = toWei('1')
-              const feeAmount = feeAmountPerSecond.mul(duration)
+              const feeAmount = feeAmountPerSecond * BigInt(duration)
 
               beforeEach(async () => {
                 rentalOffer.feeAmountPerSecond = feeAmountPerSecond
                 rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
                 await marketplace.connect(lender).createRentalOffer(rentalOffer)
-                await mockERC20.mint(borrower.address, feeAmount.mul(2))
-                await mockERC20.connect(borrower).approve(marketplace.address, feeAmount.mul(2))
+                await mockERC20.mint(borrower.address, feeAmount * BigInt(2))
+                await mockERC20.connect(borrower).approve(await marketplace.getAddress(), feeAmount * BigInt(2))
               })
 
               it('Should accept a rental offer with fee', async () => {
-                const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+                const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
                 const expirationDate = blockTimestamp + duration + 1
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
                   .to.emit(marketplace, 'RentalStarted')
@@ -313,14 +317,18 @@ describe('OriumMarketplace', () => {
                   .to.emit(mockERC20, 'Transfer')
               })
               it('Should accept a rental offer if marketplace fee is 0', async () => {
-                await marketplace.connect(operator).setMarketplaceFeeForCollection(mockERC721.address, 0, true)
+                await marketplace
+                  .connect(operator)
+                  .setMarketplaceFeeForCollection(await mockERC721.getAddress(), 0, true)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
                   marketplace,
                   'RentalStarted',
                 )
               })
               it('Should accept a rental offer if royalty fee is 0', async () => {
-                await marketplace.connect(creator).setRoyaltyInfo(mockERC721.address, '0', creatorTreasury.address)
+                await marketplace
+                  .connect(creator)
+                  .setRoyaltyInfo(await mockERC721.getAddress(), '0', creatorTreasury.address)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.emit(
                   marketplace,
                   'RentalStarted',
@@ -365,7 +373,7 @@ describe('OriumMarketplace', () => {
             })
             it("Should NOT cancel a rental offer after deadline's expiration", async () => {
               // move foward in time to expire the offer
-              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               const timeToMove = rentalOffer.deadline - blockTimestamp + 1
               await ethers.provider.send('evm_increaseTime', [timeToMove])
 
@@ -379,7 +387,9 @@ describe('OriumMarketplace', () => {
           beforeEach(async () => {
             await marketplace.connect(lender).createRentalOffer(rentalOffer)
             await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
-            await rolesRegistry.connect(borrower).setRoleApprovalForAll(mockERC721.address, marketplace.address, true)
+            await rolesRegistry
+              .connect(borrower)
+              .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
           })
           describe('End Rental', async () => {
             it('Should end a rental by the borrower', async () => {
@@ -412,7 +422,7 @@ describe('OriumMarketplace', () => {
             })
             it('Should NOT end a rental if rental is expired', async () => {
               // move foward in time to expire the offer
-              const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
+              const blockTimestamp = Number((await ethers.provider.getBlock('latest'))?.timestamp)
               const timeToMove = rentalOffer.deadline - blockTimestamp + 1
               await ethers.provider.send('evm_increaseTime', [timeToMove])
 
@@ -421,7 +431,9 @@ describe('OriumMarketplace', () => {
               )
             })
             it('Should end a rental if the role was revoked by borrower directly in registry', async () => {
-              await rolesRegistry.connect(borrower).setRoleApprovalForAll(mockERC721.address, borrower.address, true)
+              await rolesRegistry
+                .connect(borrower)
+                .setRoleApprovalForAll(await mockERC721.getAddress(), borrower.address, true)
               await rolesRegistry
                 .connect(borrower)
                 .revokeRoleFrom(
@@ -456,7 +468,7 @@ describe('OriumMarketplace', () => {
         let directRentalHash: string
         beforeEach(async () => {
           directRental = {
-            tokenAddress: mockERC721.address,
+            tokenAddress: await mockERC721.getAddress(),
             tokenId,
             lender: lender.address,
             borrower: borrower.address,
@@ -472,7 +484,7 @@ describe('OriumMarketplace', () => {
               .to.emit(marketplace, 'DirectRentalStarted')
               .withArgs(
                 directRentalHash,
-                mockERC721.address,
+                await mockERC721.getAddress(),
                 tokenId,
                 lender.address,
                 borrower.address,
@@ -522,7 +534,9 @@ describe('OriumMarketplace', () => {
               .withArgs(directRentalHash, lender.address)
           })
           it('Should cancel a direct rental if caller is the borrower', async () => {
-            await rolesRegistry.connect(borrower).setRoleApprovalForAll(mockERC721.address, marketplace.address, true)
+            await rolesRegistry
+              .connect(borrower)
+              .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
             await expect(marketplace.connect(borrower).cancelDirectRental(directRental))
               .to.emit(marketplace, 'DirectRentalEnded')
               .withArgs(directRentalHash, lender.address)
@@ -587,25 +601,35 @@ describe('OriumMarketplace', () => {
           await expect(
             marketplace
               .connect(operator)
-              .setMarketplaceFeeForCollection(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
+              .setMarketplaceFeeForCollection(
+                await mockERC721.getAddress(),
+                feeInfo.feePercentageInWei,
+                feeInfo.isCustomFee,
+              ),
           )
             .to.emit(marketplace, 'MarketplaceFeeSet')
-            .withArgs(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee)
-          expect(await marketplace.feeInfo(mockERC721.address)).to.have.deep.members([
+            .withArgs(await mockERC721.getAddress(), feeInfo.feePercentageInWei, feeInfo.isCustomFee)
+          expect(await marketplace.feeInfo(await mockERC721.getAddress())).to.have.deep.members([
             feeInfo.feePercentageInWei,
             feeInfo.isCustomFee,
           ])
-          expect(await marketplace.marketplaceFeeOf(mockERC721.address)).to.be.equal(feeInfo.feePercentageInWei)
+          expect(await marketplace.marketplaceFeeOf(await mockERC721.getAddress())).to.be.equal(
+            feeInfo.feePercentageInWei,
+          )
         })
         it('Should NOT set the marketplace fee if caller is not the operator', async () => {
           await expect(
             marketplace
               .connect(notOperator)
-              .setMarketplaceFeeForCollection(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
+              .setMarketplaceFeeForCollection(
+                await mockERC721.getAddress(),
+                feeInfo.feePercentageInWei,
+                feeInfo.isCustomFee,
+              ),
           ).to.be.revertedWith('Ownable: caller is not the owner')
         })
         it("Should NOT set the marketplace fee if marketplace fee + creator royalty it's greater than 100%", async () => {
-          await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
+          await marketplace.connect(operator).setCreator(await mockERC721.getAddress(), creator.address)
 
           const royaltyInfo: RoyaltyInfo = {
             creator: creator.address,
@@ -615,7 +639,7 @@ describe('OriumMarketplace', () => {
 
           await marketplace
             .connect(creator)
-            .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+            .setRoyaltyInfo(await mockERC721.getAddress(), royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
 
           const feeInfo: FeeInfo = {
             feePercentageInWei: toWei('95'),
@@ -624,7 +648,11 @@ describe('OriumMarketplace', () => {
           await expect(
             marketplace
               .connect(operator)
-              .setMarketplaceFeeForCollection(mockERC721.address, feeInfo.feePercentageInWei, feeInfo.isCustomFee),
+              .setMarketplaceFeeForCollection(
+                await mockERC721.getAddress(),
+                feeInfo.feePercentageInWei,
+                feeInfo.isCustomFee,
+              ),
           ).to.be.revertedWith('OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%')
         })
       })
@@ -637,11 +665,16 @@ describe('OriumMarketplace', () => {
               treasury: ethers.ZeroAddress,
             }
 
-            await expect(marketplace.connect(operator).setCreator(mockERC721.address, creator.address))
+            await expect(marketplace.connect(operator).setCreator(await mockERC721.getAddress(), creator.address))
               .to.emit(marketplace, 'CreatorRoyaltySet')
-              .withArgs(mockERC721.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+              .withArgs(
+                await mockERC721.getAddress(),
+                creator.address,
+                royaltyInfo.royaltyPercentageInWei,
+                royaltyInfo.treasury,
+              )
 
-            expect(await marketplace.royaltyInfo(mockERC721.address)).to.have.deep.members([
+            expect(await marketplace.royaltyInfo(await mockERC721.getAddress())).to.have.deep.members([
               royaltyInfo.creator,
               royaltyInfo.royaltyPercentageInWei,
               royaltyInfo.treasury,
@@ -649,14 +682,14 @@ describe('OriumMarketplace', () => {
           })
           it('Should NOT set the creator royalties if caller is not the operator', async () => {
             await expect(
-              marketplace.connect(notOperator).setCreator(mockERC721.address, creator.address),
+              marketplace.connect(notOperator).setCreator(await mockERC721.getAddress(), creator.address),
             ).to.be.revertedWith('Ownable: caller is not the owner')
           })
         })
 
         describe('Creator', async () => {
           beforeEach(async () => {
-            await marketplace.connect(operator).setCreator(mockERC721.address, creator.address)
+            await marketplace.connect(operator).setCreator(await mockERC721.getAddress(), creator.address)
           })
           it("Should update the creator royalties for a collection if it's already set", async () => {
             const royaltyInfo: RoyaltyInfo = {
@@ -668,10 +701,19 @@ describe('OriumMarketplace', () => {
             await expect(
               marketplace
                 .connect(creator)
-                .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(
+                  await mockERC721.getAddress(),
+                  royaltyInfo.royaltyPercentageInWei,
+                  royaltyInfo.treasury,
+                ),
             )
               .to.emit(marketplace, 'CreatorRoyaltySet')
-              .withArgs(mockERC721.address, creator.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury)
+              .withArgs(
+                await mockERC721.getAddress(),
+                creator.address,
+                royaltyInfo.royaltyPercentageInWei,
+                royaltyInfo.treasury,
+              )
           })
           it('Should NOT update the creator royalties for a collection if caller is not the creator', async () => {
             const royaltyInfo: RoyaltyInfo = {
@@ -683,7 +725,11 @@ describe('OriumMarketplace', () => {
             await expect(
               marketplace
                 .connect(notOperator)
-                .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(
+                  await mockERC721.getAddress(),
+                  royaltyInfo.royaltyPercentageInWei,
+                  royaltyInfo.treasury,
+                ),
             ).to.be.revertedWith('OriumMarketplace: Only creator can set royalty info')
           })
           it("Should NOT update the creator royalties for a collection if creator's royalty percentage + marketplace fee is greater than 100%", async () => {
@@ -696,7 +742,11 @@ describe('OriumMarketplace', () => {
             await expect(
               marketplace
                 .connect(creator)
-                .setRoyaltyInfo(mockERC721.address, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury),
+                .setRoyaltyInfo(
+                  await mockERC721.getAddress(),
+                  royaltyInfo.royaltyPercentageInWei,
+                  royaltyInfo.treasury,
+                ),
             ).to.be.revertedWith('OriumMarketplace: Royalty percentage + marketplace fee cannot be greater than 100%')
           })
         })
@@ -720,24 +770,31 @@ describe('OriumMarketplace', () => {
 
       describe('Roles Registry', async () => {
         it('Should set the roles registry for a collection', async () => {
-          await expect(marketplace.connect(operator).setRolesRegistry(mockERC721.address, rolesRegistry.address))
+          await expect(
+            marketplace
+              .connect(operator)
+              .setRolesRegistry(await mockERC721.getAddress(), await rolesRegistry.getAddress()),
+          )
             .to.emit(marketplace, 'RolesRegistrySet')
-            .withArgs(mockERC721.address, rolesRegistry.address)
+            .withArgs(await mockERC721.getAddress(), await rolesRegistry.getAddress())
         })
         it('Should NOT set the roles registry if caller is not the operator', async () => {
           await expect(
-            marketplace.connect(notOperator).setRolesRegistry(mockERC721.address, rolesRegistry.address),
+            marketplace
+              .connect(notOperator)
+              .setRolesRegistry(await mockERC721.getAddress(), await rolesRegistry.getAddress()),
           ).to.be.revertedWith('Ownable: caller is not the owner')
         })
       })
 
       describe('Default Roles Registry', async () => {
         it('Should set the default roles registry for a collection', async () => {
-          await expect(marketplace.connect(operator).setDefaultRolesRegistry(rolesRegistry.address)).to.not.be.reverted
+          await expect(marketplace.connect(operator).setDefaultRolesRegistry(await rolesRegistry.getAddress())).to.not
+            .be.reverted
         })
         it('Should NOT set the default roles registry if caller is not the operator', async () => {
           await expect(
-            marketplace.connect(notOperator).setDefaultRolesRegistry(rolesRegistry.address),
+            marketplace.connect(notOperator).setDefaultRolesRegistry(await rolesRegistry.getAddress()),
           ).to.be.revertedWith('Ownable: caller is not the owner')
         })
       })
