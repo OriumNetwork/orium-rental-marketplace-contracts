@@ -22,7 +22,7 @@ export async function deployMarketplaceRoyaltiesContracts() {
     await nftRolesRegistry.getAddress(),
     THREE_MONTHS,
   ])
-  await marketplaceRoyaltiesProxy.deployed()
+  await marketplaceRoyaltiesProxy.waitForDeployment()
 
   const marketplaceRoyalties = await ethers.getContractAt(
     'OriumMarketplaceRoyalties',
