@@ -2,13 +2,13 @@
 
 pragma solidity 0.8.9;
 
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import { IERC7589 } from "./interfaces/IERC7589.sol";
-import { LibOriumSftMarketplace, RentalOffer, RentalOfferLegacy, CommitAndGrantRoleParams } from "./libraries/LibOriumSftMarketplace.sol";
-import { IOriumMarketplaceRoyalties } from "./interfaces/IOriumMarketplaceRoyalties.sol";
+import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
+import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
+import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
+import { IERC1155 } from '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
+import { IERC7589 } from './interfaces/IERC7589.sol';
+import { LibOriumSftMarketplace, RentalOffer, RentalOfferLegacy, CommitAndGrantRoleParams } from './libraries/LibOriumSftMarketplace.sol';
+import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 
 /**
  * @title Orium Marketplace - Marketplace for renting SFTs
@@ -142,6 +142,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function createRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
         _createRentalOffer(_offer);
     }
+
     function _createRentalOffer(RentalOffer memory _offer) internal {
         address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
             _offer.tokenAddress
@@ -185,7 +186,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _duration The duration of the rental.
      */
 
-    function acceptReentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
         _acceptRentalOffer(_offer, _duration);
     }
 
@@ -207,27 +208,17 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         });
         _acceptRentalOffer(_parsedOffer, _duration);
     }
+
     function _acceptRentalOffer(RentalOffer memory _offer, uint64 _duration) internal {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
-        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
-        require(
-            rentals[_offerHash].expirationDate <= block.timestamp,
-            "OriumSftMarketplace: This offer has an ongoing rental"
-        );
-        require(
-            _duration >= _offer.minDuration,
-            "OriumSftMarketplace: Duration is less than the offer minimum duration"
-        );
-
         uint64 _expirationDate = uint64(block.timestamp + _duration);
-        require(
-            nonceDeadline[_offer.lender][_offer.nonce] > _expirationDate,
-            "OriumSftMarketplace: expiration date is greater than offer deadline"
-        );
-
-        require(
-            address(0) == _offer.borrower || msg.sender == _offer.borrower,
-            "OriumSftMarketplace: Sender is not allowed to rent this SFT"
+        LibOriumSftMarketplace.validateAcceptRentalOffer(
+            _offer,
+            isCreated[_offerHash],
+            rentals[_offerHash].expirationDate,
+            _duration,
+            nonceDeadline[_offer.lender][_offer.nonce],
+            _expirationDate
         );
 
         _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
@@ -259,6 +250,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function cancelRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
         _cancelRentalOffer(_offer);
     }
+
     function cancelRentalOffer(RentalOfferLegacy calldata _offer) external whenNotPaused {
         RentalOffer memory _parsedOffer = RentalOffer({
             nonce: _offer.nonce,
@@ -277,13 +269,14 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         });
         _cancelRentalOffer(_parsedOffer);
     }
+
     function _cancelRentalOffer(RentalOffer memory _offer) internal {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
-        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
-        require(msg.sender == _offer.lender, "OriumSftMarketplace: Only lender can cancel a rental offer");
+        require(isCreated[_offerHash], 'OriumSftMarketplace: Offer not created');
+        require(msg.sender == _offer.lender, 'OriumSftMarketplace: Only lender can cancel a rental offer');
         require(
             nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp,
-            "OriumSftMarketplace: Nonce expired or not used yet"
+            'OriumSftMarketplace: Nonce expired or not used yet'
         );
 
         IERC7589 _rolesRegistry = IERC7589(
@@ -292,7 +285,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         // if There are no active rentals, release tokens (else, tokens will be released via `batchReleaseTokens`)
         // this is ok for single-role tokens, but tokens with multiple roles might revert if another non-revocable role exists
         // if token amount is 0, it means that the tokens were already released, trying to release it again would revert the transaction
-        if (rentals[_offerHash].expirationDate < block.timestamp && _rolesRegistry.tokenAmountOf(_offer.commitmentId) > 0) {
+        if (
+            rentals[_offerHash].expirationDate < block.timestamp &&
+            _rolesRegistry.tokenAmountOf(_offer.commitmentId) > 0
+        ) {
             _rolesRegistry.releaseTokens(_offer.commitmentId);
         }
 
@@ -333,11 +329,11 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function _endRental(RentalOffer memory _offer) internal {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
 
-        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
-        require(msg.sender == rentals[_offerHash].borrower, "OriumSftMarketplace: Only borrower can end a rental");
+        require(isCreated[_offerHash], 'OriumSftMarketplace: Offer not created');
+        require(msg.sender == rentals[_offerHash].borrower, 'OriumSftMarketplace: Only borrower can end a rental');
         require(
             rentals[_offerHash].expirationDate > block.timestamp,
-            "OriumSftMarketplace: There are no active Rentals"
+            'OriumSftMarketplace: There are no active Rentals'
         );
 
         IERC7589 _rolesRegistry = IERC7589(
@@ -424,7 +420,13 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         address[] memory _grantees,
         address[] memory _tokenAddresses
     ) external whenNotPaused {
-       LibOriumSftMarketplace.batchRevokeRole(_commitmentIds, _roles, _grantees, _tokenAddresses, oriumMarketplaceRoyalties);
+        LibOriumSftMarketplace.batchRevokeRole(
+            _commitmentIds,
+            _roles,
+            _grantees,
+            _tokenAddresses,
+            oriumMarketplaceRoyalties
+        );
     }
 
     /** ######### Internals ########### **/
@@ -434,16 +436,19 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function _validateCreateRentalOffer(RentalOffer memory _offer, address _rolesRegistryAddress) internal view {
         require(
-            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedFeeTokenAddressForToken(_offer.tokenAddress, _offer.feeTokenAddress),
-            "OriumSftMarketplace: tokenAddress is not trusted"
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).isTrustedFeeTokenAddressForToken(
+                _offer.tokenAddress,
+                _offer.feeTokenAddress
+            ),
+            'OriumSftMarketplace: tokenAddress is not trusted'
         );
         require(
             _offer.deadline <= block.timestamp + IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).maxDuration() &&
                 _offer.deadline > block.timestamp,
-            "OriumSftMarketplace: Invalid deadline"
+            'OriumSftMarketplace: Invalid deadline'
         );
         LibOriumSftMarketplace.validateOffer(_offer);
-        require(nonceDeadline[_offer.lender][_offer.nonce] == 0, "OriumSftMarketplace: nonce already used");
+        require(nonceDeadline[_offer.lender][_offer.nonce] == 0, 'OriumSftMarketplace: nonce already used');
 
         if (_offer.commitmentId != 0) {
             uint256 _commitmentNonce = commitmentIdToNonce[_rolesRegistryAddress][_offer.commitmentId];
@@ -451,7 +456,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             if (_commitmentNonce != 0) {
                 require(
                     nonceDeadline[_offer.lender][_commitmentNonce] < block.timestamp,
-                    "OriumSftMarketplace: commitmentId is in an active rental offer"
+                    'OriumSftMarketplace: commitmentId is in an active rental offer'
                 );
             }
 
@@ -466,7 +471,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         } else {
             require(
                 IERC1155(_offer.tokenAddress).balanceOf(msg.sender, _offer.tokenId) >= _offer.tokenAmount,
-                "OriumSftMarketplace: caller does not have enough balance for the token"
+                'OriumSftMarketplace: caller does not have enough balance for the token'
             );
         }
     }
