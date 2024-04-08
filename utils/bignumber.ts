@@ -1,4 +1,3 @@
-import { BigNumber } from 'ethers'
 import { ethers } from 'hardhat'
 
 /**
@@ -8,7 +7,7 @@ import { ethers } from 'hardhat'
  * @returns
  */
 export function toWei(amount: string, decimals = 18) {
-  return ethers.utils.parseUnits(amount, decimals)
+  return ethers.parseUnits(amount, decimals)
 }
 
 /**
@@ -17,8 +16,8 @@ export function toWei(amount: string, decimals = 18) {
  * @param decimals optional field to specify the decimals, default is 18.
  * @returns amount in string format
  */
-export function fromWei(amount: BigNumber, decimals = 18) {
-  return ethers.utils.formatUnits(amount, decimals)
+export function fromWei(amount: bigint, decimals = 18) {
+  return ethers.formatUnits(amount, decimals)
 }
 
 /**
@@ -27,5 +26,5 @@ export function fromWei(amount: BigNumber, decimals = 18) {
  * @returns The amount of wei per second
  */
 export function etherPerDayToWeiPerSecond(amount: string) {
-  return toWei(amount).div(60 * 60 * 24)
+  return toWei(amount) / BigInt(60 * 60 * 24)
 }

@@ -1,5 +1,7 @@
-import { ethers } from 'ethers'
+import { AbiCoder } from 'ethers'
+import { ethers } from 'hardhat'
 
-export const USER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('USER_ROLE'))
-export const UNIQUE_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('UNIQUE_ROLE'))
-export const PLAYER_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('Player()'))
+export const abi = AbiCoder.defaultAbiCoder()
+export const USER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('USER_ROLE'))
+export const UNIQUE_ROLE = ethers.keccak256(ethers.toUtf8Bytes('UNIQUE_ROLE'))
+export const PLAYER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('Player()'))

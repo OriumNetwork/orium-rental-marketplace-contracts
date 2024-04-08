@@ -234,7 +234,7 @@ describe('OriumMarketplace', () => {
                 )
             })
             it('Should accept a rental offer by anyone if borrower is the zero address', async () => {
-              rentalOffer.borrower = ethers.constants.AddressZero
+              rentalOffer.borrower = ethers.ZeroAddress
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
 
@@ -549,7 +549,7 @@ describe('OriumMarketplace', () => {
     describe('Core Functions', async () => {
       describe('Initialize', async () => {
         it("Should NOT initialize the contract if it's already initialized", async () => {
-          await expect(marketplace.initialize(operator.address, ethers.constants.AddressZero, 0)).to.be.revertedWith(
+          await expect(marketplace.initialize(operator.address, ethers.ZeroAddress, 0)).to.be.revertedWith(
             'Initializable: contract is already initialized',
           )
         })
@@ -634,7 +634,7 @@ describe('OriumMarketplace', () => {
             const royaltyInfo: RoyaltyInfo = {
               creator: creator.address,
               royaltyPercentageInWei: toWei('0'),
-              treasury: ethers.constants.AddressZero,
+              treasury: ethers.ZeroAddress,
             }
 
             await expect(marketplace.connect(operator).setCreator(mockERC721.address, creator.address))

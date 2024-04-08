@@ -1,6 +1,5 @@
 import { toWei } from '../../../utils/bignumber'
-import { defaultAbiCoder as abi } from 'ethers/lib/utils'
-import { USER_ROLE } from '../../../utils/roles'
+import { USER_ROLE, abi } from '../../../utils/roles'
 import { inputsToTypes } from '../../../utils/role-metadata'
 
 export const role1 = '0x3d926b0dd5f4880fb18c9a49c890c7d76c2a97e0d4b4c20f1bb3fe6e5f89f5f4'
