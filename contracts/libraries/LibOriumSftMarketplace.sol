@@ -60,9 +60,11 @@ library LibOriumSftMarketplace {
 
     /**
      * @notice Gets the rental offer hash.
+     * @dev This function is used to hash the rental offer struct with retrocompatibility.
+     * is only used for reading the hash from the storage.
      * @param _offer The rental offer struct to be hashed.
      */
-    function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
+    function hashRentalOfferLegacy(RentalOffer memory _offer) external pure returns (bytes32) {
         return
             keccak256(
                 _offer.minDuration == 0
@@ -82,6 +84,16 @@ library LibOriumSftMarketplace {
                     )
                     : abi.encode(_offer)
             );
+    }
+
+     /**
+     * @notice Gets the rental offer hash.
+     * @dev This function is used to hash the rental offer struct in the current version.
+     * is only used for writing the hash in the storage.
+     * @param _offer The rental offer struct to be hashed.
+     */
+    function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
+        return keccak256(abi.encode(_offer));
     }
 
     /**

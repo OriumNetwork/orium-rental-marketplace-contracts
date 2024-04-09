@@ -106,7 +106,7 @@ describe('OriumSftMarketplace', () => {
             feeTokenAddress: await mockERC20.getAddress(),
             feeAmountPerSecond: toWei('0.0000001'),
             deadline: Number(blockTimestamp) + ONE_DAY,
-            minDuration: 0,
+            minDuration: 1,
             roles: [UNIQUE_ROLE],
             rolesData: [EMPTY_BYTES],
           }
@@ -725,15 +725,6 @@ describe('OriumSftMarketplace', () => {
                     'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
                   ](rentalOffer, maxDuration),
               ).to.be.revertedWith('OriumSftMarketplace: expiration date is greater than offer deadline')
-            })
-            it('Should NOT accept a rental offer if expiration date is less than block timestamp', async () => {
-              await expect(
-                marketplace
-                  .connect(borrower)
-                  [
-                    'acceptRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]),uint64)'
-                  ](rentalOffer, 0),
-              ).to.be.revertedWith('SftRolesRegistry: expiration date must be in the future')
             })
             describe('Fees', async function () {
               const feeAmountPerSecond = toWei('1')

@@ -132,7 +132,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             feeTokenAddress: _offer.feeTokenAddress,
             feeAmountPerSecond: _offer.feeAmountPerSecond,
             deadline: _offer.deadline,
-            minDuration: 0,
+            minDuration: 1,
             roles: _offer.roles,
             rolesData: _offer.rolesData
         });
@@ -208,7 +208,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         _acceptRentalOffer(_parsedOffer, _duration);
     }
     function _acceptRentalOffer(RentalOffer memory _offer, uint64 _duration) internal {
-        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
+        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOfferLegacy(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
          LibOriumSftMarketplace.validateAcceptRentalOffer(
             _offer,
@@ -267,7 +267,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         _cancelRentalOffer(_parsedOffer);
     }
     function _cancelRentalOffer(RentalOffer memory _offer) internal {
-        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
+        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOfferLegacy(_offer);
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(msg.sender == _offer.lender, "OriumSftMarketplace: Only lender can cancel a rental offer");
         require(
@@ -320,7 +320,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     function _endRental(RentalOffer memory _offer) internal {
-        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
+        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOfferLegacy(_offer);
 
         require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
         require(msg.sender == rentals[_offerHash].borrower, "OriumSftMarketplace: Only borrower can end a rental");
