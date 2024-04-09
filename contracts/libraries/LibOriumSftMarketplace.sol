@@ -18,23 +18,6 @@ struct RentalOffer {
     uint256 nonce;
     uint256 commitmentId;
     uint64 deadline;
-    uint64 minDuration;
-    bytes32[] roles;
-    bytes[] rolesData;
-}
-
-/// @dev Rental offer info.
-struct RentalOfferLegacy {
-    address lender;
-    address borrower;
-    address tokenAddress;
-    uint256 tokenId;
-    uint256 tokenAmount;
-    address feeTokenAddress;
-    uint256 feeAmountPerSecond;
-    uint256 nonce;
-    uint256 commitmentId;
-    uint64 deadline;
     bytes32[] roles;
     bytes[] rolesData;
 }
@@ -65,8 +48,7 @@ library LibOriumSftMarketplace {
     function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
         return
             keccak256(
-                _offer.minDuration == 0
-                    ? abi.encode(
+                    abi.encode(
                         _offer.lender,
                         _offer.borrower,
                         _offer.tokenAddress,
@@ -80,7 +62,6 @@ library LibOriumSftMarketplace {
                         _offer.roles,
                         _offer.rolesData
                     )
-                    : abi.encode(_offer)
             );
     }
 
@@ -146,7 +127,6 @@ library LibOriumSftMarketplace {
             _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
             "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
         );
-        require(_offer.minDuration <= _offer.deadline - block.timestamp, "OriumSftMarketplace: minDuration is invalid");
     }
 
     /**
