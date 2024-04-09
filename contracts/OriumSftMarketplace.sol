@@ -232,7 +232,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev Borrower needs to approve marketplace to revoke the roles.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
-
     function endRental(RentalOffer calldata _offer) external whenNotPaused {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
 
