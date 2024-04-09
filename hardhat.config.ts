@@ -80,9 +80,6 @@ const BASE_CONFIG = {
     overwrite: false,
     runOnCompile: true,
   },
-  typechain: {
-    target: 'ethers-v6',
-  },
 }
 
 const PROD_CONFIG = {

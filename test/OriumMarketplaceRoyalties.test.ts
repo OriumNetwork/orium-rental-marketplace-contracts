@@ -62,7 +62,7 @@ describe('OriumMarketplaceRoyalties', () => {
         )
           .to.emit(marketplaceRoyalties, 'MarketplaceFeeSet')
           .withArgs(await mockERC1155.getAddress(), feeInfo.feePercentageInWei, feeInfo.isCustomFee)
-        expect(await marketplaceRoyalties.feeInfo(await mockERC1155.getAddress())).to.have.deep.members([
+        expect(await marketplaceRoyalties.feeInfo(await mockERC1155.getAddress())).to.be.deep.equal([
           feeInfo.feePercentageInWei,
           feeInfo.isCustomFee,
         ])
@@ -143,9 +143,9 @@ describe('OriumMarketplaceRoyalties', () => {
               royaltyInfo.treasury,
             )
 
-          expect(
-            await marketplaceRoyalties.tokenAddressToRoyaltyInfo(await mockERC1155.getAddress()),
-          ).to.have.deep.members([royaltyInfo.creator, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury])
+          expect(await marketplaceRoyalties.tokenAddressToRoyaltyInfo(await mockERC1155.getAddress())).to.be.deep.equal(
+            [royaltyInfo.creator, royaltyInfo.royaltyPercentageInWei, royaltyInfo.treasury],
+          )
         })
 
         it('Should NOT set the creator royalties if caller is not the operator', async () => {

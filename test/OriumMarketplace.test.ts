@@ -9,6 +9,7 @@ import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
 import { hashDirectRental } from '../utils/hash'
 import { IERC7432, MockERC20, MockERC721, OriumMarketplace } from '../typechain-types'
+import { equal } from 'assert'
 
 describe('OriumMarketplace', () => {
   let marketplace: OriumMarketplace
@@ -609,7 +610,7 @@ describe('OriumMarketplace', () => {
           )
             .to.emit(marketplace, 'MarketplaceFeeSet')
             .withArgs(await mockERC721.getAddress(), feeInfo.feePercentageInWei, feeInfo.isCustomFee)
-          expect(await marketplace.feeInfo(await mockERC721.getAddress())).to.have.deep.members([
+          expect(await marketplace.feeInfo(await mockERC721.getAddress())).to.be.deep.equal([
             feeInfo.feePercentageInWei,
             feeInfo.isCustomFee,
           ])
@@ -674,7 +675,7 @@ describe('OriumMarketplace', () => {
                 royaltyInfo.treasury,
               )
 
-            expect(await marketplace.royaltyInfo(await mockERC721.getAddress())).to.have.deep.members([
+            expect(await marketplace.royaltyInfo(await mockERC721.getAddress())).to.be.deep.equal([
               royaltyInfo.creator,
               royaltyInfo.royaltyPercentageInWei,
               royaltyInfo.treasury,

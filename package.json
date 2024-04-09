@@ -59,11 +59,5 @@
     "ts-node": "^10.9.1",
     "typechain": "^8.1.0",
     "typescript": "^4.8.4"
-  },
-  "exports": {
-    "./lib/utils": {
-      "import": "./lib.esm/utils/index.js",
-      "default": "./lib.commonjs/utils/index.js"
-    }
   }
 }
