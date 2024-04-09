@@ -65,7 +65,7 @@ library LibOriumSftMarketplace {
             );
     }
 
-    /**
+     /**
      * @dev All values needs to be in wei.
      * @param _amount The amount to calculate the percentage from.
      * @param _percentage The percentage to calculate.
