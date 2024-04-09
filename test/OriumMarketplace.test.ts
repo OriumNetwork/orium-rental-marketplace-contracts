@@ -9,7 +9,6 @@ import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
 import { hashDirectRental } from '../utils/hash'
 import { IERC7432, MockERC20, MockERC721, OriumMarketplace } from '../typechain-types'
-import { equal } from 'assert'
 
 describe('OriumMarketplace', () => {
   let marketplace: OriumMarketplace
