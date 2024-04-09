@@ -185,7 +185,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _duration The duration of the rental.
      */
 
-    function acceptReentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
         _acceptRentalOffer(_offer, _duration);
     }
 
