@@ -105,7 +105,7 @@ describe('OriumSftMarketplace', () => {
             tokenAmount,
             feeTokenAddress: await mockERC20.getAddress(),
             feeAmountPerSecond: toWei('0.0000001'),
-            deadline: blockTimestamp + ONE_DAY,
+            deadline: Number(blockTimestamp) + ONE_DAY,
             minDuration: 0,
             roles: [UNIQUE_ROLE],
             rolesData: [EMPTY_BYTES],
