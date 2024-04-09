@@ -161,21 +161,14 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
-        require(isCreated[_offerHash], "OriumSftMarketplace: Offer not created");
-        require(
-            rentals[_offerHash].expirationDate <= block.timestamp,
-            "OriumSftMarketplace: This offer has an ongoing rental"
-        );
-
         uint64 _expirationDate = uint64(block.timestamp + _duration);
-        require(
-            nonceDeadline[_offer.lender][_offer.nonce] > _expirationDate,
-            "OriumSftMarketplace: expiration date is greater than offer deadline"
-        );
-
-        require(
-            address(0) == _offer.borrower || msg.sender == _offer.borrower,
-            "OriumSftMarketplace: Sender is not allowed to rent this SFT"
+         LibOriumSftMarketplace.validateAcceptRentalOffer(
+            _offer,
+            isCreated[_offerHash],
+            rentals[_offerHash].expirationDate,
+            _duration,
+            nonceDeadline[_offer.lender][_offer.nonce],
+            _expirationDate
         );
 
         _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);

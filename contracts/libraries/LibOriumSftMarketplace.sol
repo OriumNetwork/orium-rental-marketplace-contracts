@@ -243,4 +243,30 @@ library LibOriumSftMarketplace {
             IERC7589(_rolesRegistryAddress).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
         }
     }
+
+    function validateAcceptRentalOffer(
+        RentalOffer memory _offer,
+        bool _isCreated,
+        uint64 _rentalExpirationDate,
+        uint64 _duration,
+        uint256 _nonceDeadline,
+        uint64 _expirationDate
+    ) external view {
+        require(_isCreated, 'OriumSftMarketplace: Offer not created');
+        require(_rentalExpirationDate <= block.timestamp, 'OriumSftMarketplace: This offer has an ongoing rental');
+        require(
+            _duration >= _offer.minDuration,
+            'OriumSftMarketplace: Duration is less than the offer minimum duration'
+        );
+
+        require(
+            _nonceDeadline > _expirationDate,
+            'OriumSftMarketplace: expiration date is greater than offer deadline'
+        );
+
+        require(
+            address(0) == _offer.borrower || msg.sender == _offer.borrower,
+            'OriumSftMarketplace: Sender is not allowed to rent this SFT'
+        );
+    }
 }
