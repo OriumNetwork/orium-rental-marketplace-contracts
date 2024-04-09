@@ -197,7 +197,7 @@ library LibOriumSftMarketplace {
         }
     }
 
-     /**
+      /**
      * @notice batchRevokeRole revokes role in a single transaction.
      * @dev only the grantor and grantee can call this function. Be careful as the marketplace have approvals from other users.
      * @param _commitmentIds The array of commitmentIds
