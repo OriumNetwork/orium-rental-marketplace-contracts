@@ -65,7 +65,7 @@ library LibOriumSftMarketplace {
             );
     }
 
-     /**
+    /**
      * @dev All values needs to be in wei.
      * @param _amount The amount to calculate the percentage from.
      * @param _percentage The percentage to calculate.
@@ -197,7 +197,7 @@ library LibOriumSftMarketplace {
         }
     }
 
-    /**
+     /**
      * @notice batchRevokeRole revokes role in a single transaction.
      * @dev only the grantor and grantee can call this function. Be careful as the marketplace have approvals from other users.
      * @param _commitmentIds The array of commitmentIds
