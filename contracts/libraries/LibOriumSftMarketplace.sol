@@ -18,6 +18,23 @@ struct RentalOffer {
     uint256 nonce;
     uint256 commitmentId;
     uint64 deadline;
+    uint64 minDuration;
+    bytes32[] roles;
+    bytes[] rolesData;
+}
+
+/// @dev Rental offer info.
+struct RentalOfferLegacy {
+    address lender;
+    address borrower;
+    address tokenAddress;
+    uint256 tokenId;
+    uint256 tokenAmount;
+    address feeTokenAddress;
+    uint256 feeAmountPerSecond;
+    uint256 nonce;
+    uint256 commitmentId;
+    uint64 deadline;
     bytes32[] roles;
     bytes[] rolesData;
 }
@@ -43,26 +60,30 @@ library LibOriumSftMarketplace {
 
     /**
      * @notice Gets the rental offer hash.
+     * @dev This function is used to hash the rental offer struct with retrocompatibility.
+     * is only used for reading the hash from the storage.
      * @param _offer The rental offer struct to be hashed.
      */
     function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    _offer.lender,
-                    _offer.borrower,
-                    _offer.tokenAddress,
-                    _offer.tokenId,
-                    _offer.tokenAmount,
-                    _offer.feeTokenAddress,
-                    _offer.feeAmountPerSecond,
-                    _offer.nonce,
-                    _offer.commitmentId,
-                    _offer.deadline,
-                    _offer.roles,
-                    _offer.rolesData
+         return
+            _offer.minDuration == 0
+                ? keccak256(
+                    abi.encode(
+                        _offer.lender,
+                        _offer.borrower,
+                        _offer.tokenAddress,
+                        _offer.tokenId,
+                        _offer.tokenAmount,
+                        _offer.feeTokenAddress,
+                        _offer.feeAmountPerSecond,
+                        _offer.nonce,
+                        _offer.commitmentId,
+                        _offer.deadline,
+                        _offer.roles,
+                        _offer.rolesData
+                    )
                 )
-            );
+                : keccak256(abi.encode(_offer));
     }
 
     /**
@@ -127,6 +148,7 @@ library LibOriumSftMarketplace {
             _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
             "OriumSftMarketplace: feeAmountPerSecond should be greater than 0"
         );
+        require(_offer.minDuration <= _offer.deadline - block.timestamp, "OriumSftMarketplace: minDuration is invalid");
     }
 
     /**
@@ -197,7 +219,7 @@ library LibOriumSftMarketplace {
         }
     }
 
-      /**
+    /**
      * @notice batchRevokeRole revokes role in a single transaction.
      * @dev only the grantor and grantee can call this function. Be careful as the marketplace have approvals from other users.
      * @param _commitmentIds The array of commitmentIds
@@ -242,5 +264,30 @@ library LibOriumSftMarketplace {
 
             IERC7589(_rolesRegistryAddress).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
         }
+    }
+
+    function validateAcceptRentalOffer(
+        address _borrower,
+        uint64 _minDuration,
+        bool _isCreated,
+        uint64 _previousRentalExpirationDate,
+        uint64 _duration,
+        uint256 _nonceDeadline,
+        uint64 _expirationDate
+    ) external view {
+        require(_isCreated, 'OriumSftMarketplace: Offer not created');
+        require(_previousRentalExpirationDate <= block.timestamp, 'OriumSftMarketplace: This offer has an ongoing rental');
+        require(
+            _duration >= _minDuration,
+            'OriumSftMarketplace: Duration is less than the offer minimum duration'
+        );
+        require(
+            _nonceDeadline > _expirationDate,
+            'OriumSftMarketplace: expiration date is greater than offer deadline'
+        );
+        require(
+            address(0) == _borrower || msg.sender == _borrower,
+            'OriumSftMarketplace: Sender is not allowed to rent this SFT'
+        );
     }
 }
