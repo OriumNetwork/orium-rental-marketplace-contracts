@@ -15,12 +15,19 @@ async function main() {
 
   print(colors.highlight, `Proposing upgrade for ${CONTRACT_NAME} on ${NETWORK} network...`)
 
+  print(colors.highlight, 'Deploying new library...')
   const LibraryFactory = await ethers.getContractFactory(LIBRARY_NAME)
-  const library = await LibraryFactory.deploy()
-  await library.deployed()
+  const library = await LibraryFactory.deploy({
+    maxFeePerGas: ethers.parseUnits('120', 'gwei'),
+    maxPriorityFeePerGas: ethers.parseUnits('50', 'gwei'),
+  })
+  print(colors.highlight, 'Waiting for library deployment...')
+  await library.waitForDeployment()
+  const libraryAddress = await library.getAddress()
+  print(colors.success, `Library deployed at: ${libraryAddress}`)
 
   const newContract = await ethers.getContractFactory(CONTRACT_NAME, {
-    libraries: { [LIBRARY_NAME]: library.address },
+    libraries: { [LIBRARY_NAME]: libraryAddress },
   })
   const proposal = await defender.proposeUpgrade(CONTRACT_ADDRESS, newContract, {
     unsafeAllowLinkedLibraries: true,
@@ -38,7 +45,7 @@ async function main() {
       operator: OPERATOR_ADDRESS,
       implementation: implementationAddress,
       proxyAdmin: await upgrades.erc1967.getAdminAddress(CONTRACT_ADDRESS),
-      libraries: [library.address],
+      libraries: [libraryAddress],
     },
   }
 
@@ -50,15 +57,15 @@ async function main() {
 
   print(colors.highlight, 'Verifying Library...')
   try {
-    print(colors.highlight, `Verifying ${library.address}...`)
+    print(colors.highlight, `Verifying ${libraryAddress}...`)
     await hre.run('verify:verify', {
-      address: library.address,
+      address: libraryAddress,
       network: NETWORK,
       constructorArguments: [],
     })
     print(colors.success, 'Contract verified!')
   } catch (e) {
-    print(colors.error, `Error verifying library ${library.address}: ${e}`)
+    print(colors.error, `Error verifying library ${libraryAddress}: ${e}`)
   }
 
   try {
