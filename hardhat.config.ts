@@ -1,11 +1,9 @@
 import * as dotenv from 'dotenv'
 import 'solidity-coverage'
 import 'hardhat-gas-reporter'
-import '@nomiclabs/hardhat-etherscan'
 import '@openzeppelin/hardhat-upgrades'
 import 'hardhat-spdx-license-identifier'
 import '@nomicfoundation/hardhat-toolbox'
-import '@openzeppelin/hardhat-defender'
 import 'hardhat-contract-sizer'
 
 dotenv.config()

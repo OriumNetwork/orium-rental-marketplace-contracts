@@ -1,13 +1,11 @@
-import { BigNumber } from 'ethers'
-
 export interface FeeInfo {
-  feePercentageInWei: BigNumber
+  feePercentageInWei: bigint
   isCustomFee: boolean
 }
 
 export interface RoyaltyInfo {
   creator: string
-  royaltyPercentageInWei: BigNumber
+  royaltyPercentageInWei: bigint
   treasury: string
 }
 
@@ -18,7 +16,7 @@ export interface RentalOffer {
   tokenAddress: string
   tokenId: number
   feeTokenAddress: string
-  feeAmountPerSecond: BigNumber
+  feeAmountPerSecond: bigint
   deadline: number
   roles: string[]
   rolesData: string[]
@@ -35,15 +33,15 @@ export interface DirectRental {
 }
 
 export interface SftRentalOffer extends RentalOffer {
-  tokenAmount: BigNumber
-  commitmentId: BigNumber
+  tokenAmount: bigint
+  commitmentId: bigint
 }
 
 export interface CommitAndGrantRoleParams {
-  commitmentId: BigNumber
+  commitmentId: bigint
   tokenAddress: string
   tokenId: number
-  tokenAmount: BigNumber
+  tokenAmount: bigint
   role: string
   grantee: string
   expirationDate: number
