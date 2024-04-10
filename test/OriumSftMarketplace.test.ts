@@ -128,7 +128,10 @@ describe('OriumSftMarketplace', () => {
                       'createRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]))'
                     ](rentalOffer),
                 )
-                  .to.emit(marketplace, 'RentalOfferCreated')
+                  .to.emit(
+                    marketplace,
+                    'RentalOfferCreated(uint256,address,uint256,uint256,uint256,address,address,address,uint256,uint256,uint64,bytes32[],bytes[])',
+                  )
                   .withArgs(
                     rentalOffer.nonce,
                     rentalOffer.tokenAddress,
@@ -167,7 +170,10 @@ describe('OriumSftMarketplace', () => {
                       'createRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]))'
                     ](rentalOffer),
                 )
-                  .to.emit(marketplace, 'RentalOfferCreated')
+                  .to.emit(
+                    marketplace,
+                    'RentalOfferCreated(uint256,address,uint256,uint256,uint256,address,address,address,uint256,uint256,uint64,bytes32[],bytes[])',
+                  )
                   .withArgs(
                     rentalOffer.nonce,
                     rentalOffer.tokenAddress,
@@ -204,7 +210,10 @@ describe('OriumSftMarketplace', () => {
                       'createRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]))'
                     ](rentalOffer),
                 )
-                  .to.emit(marketplace, 'RentalOfferCreated')
+                  .to.emit(
+                    marketplace,
+                    'RentalOfferCreated(uint256,address,uint256,uint256,uint256,address,address,address,uint256,uint256,uint64,bytes32[],bytes[])',
+                  )
                   .withArgs(
                     rentalOffer.nonce,
                     rentalOffer.tokenAddress,
@@ -417,7 +426,10 @@ describe('OriumSftMarketplace', () => {
                       'createRentalOffer((address,address,address,uint256,uint256,address,uint256,uint256,uint256,uint64,uint64,bytes32[],bytes[]))'
                     ](rentalOffer),
                 )
-                  .to.emit(marketplace, 'RentalOfferCreated')
+                  .to.emit(
+                    marketplace,
+                    'RentalOfferCreated(uint256,address,uint256,uint256,uint256,address,address,address,uint256,uint256,uint64,bytes32[],bytes[])',
+                  )
                   .withArgs(
                     rentalOffer.nonce,
                     rentalOffer.tokenAddress,

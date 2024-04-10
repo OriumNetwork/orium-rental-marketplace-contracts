@@ -64,7 +64,7 @@ library LibOriumSftMarketplace {
      * is only used for reading the hash from the storage.
      * @param _offer The rental offer struct to be hashed.
      */
-    function hashRentalOfferLegacy(RentalOffer memory _offer) external pure returns (bytes32) {
+    function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
          return
             _offer.minDuration == 0
                 ? keccak256(
@@ -83,17 +83,7 @@ library LibOriumSftMarketplace {
                         _offer.rolesData
                     )
                 )
-                : hashRentalOffer(_offer);
-    }
-
-     /**
-     * @notice Gets the rental offer hash.
-     * @dev This function is used to hash the rental offer struct in the current version.
-     * is only used for writing the hash in the storage.
-     * @param _offer The rental offer struct to be hashed.
-     */
-    function hashRentalOffer(RentalOffer memory _offer) public pure returns (bytes32) {
-        return keccak256(abi.encode(_offer));
+                : keccak256(abi.encode(_offer));
     }
 
     /**
@@ -277,27 +267,26 @@ library LibOriumSftMarketplace {
     }
 
     function validateAcceptRentalOffer(
-        RentalOffer memory _offer,
+        address _borrower,
+        uint64 _minDuration,
         bool _isCreated,
-        uint64 _rentalExpirationDate,
+        uint64 _previousRentalExpirationDate,
         uint64 _duration,
         uint256 _nonceDeadline,
         uint64 _expirationDate
     ) external view {
         require(_isCreated, 'OriumSftMarketplace: Offer not created');
-        require(_rentalExpirationDate <= block.timestamp, 'OriumSftMarketplace: This offer has an ongoing rental');
+        require(_previousRentalExpirationDate <= block.timestamp, 'OriumSftMarketplace: This offer has an ongoing rental');
         require(
-            _duration >= _offer.minDuration,
+            _duration >= _minDuration,
             'OriumSftMarketplace: Duration is less than the offer minimum duration'
         );
-
         require(
             _nonceDeadline > _expirationDate,
             'OriumSftMarketplace: expiration date is greater than offer deadline'
         );
-
         require(
-            address(0) == _offer.borrower || msg.sender == _offer.borrower,
+            address(0) == _borrower || msg.sender == _borrower,
             'OriumSftMarketplace: Sender is not allowed to rent this SFT'
         );
     }
