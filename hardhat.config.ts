@@ -62,7 +62,7 @@ const BASE_CONFIG = {
     hardhat: {
       forking: {
         url: POLYGON_PROVIDER_URL,
-        blockNumber: 55899876,
+        blockNumber: 55899875,
       },
     },
   },
@@ -88,7 +88,7 @@ const PROD_CONFIG = {
     hardhat: {
       forking: {
         url: POLYGON_PROVIDER_URL,
-        blockNumber: 55899876,
+        blockNumber: 55899875,
       },
     },
     mumbai: {
