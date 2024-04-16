@@ -61,8 +61,8 @@ const BASE_CONFIG = {
   networks: {
     hardhat: {
       forking: {
-        url: MUMBAI_PROVIDER_URL,
-        blockNumber: 40877850,
+        url: POLYGON_PROVIDER_URL,
+        blockNumber: 55899876,
       },
     },
   },
@@ -87,8 +87,8 @@ const PROD_CONFIG = {
   networks: {
     hardhat: {
       forking: {
-        url: MUMBAI_PROVIDER_URL,
-        blockNumber: 40877850,
+        url: POLYGON_PROVIDER_URL,
+        blockNumber: 55899876,
       },
     },
     mumbai: {
