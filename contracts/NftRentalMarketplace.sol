@@ -3,12 +3,13 @@
 pragma solidity 0.8.9;
 
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
-import { IERC7432VaultExtension } from './interfaces/IERC7432VaultExtension.sol';
+import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
 import { LibNftRentalMarketplace, RentalOffer } from './libraries/LibNftRentalMarketplace.sol';
+import { LibOriumNftMarketplace, RentalOffer, Rental } from './libraries/LibOriumNftMarketplace.sol';
 
 /**
  * @title Orium NFT Marketplace - Marketplace for renting NFTs
@@ -29,6 +30,9 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
 
     /// @dev role => tokenAddress => tokenId => deadline
     mapping(bytes32 => mapping(address => mapping(uint256 => uint64))) public roleDeadline;
+
+    /// @dev hashedOffer => Rental
+    mapping(bytes32 => Rental) public rentals;
 
     /** ######### Events ########### **/
 
@@ -57,6 +61,14 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         bytes32[] roles,
         bytes[] rolesData
     );
+
+    /**
+     * @param lender The address of the lender
+     * @param nonce The nonce of the rental offer
+     * @param borrower The address of the borrower
+     * @param expirationDate The expiration date of the rental
+     */
+    event RentalStarted(address indexed lender, uint256 indexed nonce, address indexed borrower, uint64 expirationDate);
 
     /** ######### Initializer ########### **/
     /**
@@ -114,6 +126,51 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _offer.roles,
             _offer.rolesData
         );
+    }
+
+    /**
+     * @notice Accepts a rental offer.
+     * @dev The borrower can be address(0) to allow anyone to rent the NFT.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     * @param _duration The duration of the rental.
+     */
+    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+        bytes32 _offerHash = LibOriumNftMarketplace.hashRentalOffer(_offer);
+        uint64 _expirationDate = uint64(block.timestamp + _duration);
+
+        LibOriumNftMarketplace.validateAcceptRentalOfferParams(
+            _offer.borrower,
+            _offer.minDuration,
+            isCreated[_offerHash],
+            rentals[_offerHash].expirationDate,
+            _duration,
+            nonceDeadline[_offer.lender][_offer.nonce],
+            _expirationDate
+        );
+
+        LibOriumNftMarketplace.transferFees(
+            _offer.feeTokenAddress,
+            owner(),
+            _offer.lender,
+            oriumMarketplaceRoyalties,
+            _offer.tokenAddress,
+            _offer.feeAmountPerSecond,
+            _duration
+        );
+
+        LibOriumNftMarketplace.batchGrantRole(
+            oriumMarketplaceRoyalties,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.borrower,
+            _expirationDate,
+            _offer.roles,
+            _offer.rolesData
+        );
+
+        rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+
+        emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
     }
 
     /** ============================ Core Functions  ================================== **/
