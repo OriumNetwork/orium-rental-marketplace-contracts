@@ -1,6 +1,12 @@
 import { ethers, upgrades } from 'hardhat'
-import { AddressZero, RolesRegistryAddress, THREE_MONTHS } from '../../utils/constants'
-import { IERC7432, MockERC20, MockERC721, OriumMarketplaceRoyalties, OriumNftMarketplace } from '../../typechain-types'
+import { AddressZero, THREE_MONTHS } from '../../utils/constants'
+import {
+  NftRolesRegistryVault,
+  MockERC20,
+  MockERC721,
+  OriumMarketplaceRoyalties,
+  OriumNftMarketplace,
+} from '../../typechain-types'
 /**
  * @dev deployer, operator needs to be the first accounts in the hardhat ethers.getSigners()
  * list respectively. This should be considered to use this fixture in tests
@@ -9,7 +15,9 @@ import { IERC7432, MockERC20, MockERC721, OriumMarketplaceRoyalties, OriumNftMar
 export async function deployNftMarketplaceContracts() {
   const [, operator] = await ethers.getSigners()
 
-  const rolesRegistry: IERC7432 = await ethers.getContractAt('IERC7432', RolesRegistryAddress)
+  const RolesRegistryFactory = await ethers.getContractFactory('NftRolesRegistryVault')
+  const rolesRegistry: NftRolesRegistryVault = await RolesRegistryFactory.deploy()
+  await rolesRegistry.waitForDeployment()
 
   const MarketplaceRoyaltiesFactory = await ethers.getContractFactory('OriumMarketplaceRoyalties')
   const marketplaceRoyaltiesProxy = await upgrades.deployProxy(MarketplaceRoyaltiesFactory, [
@@ -23,12 +31,22 @@ export async function deployNftMarketplaceContracts() {
     'OriumMarketplaceRoyalties',
     await marketplaceRoyaltiesProxy.getAddress(),
   )
+  const LibMarketplaceFactory = await ethers.getContractFactory('LibOriumNftMarketplace')
+  const libMarketplace = await LibMarketplaceFactory.deploy()
+  await libMarketplace.waitForDeployment()
 
-  const MarketplaceFactory = await ethers.getContractFactory('OriumNftMarketplace')
-  const marketplaceProxy = await upgrades.deployProxy(MarketplaceFactory, [
-    operator.address,
-    await marketplaceRoyalties.getAddress(),
-  ])
+  const MarketplaceFactory = await ethers.getContractFactory('OriumNftMarketplace', {
+    libraries: {
+      LibOriumNftMarketplace: await libMarketplace.getAddress(),
+    },
+  })
+  const marketplaceProxy = await upgrades.deployProxy(
+    MarketplaceFactory,
+    [operator.address, await marketplaceRoyalties.getAddress()],
+    {
+      unsafeAllowLinkedLibraries: true,
+    },
+  )
   await marketplaceProxy.waitForDeployment()
 
   const marketplace: OriumNftMarketplace = await ethers.getContractAt(

@@ -193,7 +193,7 @@ describe('OriumNftMarketplace', () => {
                 .connect(operator)
                 .setTrustedFeeTokenForToken([await mockERC721.getAddress()], [await mockERC20.getAddress()], [false])
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumSftMarketplace: tokenAddress is not trusted',
+                'OriumNftMarketplace: tokenAddress is not trusted',
               )
             })
             it('Should NOT create a rental offer if deadline is less than minDuration', async () => {
