@@ -3,6 +3,7 @@
 pragma solidity 0.8.9;
 
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import { IERC7432VaultExtension } from './interfaces/IERC7432VaultExtension.sol';
 import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
@@ -82,8 +83,12 @@ contract OriumNftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _tokenId The id of the token.
      */
     modifier onlyTokenOwner(address _tokenAddress, uint256 _tokenId) {
+        address _rolesRegistry = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).nftRolesRegistryOf(
+            _tokenAddress
+        );
         require(
-            msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId),
+            msg.sender == IERC721(_tokenAddress).ownerOf(_tokenId) ||
+                msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_tokenAddress, _tokenId),
             'OriumNftMarketplace: only token owner can call this function'
         );
         _;
@@ -96,7 +101,7 @@ contract OriumNftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _owner The owner of the protocol.
      * @param _oriumMarketplaceRoyalties The address of the OriumMarketplaceRoyalties contract.
      */
-    function initialize(address _owner, address _oriumMarketplaceRoyalties) public initializer {
+    function initialize(address _owner, address _oriumMarketplaceRoyalties) external initializer {
         __Pausable_init();
         __Ownable_init();
 
