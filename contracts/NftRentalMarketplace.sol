@@ -161,7 +161,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             oriumMarketplaceRoyalties,
             _offer.tokenAddress,
             _offer.tokenId,
-            _offer.borrower,
+            msg.sender,
             _expirationDate,
             _offer.roles,
             _offer.rolesData
