@@ -5,6 +5,7 @@ pragma solidity 0.8.9;
 import { IERC7432 } from '../interfaces/IERC7432.sol';
 import { IERC7432VaultExtension } from '../interfaces/IERC7432VaultExtension.sol';
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import "hardhat/console.sol";
 
 contract NftRolesRegistryVault is IERC7432, IERC7432VaultExtension {
     struct RoleData {
@@ -61,6 +62,9 @@ contract NftRolesRegistryVault is IERC7432, IERC7432VaultExtension {
     function revokeRole(address _tokenAddress, uint256 _tokenId, bytes32 _roleId) external override {
         address _recipient = roles[_tokenAddress][_tokenId][_roleId].recipient;
         address _caller = _getApprovedCaller(_tokenAddress, _tokenId, _recipient);
+
+        console.log("caller: %s", _caller);
+        console.log("recipient: %s", _recipient);
 
         // if caller is recipient, the role can be revoked regardless of its state
         if (_caller != _recipient) {

@@ -38,7 +38,7 @@ library LibNftRentalMarketplace {
      * @dev This function is used to hash the rental offer struct
      * @param _offer The rental offer struct to be hashed.
      */
-    function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
+    function hashRentalOffer(RentalOffer memory _offer) public pure returns (bytes32) {
         return keccak256(abi.encode(_offer));
     }
 
@@ -220,6 +220,54 @@ library LibNftRentalMarketplace {
                     data: _data[i]
                 })
             );
+        }
+    }
+
+    /**
+     * @notice Validates the cancel rental offer params.
+     * @dev This function is used to validate the cancel rental offer params.
+     * @param _isCreated The offer is created
+     * @param _lender The lender address
+     * @param _nonceDeadline The nonce deadline
+     */
+    function validateCancelRentalOfferParams(bool _isCreated, address _lender, uint256 _nonceDeadline) external view {
+        require(_isCreated, 'NftRentalMarketplace: Offer not created');
+        require(msg.sender == _lender, 'NftRentalMarketplace: Only lender can cancel a rental offer');
+        require(_nonceDeadline > block.timestamp, 'NftRentalMarketplace: Nonce expired or not used yet');
+    }
+
+    /**
+     * @notice Validates the end rental params.
+     * @dev This function is used to validate the end rental params.
+     * @param _isCreated The offer is created
+     * @param _borrower The borrower address
+     * @param _expirationDate The expiration date
+     */
+    function validateEndRentalParams(bool _isCreated, address _borrower, uint64 _expirationDate) external view {
+        require(_isCreated, 'NftRentalMarketplace: Offer not created');
+        require(msg.sender == _borrower, 'NftRentalMarketplace: Only borrower can end a rental');
+        require(_expirationDate > block.timestamp, 'NftRentalMarketplace: There are no active Rentals');
+    }
+
+    /**
+     * @notice Revokes roles for the same NFT.
+     * @dev This function is used to batch revoke roles for the same NFT.
+     * @param _oriumMarketplaceRoyalties The Orium marketplace royalties contract address.
+     * @param _tokenAddress The token address.
+     * @param _tokenId The token id.
+     * @param _roleIds The role ids.
+     */
+    function revokeRoles(
+        address _oriumMarketplaceRoyalties,
+        address _tokenAddress,
+        uint256 _tokenId,
+        bytes32[] calldata _roleIds
+    ) external {
+        address _rolesRegsitry = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).nftRolesRegistryOf(
+            _tokenAddress
+        );
+        for (uint256 i = 0; i < _roleIds.length; i++) {
+            IERC7432(_rolesRegsitry).revokeRole(_tokenAddress, _tokenId, _roleIds[i]);
         }
     }
 }

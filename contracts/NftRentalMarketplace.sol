@@ -69,6 +69,18 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      */
     event RentalStarted(address indexed lender, uint256 indexed nonce, address indexed borrower, uint64 expirationDate);
 
+    /**
+     * @param lender The address of the lender
+     * @param nonce The nonce of the rental offer
+     */
+    event RentalOfferCancelled(address indexed lender, uint256 indexed nonce);
+
+    /**
+     * @param lender The address of the lender
+     * @param nonce The nonce of the rental offer
+     */
+    event RentalEnded(address indexed lender, uint256 indexed nonce);
+
     /** ######### Initializer ########### **/
     /**
      * @notice Initializes the contract.
@@ -170,6 +182,40 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
 
         emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
+    }
+
+    /**
+     * @notice Cancels a rental offer.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+
+    function cancelRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
+        LibNftRentalMarketplace.validateCancelRentalOfferParams(
+            isCreated[_offerHash],
+            _offer.lender,
+            nonceDeadline[_offer.lender][_offer.nonce]
+        );
+
+        nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
+        emit RentalOfferCancelled(_offer.lender, _offer.nonce);
+    }
+
+    /**
+     * @notice Ends the rental prematurely.
+     * @dev Can only be called by the borrower.
+     * @dev Borrower needs to approve marketplace to revoke the roles.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function endRental(RentalOffer calldata _offer) external whenNotPaused {
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
+        Rental storage _rental = rentals[_offerHash];
+
+        LibNftRentalMarketplace.validateEndRentalParams(isCreated[_offerHash], _rental.borrower, _rental.expirationDate);
+        LibNftRentalMarketplace.revokeRoles(oriumMarketplaceRoyalties, _offer.tokenAddress, _offer.tokenId, _offer.roles);
+
+        _rental.expirationDate = uint64(block.timestamp);
+        emit RentalEnded(_offer.lender, _offer.nonce);
     }
 
     /** ============================ Core Functions  ================================== **/
