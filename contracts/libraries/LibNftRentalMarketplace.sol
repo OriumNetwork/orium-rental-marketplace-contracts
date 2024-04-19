@@ -73,7 +73,10 @@ library LibNftRentalMarketplace {
             _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
             'NftRentalMarketplace: feeAmountPerSecond should be greater than 0'
         );
-        require(_offer.minDuration <= _offer.deadline - block.timestamp, 'NftRentalMarketplace: minDuration is invalid');
+        require(
+            _offer.minDuration <= _offer.deadline - block.timestamp,
+            'NftRentalMarketplace: minDuration is invalid'
+        );
         require(_nonceDeadline == 0, 'NftRentalMarketplace: nonce already used');
     }
 }

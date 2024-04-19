@@ -82,9 +82,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
-    function createRentalOffer(
-        RentalOffer calldata _offer
-    ) external whenNotPaused {
+    function createRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
         LibNftRentalMarketplace.validateCreateRentalOfferParams(
             oriumMarketplaceRoyalties,
             _offer,
@@ -94,7 +92,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         isCreated[_offerHash] = true;
         nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
-        
+
         for (uint256 i = 0; i < _offer.roles.length; i++) {
             require(
                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] < block.timestamp,
