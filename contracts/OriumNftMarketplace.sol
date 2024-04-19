@@ -8,14 +8,14 @@ import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalt
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
-import { LibOriumNftMarketplace, RentalOffer } from './libraries/LibOriumNftMarketplace.sol';
+import { LibNftRentalMarketplace, RentalOffer } from './libraries/LibNftRentalMarketplace.sol';
 
 /**
  * @title Orium NFT Marketplace - Marketplace for renting NFTs
  * @dev This contract is used to manage NFTs rentals, powered by ERC-7432 Non-Fungible Token Roles
  * @author Orium Network Team - developers@orium.network
  */
-contract OriumNftMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
+contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
     /** ######### Global Variables ########### **/
 
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
@@ -84,22 +84,21 @@ contract OriumNftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function createRentalOffer(
         RentalOffer calldata _offer
-    ) external {
-        LibOriumNftMarketplace.validateCreateRentalOfferParams(
+    ) external whenNotPaused {
+        LibNftRentalMarketplace.validateCreateRentalOfferParams(
             oriumMarketplaceRoyalties,
             _offer,
             nonceDeadline[msg.sender][_offer.nonce]
         );
 
-        bytes32 _offerHash = LibOriumNftMarketplace.hashRentalOffer(_offer);
-
-        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         isCreated[_offerHash] = true;
+        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
         
         for (uint256 i = 0; i < _offer.roles.length; i++) {
             require(
                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] < block.timestamp,
-                'OriumNftMarketplace: role still has an active offer'
+                'NftRentalMarketplace: role still has an active offer'
             );
             roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _offer.deadline;
         }

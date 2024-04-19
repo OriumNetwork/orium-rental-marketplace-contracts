@@ -6,11 +6,11 @@ import { RentalOffer } from '../utils/types'
 import { AddressZero, EMPTY_BYTES, ONE_DAY, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
-import { IERC7432, MockERC20, MockERC721, OriumMarketplaceRoyalties, OriumNftMarketplace } from '../typechain-types'
-import { deployNftMarketplaceContracts } from './fixtures/OriumNftMarketplaceFixture'
+import { IERC7432, MockERC20, MockERC721, OriumMarketplaceRoyalties, NftRentalMarketplace } from '../typechain-types'
+import { deployNftMarketplaceContracts } from './fixtures/NftRentalMarketplaceFixture'
 
-describe('OriumNftMarketplace', () => {
-  let marketplace: OriumNftMarketplace
+describe('NftRentalMarketplace', () => {
+  let marketplace: NftRentalMarketplace
   let marketplaceRoyalties: OriumMarketplaceRoyalties
   let rolesRegistry: IERC7432
   let mockERC721: MockERC721
@@ -136,56 +136,56 @@ describe('OriumNftMarketplace', () => {
             })
             it('Should NOT create a rental offer if caller is not the lender', async () => {
               await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: only token owner can call this function',
+                'NftRentalMarketplace: only token owner can call this function',
               )
             })
             it("Should NOT create a rental offer if lender is not the caller's address", async () => {
               rentalOffer.lender = creator.address
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: Sender and Lender mismatch',
+                'NftRentalMarketplace: Sender and Lender mismatch',
               )
             })
             it("Should NOT create a rental offer if roles and rolesData don't have the same length", async () => {
               rentalOffer.roles = [`0x${randomBytes(32).toString('hex')}`]
               rentalOffer.rolesData = [`0x${randomBytes(32).toString('hex')}`, `0x${randomBytes(32).toString('hex')}`]
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: roles and rolesData should have the same length',
+                'NftRentalMarketplace: roles and rolesData should have the same length',
               )
             })
             it('Should NOT create a rental offer if deadline is greater than maxDeadline', async () => {
               rentalOffer.deadline = maxDeadline + 1
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: Invalid deadline',
+                'NftRentalMarketplace: Invalid deadline',
               )
             })
             it("Should NOT create a rental offer if deadline is less than block's timestamp", async () => {
               rentalOffer.deadline = Number((await ethers.provider.getBlock('latest'))?.timestamp) - 1
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: Invalid deadline',
+                'NftRentalMarketplace: Invalid deadline',
               )
             })
             it('Should NOT create the same rental offer twice', async () => {
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: nonce already used',
+                'NftRentalMarketplace: nonce already used',
               )
             })
             it('Should NOT create a rental offer if roles or rolesData are empty', async () => {
               rentalOffer.roles = []
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: roles should not be empty',
+                'NftRentalMarketplace: roles should not be empty',
               )
             })
             it('Should NOT create a rental offer if nonce is zero', async () => {
               rentalOffer.nonce = '0'
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: Nonce cannot be 0',
+                'NftRentalMarketplace: Nonce cannot be 0',
               )
             })
             it('Should NOT create a rental offer if feeAmountPerSecond is zero', async () => {
               rentalOffer.feeAmountPerSecond = BigInt(0)
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: feeAmountPerSecond should be greater than 0',
+                'NftRentalMarketplace: feeAmountPerSecond should be greater than 0',
               )
             })
             it('Should NOT create a rental offer if tokenAddress is not trusted', async () => {
@@ -193,20 +193,20 @@ describe('OriumNftMarketplace', () => {
                 .connect(operator)
                 .setTrustedFeeTokenForToken([await mockERC721.getAddress()], [await mockERC20.getAddress()], [false])
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: tokenAddress is not trusted',
+                'NftRentalMarketplace: tokenAddress or feeTokenAddress is not trusted',
               )
             })
             it('Should NOT create a rental offer if deadline is less than minDuration', async () => {
               rentalOffer.minDuration = ONE_DAY * 2
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: minDuration is invalid',
+                'NftRentalMarketplace: minDuration is invalid',
               )
             })
             it('Should NOT create more than one rental offer for the same role', async () => {
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'OriumNftMarketplace: role still has an active offer',
+                'NftRentalMarketplace: role still has an active offer',
               )
             })
           })

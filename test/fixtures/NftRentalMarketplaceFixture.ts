@@ -5,7 +5,7 @@ import {
   MockERC20,
   MockERC721,
   OriumMarketplaceRoyalties,
-  OriumNftMarketplace,
+  NftRentalMarketplace,
 } from '../../typechain-types'
 /**
  * @dev deployer, operator needs to be the first accounts in the hardhat ethers.getSigners()
@@ -31,13 +31,13 @@ export async function deployNftMarketplaceContracts() {
     'OriumMarketplaceRoyalties',
     await marketplaceRoyaltiesProxy.getAddress(),
   )
-  const LibMarketplaceFactory = await ethers.getContractFactory('LibOriumNftMarketplace')
+  const LibMarketplaceFactory = await ethers.getContractFactory('LibNftRentalMarketplace')
   const libMarketplace = await LibMarketplaceFactory.deploy()
   await libMarketplace.waitForDeployment()
 
-  const MarketplaceFactory = await ethers.getContractFactory('OriumNftMarketplace', {
+  const MarketplaceFactory = await ethers.getContractFactory('NftRentalMarketplace', {
     libraries: {
-      LibOriumNftMarketplace: await libMarketplace.getAddress(),
+      LibNftRentalMarketplace: await libMarketplace.getAddress(),
     },
   })
   const marketplaceProxy = await upgrades.deployProxy(
@@ -49,8 +49,8 @@ export async function deployNftMarketplaceContracts() {
   )
   await marketplaceProxy.waitForDeployment()
 
-  const marketplace: OriumNftMarketplace = await ethers.getContractAt(
-    'OriumNftMarketplace',
+  const marketplace: NftRentalMarketplace = await ethers.getContractAt(
+    'NftRentalMarketplace',
     await marketplaceProxy.getAddress(),
   )
 

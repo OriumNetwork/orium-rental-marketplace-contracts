@@ -21,7 +21,7 @@ struct RentalOffer {
     bytes[] rolesData;
 }
 
-library LibOriumNftMarketplace {
+library LibNftRentalMarketplace {
     /**
      * @notice Gets the rental offer hash.
      * @dev This function is used to hash the rental offer struct
@@ -40,38 +40,40 @@ library LibOriumNftMarketplace {
         RentalOffer calldata _offer,
         uint64 _nonceDeadline
     ) external view {
-         address _rolesRegistry = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).nftRolesRegistryOf(
+        address _rolesRegistry = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).nftRolesRegistryOf(
             _offer.tokenAddress
         );
+        address _nftOwner = IERC721(_offer.tokenAddress).ownerOf(_offer.tokenId);
         require(
-            msg.sender == IERC721(_offer.tokenAddress).ownerOf(_offer.tokenId) ||
-                msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_offer.tokenAddress, _offer.tokenId),
-            'OriumNftMarketplace: only token owner can call this function'
+            msg.sender == _nftOwner ||
+                (msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_offer.tokenAddress, _offer.tokenId) &&
+                    _rolesRegistry == _nftOwner),
+            'NftRentalMarketplace: only token owner can call this function'
         );
         require(
             IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).isTrustedFeeTokenAddressForToken(
                 _offer.tokenAddress,
                 _offer.feeTokenAddress
             ),
-            'OriumNftMarketplace: tokenAddress is not trusted'
+            'NftRentalMarketplace: tokenAddress or feeTokenAddress is not trusted'
         );
         require(
             _offer.deadline <= block.timestamp + IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).maxDuration() &&
                 _offer.deadline > block.timestamp,
-            'OriumNftMarketplace: Invalid deadline'
+            'NftRentalMarketplace: Invalid deadline'
         );
-        require(_offer.nonce != 0, 'OriumNftMarketplace: Nonce cannot be 0');
-        require(msg.sender == _offer.lender, 'OriumNftMarketplace: Sender and Lender mismatch');
-        require(_offer.roles.length > 0, 'OriumNftMarketplace: roles should not be empty');
+        require(_offer.nonce != 0, 'NftRentalMarketplace: Nonce cannot be 0');
+        require(msg.sender == _offer.lender, 'NftRentalMarketplace: Sender and Lender mismatch');
+        require(_offer.roles.length > 0, 'NftRentalMarketplace: roles should not be empty');
         require(
             _offer.roles.length == _offer.rolesData.length,
-            'OriumNftMarketplace: roles and rolesData should have the same length'
+            'NftRentalMarketplace: roles and rolesData should have the same length'
         );
         require(
             _offer.borrower != address(0) || _offer.feeAmountPerSecond > 0,
-            'OriumNftMarketplace: feeAmountPerSecond should be greater than 0'
+            'NftRentalMarketplace: feeAmountPerSecond should be greater than 0'
         );
-        require(_offer.minDuration <= _offer.deadline - block.timestamp, 'OriumNftMarketplace: minDuration is invalid');
-        require(_nonceDeadline == 0, 'OriumNftMarketplace: nonce already used');
+        require(_offer.minDuration <= _offer.deadline - block.timestamp, 'NftRentalMarketplace: minDuration is invalid');
+        require(_nonceDeadline == 0, 'NftRentalMarketplace: nonce already used');
     }
 }
