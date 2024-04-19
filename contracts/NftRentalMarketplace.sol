@@ -8,8 +8,7 @@ import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalt
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
-import { LibNftRentalMarketplace, RentalOffer } from './libraries/LibNftRentalMarketplace.sol';
-import { LibOriumNftMarketplace, RentalOffer, Rental } from './libraries/LibOriumNftMarketplace.sol';
+import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNftRentalMarketplace.sol';
 
 /**
  * @title Orium NFT Marketplace - Marketplace for renting NFTs
@@ -135,10 +134,10 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @param _duration The duration of the rental.
      */
     function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
-        bytes32 _offerHash = LibOriumNftMarketplace.hashRentalOffer(_offer);
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
 
-        LibOriumNftMarketplace.validateAcceptRentalOfferParams(
+        LibNftRentalMarketplace.validateAcceptRentalOfferParams(
             _offer.borrower,
             _offer.minDuration,
             isCreated[_offerHash],
@@ -148,7 +147,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _expirationDate
         );
 
-        LibOriumNftMarketplace.transferFees(
+        LibNftRentalMarketplace.transferFees(
             _offer.feeTokenAddress,
             owner(),
             _offer.lender,
@@ -158,7 +157,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _duration
         );
 
-        LibOriumNftMarketplace.batchGrantRole(
+        LibNftRentalMarketplace.grantRoles(
             oriumMarketplaceRoyalties,
             _offer.tokenAddress,
             _offer.tokenId,
