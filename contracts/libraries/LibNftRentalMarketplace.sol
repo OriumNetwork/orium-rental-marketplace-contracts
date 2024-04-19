@@ -91,7 +91,7 @@ library LibNftRentalMarketplace {
         require(_nonceDeadline == 0, 'NftRentalMarketplace: nonce already used');
     }
 
-     /**
+    /**
      * @dev All values needs to be in wei.
      * @param _amount The amount to calculate the percentage from.
      * @param _percentage The percentage to calculate.
@@ -100,7 +100,7 @@ library LibNftRentalMarketplace {
         return (_amount * _percentage) / MAX_PERCENTAGE;
     }
 
-     /**
+    /**
      * @notice Transfers the fees.
      * @dev The fee token address should be approved before calling this function.
      * @param _feeTokenAddress The fee token address.
@@ -212,5 +212,4 @@ library LibNftRentalMarketplace {
             );
         }
     }
-
 }
