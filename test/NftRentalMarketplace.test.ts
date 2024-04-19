@@ -134,6 +134,40 @@ describe('NftRentalMarketplace', () => {
                   rentalOffer.rolesData,
                 )
             })
+            it('Should create rental offer if token is already deposited in rolesRegistry', async function () {
+              await mockERC721.connect(lender).approve(await rolesRegistry.getAddress(), tokenId)
+              await rolesRegistry.connect(lender).grantRole({
+                roleId: USER_ROLE,
+                tokenAddress: await mockERC721.getAddress(),
+                tokenId,
+                recipient: lender.address,
+                expirationDate: (await time.latest()) + ONE_DAY,
+                revocable: true,
+                data: EMPTY_BYTES,
+              })
+              await rolesRegistry.connect(lender).revokeRole(rentalOffer.tokenAddress, rentalOffer.tokenId, USER_ROLE)
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCreated')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.lender,
+                  rentalOffer.borrower,
+                  rentalOffer.feeTokenAddress,
+                  rentalOffer.feeAmountPerSecond,
+                  rentalOffer.deadline,
+                  rentalOffer.minDuration,
+                  rentalOffer.roles,
+                  rentalOffer.rolesData,
+                )
+            })
+            it('Should NOT create a rental offer if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'Pausable: paused',
+              )
+            })
             it('Should NOT create a rental offer if caller is not the lender', async () => {
               await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer)).to.be.revertedWith(
                 'NftRentalMarketplace: only token owner can call this function',
