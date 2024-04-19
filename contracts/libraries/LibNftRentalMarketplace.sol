@@ -38,7 +38,7 @@ library LibNftRentalMarketplace {
      * @dev This function is used to hash the rental offer struct
      * @param _offer The rental offer struct to be hashed.
      */
-    function hashRentalOffer(RentalOffer memory _offer) public pure returns (bytes32) {
+    function hashRentalOffer(RentalOffer memory _offer) external pure returns (bytes32) {
         return keccak256(abi.encode(_offer));
     }
 
