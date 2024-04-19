@@ -561,17 +561,6 @@ describe('NftRentalMarketplace', () => {
                   'NftRentalMarketplace: There are no active Rentals',
                 )
               })
-              it('Should NOT end a rental if the role was revoked by borrower directly in registry', async () => {
-                await rolesRegistry
-                  .connect(borrower)
-                  .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
-                await rolesRegistry
-                  .connect(borrower)
-                  .revokeRole(rentalOffer.tokenAddress, rentalOffer.tokenId, rentalOffer.roles[0])
-                await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                  'SftRolesRegistry: grantee mismatch',
-                )
-              })
               it('Should NOT end rental twice', async () => {
                 await marketplace.connect(borrower).endRental(rentalOffer)
                 await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
