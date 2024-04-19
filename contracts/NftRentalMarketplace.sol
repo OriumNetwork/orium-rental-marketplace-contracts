@@ -211,8 +211,17 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         Rental storage _rental = rentals[_offerHash];
 
-        LibNftRentalMarketplace.validateEndRentalParams(isCreated[_offerHash], _rental.borrower, _rental.expirationDate);
-        LibNftRentalMarketplace.revokeRoles(oriumMarketplaceRoyalties, _offer.tokenAddress, _offer.tokenId, _offer.roles);
+        LibNftRentalMarketplace.validateEndRentalParams(
+            isCreated[_offerHash],
+            _rental.borrower,
+            _rental.expirationDate
+        );
+        LibNftRentalMarketplace.revokeRoles(
+            oriumMarketplaceRoyalties,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.roles
+        );
 
         _rental.expirationDate = uint64(block.timestamp);
         emit RentalEnded(_offer.lender, _offer.nonce);
