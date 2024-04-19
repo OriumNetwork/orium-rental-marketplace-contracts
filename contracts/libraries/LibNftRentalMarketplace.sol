@@ -146,7 +146,7 @@ library LibNftRentalMarketplace {
      */
     function _transferAmount(address _tokenAddress, address _from, address _to, uint256 _amount) internal {
         if (_amount == 0) return;
-        require(IERC20(_tokenAddress).transferFrom(_from, _to, _amount), 'OriumNftMarketplace: Transfer failed');
+        require(IERC20(_tokenAddress).transferFrom(_from, _to, _amount), 'NftRentalMarketplace: Transfer failed');
     }
 
     function validateAcceptRentalOfferParams(
@@ -158,19 +158,19 @@ library LibNftRentalMarketplace {
         uint256 _nonceDeadline,
         uint64 _expirationDate
     ) external view {
-        require(_isCreated, 'OriumNftMarketplace: Offer not created');
+        require(_isCreated, 'NftRentalMarketplace: Offer not created');
         require(
             _previousRentalExpirationDate <= block.timestamp,
-            'OriumNftMarketplace: This offer has an ongoing rental'
+            'NftRentalMarketplace: This offer has an ongoing rental'
         );
-        require(_duration >= _minDuration, 'OriumNftMarketplace: Duration is less than the offer minimum duration');
+        require(_duration >= _minDuration, 'NftRentalMarketplace: Duration is less than the offer minimum duration');
         require(
             _nonceDeadline > _expirationDate,
-            'OriumNftMarketplace: expiration date is greater than offer deadline'
+            'NftRentalMarketplace: expiration date is greater than offer deadline'
         );
         require(
             address(0) == _borrower || msg.sender == _borrower,
-            'OriumNftMarketplace: Sender is not allowed to rent this NFT'
+            'NftRentalMarketplace: Sender is not allowed to rent this NFT'
         );
     }
 

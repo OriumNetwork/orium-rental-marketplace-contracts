@@ -367,7 +367,7 @@ describe('NftRentalMarketplace', () => {
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
               await expect(
                 marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration / 2),
-              ).to.be.revertedWith('OriumNftMarketplace: Duration is less than the offer minimum duration')
+              ).to.be.revertedWith('NftRentalMarketplace: Duration is less than the offer minimum duration')
             })
             it('Should NOT accept a rental offer if contract is paused', async () => {
               await marketplace.connect(operator).pause()
@@ -384,7 +384,7 @@ describe('NftRentalMarketplace', () => {
               await mockERC20.mint(notOperator.address, totalFeeAmount.toString())
               await expect(
                 marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration),
-              ).to.be.revertedWith('OriumNftMarketplace: Sender is not allowed to rent this NFT')
+              ).to.be.revertedWith('NftRentalMarketplace: Sender is not allowed to rent this NFT')
             })
             it('Should NOT accept a rental offer if offer is expired', async () => {
               // move foward in time to expire the offer
@@ -393,20 +393,20 @@ describe('NftRentalMarketplace', () => {
               await ethers.provider.send('evm_increaseTime', [timeToMove])
 
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                'OriumNftMarketplace: expiration date is greater than offer deadline',
+                'NftRentalMarketplace: expiration date is greater than offer deadline',
               )
             })
             it('Should NOT accept a rental offer if offer is not created', async () => {
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                'OriumNftMarketplace: Offer not created',
+                'NftRentalMarketplace: Offer not created',
               )
             })
             it('Should NOT accept a rental offer if expiration date is higher than offer deadline', async () => {
               const maxDuration = rentalOffer.deadline - Number(await time.latest()) + 1
               await expect(
                 marketplace.connect(borrower).acceptRentalOffer(rentalOffer, maxDuration),
-              ).to.be.revertedWith('OriumNftMarketplace: expiration date is greater than offer deadline')
+              ).to.be.revertedWith('NftRentalMarketplace: expiration date is greater than offer deadline')
             })
             describe('Fees', async function () {
               const feeAmountPerSecond = toWei('1')
@@ -451,25 +451,25 @@ describe('NftRentalMarketplace', () => {
               it('Should NOT accept a rental offer if marketplace fee transfer fails', async () => {
                 await mockERC20.transferReverts(true, 0)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumNftMarketplace: Transfer failed',
+                  'NftRentalMarketplace: Transfer failed',
                 )
               })
               it('Should NOT accept a rental offer if royalty fee transfer fails', async () => {
                 await mockERC20.transferReverts(true, 1)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumNftMarketplace: Transfer failed',
+                  'NftRentalMarketplace: Transfer failed',
                 )
               })
               it('Should NOT accept a rental offer if lender fee transfer fails', async () => {
                 await mockERC20.transferReverts(true, 2)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumNftMarketplace: Transfer failed',
+                  'NftRentalMarketplace: Transfer failed',
                 )
               })
               it('Should NOT accept a rental offer twice', async () => {
                 await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
-                  'OriumNftMarketplace: This offer has an ongoing rental',
+                  'NftRentalMarketplace: This offer has an ongoing rental',
                 )
               })
             })
