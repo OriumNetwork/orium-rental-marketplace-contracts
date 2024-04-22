@@ -106,7 +106,7 @@ library LibNftRentalMarketplace {
      * @param _feeTokenAddress The fee token address.
      * @param _marketplaceTreasuryAddress The marketplace treasury address.
      * @param _lenderAddress The lender address.
-     * @param _royaltiesAddress The Orium marketplace royalties contract address.
+     * @param _oriumRoyaltiesAddress The Orium marketplace royalties contract address.
      * @param _tokenAddress The token address.
      * @param _feeAmountPerSecond The fee amount per second.
      * @param _duration The duration of the rental.
@@ -115,7 +115,7 @@ library LibNftRentalMarketplace {
         address _feeTokenAddress,
         address _marketplaceTreasuryAddress,
         address _lenderAddress,
-        address _royaltiesAddress,
+        address _oriumRoyaltiesAddress,
         address _tokenAddress,
         uint256 _feeAmountPerSecond,
         uint64 _duration
@@ -123,7 +123,7 @@ library LibNftRentalMarketplace {
         uint256 _totalAmount = _feeAmountPerSecond * _duration;
         if (_totalAmount == 0) return;
 
-        IOriumMarketplaceRoyalties _royalties = IOriumMarketplaceRoyalties(_royaltiesAddress);
+        IOriumMarketplaceRoyalties _royalties = IOriumMarketplaceRoyalties(_oriumRoyaltiesAddress);
         uint256 _marketplaceFeePercentageInWei = _royalties.marketplaceFeeOf(_tokenAddress);
         IOriumMarketplaceRoyalties.RoyaltyInfo memory _royaltyInfo = _royalties.royaltyInfoOf(_tokenAddress);
 
@@ -131,24 +131,34 @@ library LibNftRentalMarketplace {
         uint256 _royaltyAmount = getAmountFromPercentage(_totalAmount, _royaltyInfo.royaltyPercentageInWei);
         uint256 _lenderAmount = _totalAmount - _royaltyAmount - _marketplaceAmount;
 
-        _transferAmount(_feeTokenAddress, msg.sender, _marketplaceTreasuryAddress, _marketplaceAmount);
-        _transferAmount(_feeTokenAddress, msg.sender, _royaltyInfo.treasury, _royaltyAmount);
-        _transferAmount(_feeTokenAddress, msg.sender, _lenderAddress, _lenderAmount);
+        _transferAmount(_feeTokenAddress, _marketplaceTreasuryAddress, _marketplaceAmount);
+        _transferAmount(_feeTokenAddress, _royaltyInfo.treasury, _royaltyAmount);
+        _transferAmount(_feeTokenAddress, _lenderAddress, _lenderAmount);
     }
 
     /**
      * @notice Transfers an amount to a receipient.
      * @dev This function is used to make an ERC20 transfer.
      * @param _tokenAddress The token address.
-     * @param _from The sender address.
      * @param _to The recipient address.
      * @param _amount The amount to transfer.
      */
-    function _transferAmount(address _tokenAddress, address _from, address _to, uint256 _amount) internal {
+    function _transferAmount(address _tokenAddress, address _to, uint256 _amount) internal {
         if (_amount == 0) return;
-        require(IERC20(_tokenAddress).transferFrom(_from, _to, _amount), 'NftRentalMarketplace: Transfer failed');
+        require(IERC20(_tokenAddress).transferFrom(msg.sender, _to, _amount), 'NftRentalMarketplace: Transfer failed');
     }
 
+    /**
+     * @notice Validates the accept rental offer.
+     * @dev This function is used to validate the accept rental offer params.
+     * @param _borrower The borrower address
+     * @param _minDuration The minimum duration of the rental
+     * @param _isCreated The boolean value to check if the offer is created
+     * @param _previousRentalExpirationDate The expiration date of the previous rental
+     * @param _duration The duration of the rental
+     * @param _nonceDeadline The deadline of the nonce
+     * @param _expirationDate The expiration date of the rental
+     */
     function validateAcceptRentalOfferParams(
         address _borrower,
         uint64 _minDuration,
@@ -175,7 +185,7 @@ library LibNftRentalMarketplace {
     }
 
     /**
-     * @notice grants roles for the same NFT.
+     * @notice Grants multiple roles to the same NFT.
      * @dev This function is used to batch grant roles for the same NFT.
      * @param _oriumMarketplaceRoyalties The Orium marketplace royalties contract address.
      * @param _tokenAddress The token address.
