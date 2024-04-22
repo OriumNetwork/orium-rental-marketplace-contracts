@@ -89,10 +89,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             nonceDeadline[msg.sender][_offer.nonce]
         );
 
-        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
-        isCreated[_offerHash] = true;
-        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
-
         for (uint256 i = 0; i < _offer.roles.length; i++) {
             require(
                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] < block.timestamp,
@@ -100,6 +96,10 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             );
             roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _offer.deadline;
         }
+
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
+        isCreated[_offerHash] = true;
+        nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
 
         emit RentalOfferCreated(
             _offer.nonce,
