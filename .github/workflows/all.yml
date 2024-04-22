@@ -26,4 +26,4 @@ jobs:
       - name: Test Coverage
         run: npm run coverage
         env:
-          MUMBAI_PROVIDER_URL: ${{ secrets.MUMBAI_PROVIDER_URL }}
+          POLYGON_PROVIDER_URL: ${{ secrets.POLYGON_PROVIDER_URL }}

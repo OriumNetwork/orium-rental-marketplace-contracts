@@ -18,6 +18,7 @@ export interface RentalOffer {
   feeTokenAddress: string
   feeAmountPerSecond: bigint
   deadline: number
+  minDuration: number
   roles: string[]
   rolesData: string[]
 }
