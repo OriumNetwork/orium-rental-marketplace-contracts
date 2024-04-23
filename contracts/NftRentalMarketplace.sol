@@ -5,6 +5,7 @@ pragma solidity 0.8.9;
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import { IERC7432VaultExtension } from './interfaces/IERC7432VaultExtension.sol';
+import { IERC7432 } from './interfaces/IERC7432.sol';
 import { ERC165Checker } from '@openzeppelin/contracts/utils/introspection/ERC165Checker.sol';
 import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
@@ -238,6 +239,41 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
 
         _rental.expirationDate = uint64(block.timestamp);
         emit RentalEnded(_offer.lender, _offer.nonce);
+    }
+
+    /**
+     * @notice Withdraws the NFT from roles registry.
+     * @dev Can only be called by the token owner.
+     * @param _tokenAddresses The NFT tokenAddresses.
+     * @param _tokenIds The NFT tokenIds.
+     */
+    function batchWithdraw(
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds
+    ) external whenNotPaused {
+        LibNftRentalMarketplace.batchWithdraw(oriumMarketplaceRoyalties, _tokenAddresses, _tokenIds);
+    }
+
+    /**
+     * @notice batchGrantRole grant role in a single transaction.
+     * @param _params The array of role params.
+     */
+    function batchGrantRole(IERC7432.Role[] calldata _params) external whenNotPaused {
+        LibNftRentalMarketplace.batchGrantRole(_params, oriumMarketplaceRoyalties);
+    }
+
+    /**
+     * @notice batchRevokeRole revokes role in a single transaction.
+     * @dev owner will be msg.sender and it must approve the marketplace to revoke the roles.
+     * @param _tokenAddresses The array of tokenAddresses
+     * @param _tokenIds The array of tokenIds
+     */
+    function batchRevokeRole(
+        address[] memory _tokenAddresses,
+        uint256[] memory _tokenIds,
+        bytes32[] memory _roleIds
+    ) external whenNotPaused {
+        LibNftRentalMarketplace.batchRevokeRole(_tokenAddresses, _tokenIds, _roleIds, oriumMarketplaceRoyalties);
     }
 
     /** ######### Internals ########### **/

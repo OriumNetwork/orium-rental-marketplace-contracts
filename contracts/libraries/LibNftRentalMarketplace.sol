@@ -270,4 +270,91 @@ library LibNftRentalMarketplace {
             IERC7432(_rolesRegsitry).revokeRole(_tokenAddress, _tokenId, _roleIds[i]);
         }
     }
+
+    /**
+     * @notice Withdraws tokens from registry
+     * @dev Can only be called by the token owner.
+     * @param _oriumMarketplaceRoyaltiesAddress The address of the OriumMarketplaceRoyalties contract.
+     * @param _tokenAddresses The NFT tokenAddresses.
+     * @param _tokenIds The NFT tokenIds.
+     */
+    function batchWithdraw(
+        address _oriumMarketplaceRoyaltiesAddress,
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _tokenIds
+    ) external {
+        require(_tokenAddresses.length == _tokenIds.length, 'OriumNftMarketplace: arrays length mismatch');
+        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+            address _rolesRegistry = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyaltiesAddress).nftRolesRegistryOf(
+                _tokenAddresses[i]
+            );
+            require(
+                msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]),
+                "OriumNftMarketplace: sender is not the token's owner"
+            );
+            IERC7432VaultExtension(_rolesRegistry).withdraw(_tokenAddresses[i], _tokenIds[i]);
+        }
+    }
+
+    /**
+     * @notice batchGrantRole grant role in a single transaction.
+     * @param _params The array of role params.
+     * @param _oriumMarketplaceRoyalties The Orium marketplace royalties contract address.
+     */
+    function batchGrantRole(IERC7432.Role[] calldata _params, address _oriumMarketplaceRoyalties) external {
+        for (uint256 i = 0; i < _params.length; i++) {
+            address _rolesRegistry = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).nftRolesRegistryOf(
+                _params[i].tokenAddress
+            );
+            require(
+                msg.sender ==
+                    IERC7432VaultExtension(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId) ||
+                    msg.sender == IERC721(_params[i].tokenAddress).ownerOf(_params[i].tokenId),
+                'OriumNftMarketplace: sender is not the owner'
+            );
+
+            IERC7432(_rolesRegistry).grantRole(_params[i]);
+        }
+    }
+
+    /**
+     * @notice batchRevokeRole revokes role in a single transaction.
+     * @dev only the owner and recipient can call this function. Be careful as the marketplace have approvals from other users.
+     * @param _tokenAddresses The array of tokenAddresses
+     * @param _tokenIds The array of tokenIds
+     * @param _roleIds The array of roleIds
+     * @param _oriumMarketplaceRoyalties The Orium marketplace royalties contract address.
+     */
+    function batchRevokeRole(
+        address[] memory _tokenAddresses,
+        uint256[] memory _tokenIds,
+        bytes32[] memory _roleIds,
+        address _oriumMarketplaceRoyalties
+    ) external {
+        require(
+            _tokenIds.length == _tokenAddresses.length && _tokenIds.length == _roleIds.length,
+            'OriumNftMarketplace: arrays length mismatch'
+        );
+
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            address _rolesRegistry = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).nftRolesRegistryOf(
+                _tokenAddresses[i]
+            );
+            require(
+                IERC7432(_rolesRegistry).isRoleRevocable(_tokenAddresses[i], _tokenIds[i], _roleIds[i]),
+                'OriumNftMarketplace: role is not revocable'
+            );
+            require(
+                IERC7432(_rolesRegistry).roleExpirationDate(_tokenAddresses[i], _tokenIds[i], _roleIds[i]) >
+                    block.timestamp,
+                'OriumNftMarketplace: role is expired'
+            );
+            require(
+                msg.sender == IERC7432(_rolesRegistry).recipientOf(_tokenAddresses[i], _tokenIds[i], _roleIds[i]) ||
+                    msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]),
+                "OriumNftMarketplace: sender is not the token's owner or recipient"
+            );
+            IERC7432(_rolesRegistry).revokeRole(_tokenAddresses[i], _tokenIds[i], _roleIds[i]);
+        }
+    }
 }
