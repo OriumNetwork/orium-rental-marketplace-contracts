@@ -217,23 +217,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     }
 
     /**
-     * @notice Cancels a rental offer.
-     * @dev Internal function to cancel a rental offer.
-     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
-     */
-    function _cancelRentalOffer(RentalOffer calldata _offer) internal {
-        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
-        LibNftRentalMarketplace.validateCancelRentalOfferParams(
-            isCreated[_offerHash],
-            _offer.lender,
-            nonceDeadline[_offer.lender][_offer.nonce]
-        );
-
-        nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
-        emit RentalOfferCancelled(_offer.lender, _offer.nonce);
-    }
-
-    /**
      * @notice Ends the rental prematurely.
      * @dev Can only be called by the borrower.
      * @dev Borrower needs to approve marketplace to revoke the roles.
@@ -257,6 +240,25 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
 
         _rental.expirationDate = uint64(block.timestamp);
         emit RentalEnded(_offer.lender, _offer.nonce);
+    }
+
+    /** ######### Internals ########### **/
+
+    /**
+     * @notice Cancels a rental offer.
+     * @dev Internal function to cancel a rental offer.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function _cancelRentalOffer(RentalOffer calldata _offer) internal {
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
+        LibNftRentalMarketplace.validateCancelRentalOfferParams(
+            isCreated[_offerHash],
+            _offer.lender,
+            nonceDeadline[_offer.lender][_offer.nonce]
+        );
+
+        nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
+        emit RentalOfferCancelled(_offer.lender, _offer.nonce);
     }
 
     /** ============================ Core Functions  ================================== **/
