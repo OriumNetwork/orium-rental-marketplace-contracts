@@ -482,7 +482,7 @@ describe('NftRentalMarketplace', () => {
           })
 
           describe('Cancel Rental Offer', async () => {
-            it('Should cancel a rental offer and releaseTokens from rolesRegistry', async () => {
+            it('Should cancel a rental offer', async () => {
               await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
                 .to.emit(marketplace, 'RentalOfferCancelled')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce)
@@ -565,6 +565,24 @@ describe('NftRentalMarketplace', () => {
                 await marketplace.connect(borrower).endRental(rentalOffer)
                 await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
                   'NftRentalMarketplace: There are no active Rentals',
+                )
+              })
+            })
+
+            describe('Cancel Rental Offer', async function () {
+              it('Should cancel a rental offer and withdraw from rolesRegistry, if rental is not active', async () => {
+                await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer))
+                  .to.emit(marketplace, 'RentalOfferCancelled')
+                  .withArgs(rentalOffer.lender, rentalOffer.nonce)
+                  .to.emit(rolesRegistry, 'Withdraw')
+                  .withArgs(rentalOffer.lender, rentalOffer.tokenAddress, rentalOffer.tokenId)
+              })
+              it('Should NOT cancel a rental offer and withdraw from rolesRegistry, if rolesRegistry does not support IERC7432VaultExtension', async () => {
+                await marketplaceRoyalties
+                  .connect(operator)
+                  .setRolesRegistry(await mockERC721.getAddress(), AddressZero)
+                await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
+                  'NftRentalMarketplace: roles registry does not support IERC7432VaultExtension',
                 )
               })
             })
