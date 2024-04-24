@@ -263,7 +263,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     }
 
     /**
-     * @notice batchRevokeRole revokes role in a single transaction.
+     * @notice Revokes multiple roles.
      * @dev owner will be msg.sender and it must approve the marketplace to revoke the roles.
      * @param _tokenAddresses The array of tokenAddresses
      * @param _tokenIds The array of tokenIds
