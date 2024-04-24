@@ -226,7 +226,7 @@ library LibNftRentalMarketplace {
     /**
      * @notice Validates the cancel rental offer params.
      * @dev This function is used to validate the cancel rental offer params.
-     * @param _isCreated Whether the offer is created 
+     * @param _isCreated Whether the offer is created
      * @param _lender The lender address
      * @param _nonceDeadline The nonce deadline
      */
@@ -307,9 +307,9 @@ library LibNftRentalMarketplace {
                 _params[i].tokenAddress
             );
             require(
-                msg.sender ==
-                    IERC7432VaultExtension(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId) ||
-                    msg.sender == IERC721(_params[i].tokenAddress).ownerOf(_params[i].tokenId),
+                msg.sender == IERC721(_params[i].tokenAddress).ownerOf(_params[i].tokenId) ||
+                    msg.sender ==
+                    IERC7432VaultExtension(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId),
                 'OriumNftMarketplace: sender is not the owner'
             );
 
@@ -350,8 +350,8 @@ library LibNftRentalMarketplace {
                 'OriumNftMarketplace: role is expired'
             );
             require(
-                msg.sender == IERC7432(_rolesRegistry).recipientOf(_tokenAddresses[i], _tokenIds[i], _roleIds[i]) ||
-                    msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]),
+                msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]) ||
+                    msg.sender == IERC7432(_rolesRegistry).recipientOf(_tokenAddresses[i], _tokenIds[i], _roleIds[i]),
                 "OriumNftMarketplace: sender is not the token's owner or recipient"
             );
             IERC7432(_rolesRegistry).revokeRole(_tokenAddresses[i], _tokenIds[i], _roleIds[i]);
