@@ -4,9 +4,7 @@ pragma solidity 0.8.9;
 
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import { IERC7432VaultExtension } from './interfaces/IERC7432VaultExtension.sol';
 import { IERC7432 } from './interfaces/IERC7432.sol';
-import { ERC165Checker } from '@openzeppelin/contracts/utils/introspection/ERC165Checker.sol';
 import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
@@ -19,7 +17,6 @@ import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNft
  * @author Orium Network Team - developers@orium.network
  */
 contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
-    using ERC165Checker for address;
 
     /** ######### Global Variables ########### **/
 
@@ -208,11 +205,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         address _rolesRegistry = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).nftRolesRegistryOf(
             _offer.tokenAddress
         );
-        require(
-            _rolesRegistry.supportsERC165InterfaceUnchecked(type(IERC7432VaultExtension).interfaceId),
-            'NftRentalMarketplace: roles registry does not support IERC7432VaultExtension'
-        );
-        IERC7432VaultExtension(_rolesRegistry).withdraw(_offer.tokenAddress, _offer.tokenId);
+        IERC7432(_rolesRegistry).unlockToken(_offer.tokenAddress, _offer.tokenId);
     }
 
     /**
