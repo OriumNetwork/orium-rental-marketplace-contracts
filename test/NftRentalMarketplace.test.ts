@@ -7,13 +7,19 @@ import { RentalOffer, RoyaltyInfo } from '../utils/types'
 import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { USER_ROLE } from '../utils/roles'
-import { IERC7432, MockERC20, MockERC721, OriumMarketplaceRoyalties, NftRentalMarketplace } from '../typechain-types'
+import {
+  MockERC20,
+  MockERC721,
+  OriumMarketplaceRoyalties,
+  NftRentalMarketplace,
+  NftRolesRegistryVault,
+} from '../typechain-types'
 import { deployNftMarketplaceContracts } from './fixtures/NftRentalMarketplaceFixture'
 
 describe('NftRentalMarketplace', () => {
   let marketplace: NftRentalMarketplace
   let marketplaceRoyalties: OriumMarketplaceRoyalties
-  let rolesRegistry: IERC7432
+  let rolesRegistry: NftRolesRegistryVault
   let mockERC721: MockERC721
   let mockERC20: MockERC20
 
@@ -470,6 +476,119 @@ describe('NftRentalMarketplace', () => {
                 await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
                 await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)).to.be.revertedWith(
                   'NftRentalMarketplace: This offer has an ongoing rental',
+                )
+              })
+            })
+          })
+
+          describe('Cancel Rental Offer', async () => {
+            it('Should cancel a rental offer', async () => {
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+            })
+            it('Should NOT cancel a rental offer if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(marketplace.connect(borrower).cancelRentalOffer(rentalOffer)).to.be.revertedWith(
+                'Pausable: paused',
+              )
+            })
+            it('Should NOT cancel a rental offer if nonce not used yet by caller', async () => {
+              await expect(marketplace.connect(notOperator).cancelRentalOffer(rentalOffer)).to.be.revertedWith(
+                'NftRentalMarketplace: Only lender can cancel a rental offer',
+              )
+            })
+            it("Should NOT cancel a rental offer after deadline's expiration", async () => {
+              // move forward in time to expire the offer
+              const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+              const timeToMove = rentalOffer.deadline - Number(blockTimestamp) + 1
+              await ethers.provider.send('evm_increaseTime', [timeToMove])
+
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer)).to.be.revertedWith(
+                'NftRentalMarketplace: Nonce expired or not used yet',
+              )
+            })
+            it("Should NOT cancel a rental offer if it's not created", async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .cancelRentalOffer({ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }),
+              ).to.be.revertedWith('NftRentalMarketplace: Offer not created')
+            })
+          })
+
+          describe('When Rental Offer is accepted', async () => {
+            beforeEach(async () => {
+              await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
+              await rolesRegistry
+                .connect(borrower)
+                .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
+            })
+            describe('End Rental', async () => {
+              it('Should end a rental by the borrower', async () => {
+                await expect(marketplace.connect(borrower).endRental(rentalOffer))
+                  .to.emit(marketplace, 'RentalEnded')
+                  .withArgs(rentalOffer.lender, rentalOffer.nonce)
+              })
+              it('Should NOT end a rental if contract is paused', async () => {
+                await marketplace.connect(operator).pause()
+                await expect(marketplace.connect(lender).endRental(rentalOffer)).to.be.revertedWith('Pausable: paused')
+              })
+              it('Should NOT end a rental by the lender', async () => {
+                await expect(marketplace.connect(lender).endRental(rentalOffer)).to.be.revertedWith(
+                  'NftRentalMarketplace: Only borrower can end a rental',
+                )
+              })
+              it('Should NOT end a rental if caller is not the borrower', async () => {
+                await expect(marketplace.connect(notOperator).endRental(rentalOffer)).to.be.revertedWith(
+                  'NftRentalMarketplace: Only borrower can end a rental',
+                )
+              })
+              it('Should NOT end a rental if rental is not started', async () => {
+                await expect(
+                  marketplace
+                    .connect(borrower)
+                    .endRental({ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }),
+                ).to.be.revertedWith('NftRentalMarketplace: Offer not created')
+              })
+              it('Should NOT end a rental if rental is expired', async () => {
+                // move foward in time to expire the offer
+                const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+                const timeToMove = rentalOffer.deadline - Number(blockTimestamp) + 1
+                await ethers.provider.send('evm_increaseTime', [timeToMove])
+
+                await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
+                  'NftRentalMarketplace: There are no active Rentals',
+                )
+              })
+              it('Should NOT end rental twice', async () => {
+                await marketplace.connect(borrower).endRental(rentalOffer)
+                await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
+                  'NftRentalMarketplace: There are no active Rentals',
+                )
+              })
+            })
+
+            describe('Cancel Rental Offer', async function () {
+              it('Should cancel a rental offer and withdraw from rolesRegistry, if rental is not active', async () => {
+                await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer))
+                  .to.emit(marketplace, 'RentalOfferCancelled')
+                  .withArgs(rentalOffer.lender, rentalOffer.nonce)
+                  .to.emit(rolesRegistry, 'Withdraw')
+                  .withArgs(rentalOffer.lender, rentalOffer.tokenAddress, rentalOffer.tokenId)
+              })
+              it('Should NOT cancel a rental offer and withdraw from rolesRegistry, if rolesRegistry does not support IERC7432VaultExtension', async () => {
+                await marketplaceRoyalties
+                  .connect(operator)
+                  .setRolesRegistry(await mockERC721.getAddress(), AddressZero)
+                await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
+                  'NftRentalMarketplace: roles registry does not support IERC7432VaultExtension',
+                )
+              })
+              it('Should NOT cancel a rental offer and withdraw if contract is paused', async () => {
+                await marketplace.connect(operator).pause()
+                await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
+                  'Pausable: paused',
                 )
               })
             })

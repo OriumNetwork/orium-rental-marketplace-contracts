@@ -4,6 +4,8 @@ pragma solidity 0.8.9;
 
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import { IERC7432VaultExtension } from './interfaces/IERC7432VaultExtension.sol';
+import { ERC165Checker } from '@openzeppelin/contracts/utils/introspection/ERC165Checker.sol';
 import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
@@ -16,6 +18,8 @@ import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNft
  * @author Orium Network Team - developers@orium.network
  */
 contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
+    using ERC165Checker for address;
+
     /** ######### Global Variables ########### **/
 
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
@@ -68,6 +72,18 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @param expirationDate The expiration date of the rental
      */
     event RentalStarted(address indexed lender, uint256 indexed nonce, address indexed borrower, uint64 expirationDate);
+
+    /**
+     * @param lender The address of the lender
+     * @param nonce The nonce of the rental offer
+     */
+    event RentalOfferCancelled(address indexed lender, uint256 indexed nonce);
+
+    /**
+     * @param lender The address of the lender
+     * @param nonce The nonce of the rental offer
+     */
+    event RentalEnded(address indexed lender, uint256 indexed nonce);
 
     /** ######### Initializer ########### **/
     /**
@@ -170,6 +186,80 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
 
         emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
+    }
+
+    /**
+     * @notice Cancels a rental offer.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function cancelRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
+        _cancelRentalOffer(_offer);
+    }
+
+    /**
+     * @notice Cancels a rental offer and withdraws the NFT.
+     * @dev Can only be called by the lender, and only withdraws the NFT if the rental has expired.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function cancelRentalOfferAndWithdraw(RentalOffer calldata _offer) external whenNotPaused {
+        _cancelRentalOffer(_offer);
+
+        address _rolesRegistry = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).nftRolesRegistryOf(
+            _offer.tokenAddress
+        );
+        require(
+            _rolesRegistry.supportsERC165InterfaceUnchecked(type(IERC7432VaultExtension).interfaceId),
+            'NftRentalMarketplace: roles registry does not support IERC7432VaultExtension'
+        );
+        IERC7432VaultExtension(_rolesRegistry).withdraw(_offer.tokenAddress, _offer.tokenId);
+    }
+
+    /**
+     * @notice Ends the rental prematurely.
+     * @dev Can only be called by the borrower.
+     * @dev Borrower needs to approve marketplace to revoke the roles.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function endRental(RentalOffer calldata _offer) external whenNotPaused {
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
+        Rental storage _rental = rentals[_offerHash];
+
+        LibNftRentalMarketplace.validateEndRentalParams(
+            isCreated[_offerHash],
+            _rental.borrower,
+            _rental.expirationDate
+        );
+        LibNftRentalMarketplace.revokeRoles(
+            oriumMarketplaceRoyalties,
+            _offer.tokenAddress,
+            _offer.tokenId,
+            _offer.roles
+        );
+
+        _rental.expirationDate = uint64(block.timestamp);
+        emit RentalEnded(_offer.lender, _offer.nonce);
+    }
+
+    /** ######### Internals ########### **/
+
+    /**
+     * @notice Cancels a rental offer.
+     * @dev Internal function to cancel a rental offer.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function _cancelRentalOffer(RentalOffer calldata _offer) internal {
+        bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
+        LibNftRentalMarketplace.validateCancelRentalOfferParams(
+            isCreated[_offerHash],
+            _offer.lender,
+            nonceDeadline[_offer.lender][_offer.nonce]
+        );
+
+        nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
+        for(uint256 i = 0; i < _offer.roles.length; i++) {
+            roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = uint64(block.timestamp);
+        }
+        emit RentalOfferCancelled(_offer.lender, _offer.nonce);
     }
 
     /** ============================ Core Functions  ================================== **/
