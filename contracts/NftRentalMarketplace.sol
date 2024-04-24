@@ -5,7 +5,6 @@ pragma solidity 0.8.9;
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import { IERC7432 } from './interfaces/IERC7432.sol';
-import { ERC165Checker } from '@openzeppelin/contracts/utils/introspection/ERC165Checker.sol';
 import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
