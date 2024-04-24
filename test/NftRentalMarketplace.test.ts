@@ -585,6 +585,12 @@ describe('NftRentalMarketplace', () => {
                   'NftRentalMarketplace: roles registry does not support IERC7432VaultExtension',
                 )
               })
+              it('Should NOT cancel a rental offer and withdraw if contract is paused', async () => {
+                await marketplace.connect(operator).pause()
+                await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
+                  'Pausable: paused',
+                )
+              })
             })
           })
         })
