@@ -255,7 +255,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     }
 
     /**
-     * @notice batchGrantRole grant role in a single transaction.
+     * @notice Grants multiple roles.
      * @param _params The array of role params.
      */
     function batchGrantRole(IERC7432.Role[] calldata _params) external whenNotPaused {
