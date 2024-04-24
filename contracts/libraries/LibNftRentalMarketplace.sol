@@ -5,7 +5,6 @@ pragma solidity 0.8.9;
 import { IERC721 } from '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import { IERC7432 } from '../interfaces/IERC7432.sol';
-import { IERC7432VaultExtension } from '../interfaces/IERC7432VaultExtension.sol';
 import { IOriumMarketplaceRoyalties } from '../interfaces/IOriumMarketplaceRoyalties.sol';
 
 /// @dev Rental offer info.
@@ -57,7 +56,7 @@ library LibNftRentalMarketplace {
         address _nftOwner = IERC721(_offer.tokenAddress).ownerOf(_offer.tokenId);
         require(
             msg.sender == _nftOwner ||
-                (msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_offer.tokenAddress, _offer.tokenId) &&
+                (msg.sender == IERC7432(_rolesRegistry).ownerOf(_offer.tokenAddress, _offer.tokenId) &&
                     _rolesRegistry == _nftOwner),
             'NftRentalMarketplace: only token owner can call this function'
         );
@@ -289,10 +288,10 @@ library LibNftRentalMarketplace {
                 _tokenAddresses[i]
             );
             require(
-                msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]),
+                msg.sender == IERC7432(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]),
                 "OriumNftMarketplace: sender is not the token's owner"
             );
-            IERC7432VaultExtension(_rolesRegistry).withdraw(_tokenAddresses[i], _tokenIds[i]);
+            IERC7432(_rolesRegistry).unlockToken(_tokenAddresses[i], _tokenIds[i]);
         }
     }
 
@@ -309,7 +308,7 @@ library LibNftRentalMarketplace {
             require(
                 msg.sender == IERC721(_params[i].tokenAddress).ownerOf(_params[i].tokenId) ||
                     msg.sender ==
-                    IERC7432VaultExtension(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId),
+                    IERC7432(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId),
                 'OriumNftMarketplace: sender is not the owner'
             );
 
@@ -350,7 +349,7 @@ library LibNftRentalMarketplace {
                 'OriumNftMarketplace: role is expired'
             );
             require(
-                msg.sender == IERC7432VaultExtension(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]) ||
+                msg.sender == IERC7432(_rolesRegistry).ownerOf(_tokenAddresses[i], _tokenIds[i]) ||
                     msg.sender == IERC7432(_rolesRegistry).recipientOf(_tokenAddresses[i], _tokenIds[i], _roleIds[i]),
                 "OriumNftMarketplace: sender is not the token's owner or recipient"
             );

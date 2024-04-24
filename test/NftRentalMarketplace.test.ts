@@ -574,16 +574,8 @@ describe('NftRentalMarketplace', () => {
                 await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer))
                   .to.emit(marketplace, 'RentalOfferCancelled')
                   .withArgs(rentalOffer.lender, rentalOffer.nonce)
-                  .to.emit(rolesRegistry, 'Withdraw')
+                  .to.emit(rolesRegistry, 'TokenUnlocked')
                   .withArgs(rentalOffer.lender, rentalOffer.tokenAddress, rentalOffer.tokenId)
-              })
-              it('Should NOT cancel a rental offer and withdraw from rolesRegistry, if rolesRegistry does not support IERC7432VaultExtension', async () => {
-                await marketplaceRoyalties
-                  .connect(operator)
-                  .setRolesRegistry(await mockERC721.getAddress(), AddressZero)
-                await expect(marketplace.connect(lender).cancelRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
-                  'NftRentalMarketplace: roles registry does not support IERC7432VaultExtension',
-                )
               })
               it('Should NOT cancel a rental offer and withdraw if contract is paused', async () => {
                 await marketplace.connect(operator).pause()
