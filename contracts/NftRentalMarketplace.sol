@@ -192,7 +192,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @notice Cancels a rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
-
     function cancelRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
         _cancelRentalOffer(_offer);
     }
@@ -202,7 +201,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @dev Can only be called by the lender, and only withdraws the NFT if the rental has expired.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
-
     function cancelRentalOfferAndWithdraw(RentalOffer calldata _offer) external whenNotPaused {
         _cancelRentalOffer(_offer);
 
@@ -258,6 +256,9 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         );
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
+        for(uint256 i = 0; i < _offer.roles.length; i++) {
+            roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = uint64(block.timestamp);
+        }
         emit RentalOfferCancelled(_offer.lender, _offer.nonce);
     }
 

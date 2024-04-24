@@ -226,7 +226,7 @@ library LibNftRentalMarketplace {
     /**
      * @notice Validates the cancel rental offer params.
      * @dev This function is used to validate the cancel rental offer params.
-     * @param _isCreated The offer is created
+     * @param _isCreated Whether the offer is created 
      * @param _lender The lender address
      * @param _nonceDeadline The nonce deadline
      */
