@@ -319,7 +319,7 @@ library LibNftRentalMarketplace {
 
     /**
      * @notice Revokes multiple roles.
-     * @dev only the owner and recipient can call this function. Be careful as the marketplace have approvals from other users.
+     * @dev only the owner and recipient can call this function. Be careful as the marketplace receives role approvals from other users.
      * @param _tokenAddresses The array of tokenAddresses
      * @param _tokenIds The array of tokenIds
      * @param _roleIds The array of roleIds
