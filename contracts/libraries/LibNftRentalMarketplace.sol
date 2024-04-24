@@ -318,7 +318,7 @@ library LibNftRentalMarketplace {
     }
 
     /**
-     * @notice batchRevokeRole revokes role in a single transaction.
+     * @notice Revokes multiple roles.
      * @dev only the owner and recipient can call this function. Be careful as the marketplace have approvals from other users.
      * @param _tokenAddresses The array of tokenAddresses
      * @param _tokenIds The array of tokenIds
