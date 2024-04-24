@@ -3,10 +3,10 @@ import { ethers } from 'hardhat'
 import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
-import { RentalOffer, RoyaltyInfo } from '../utils/types'
+import { GrantRoleParams, RentalOffer, RoyaltyInfo } from '../utils/types'
 import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
 import { randomBytes } from 'crypto'
-import { USER_ROLE } from '../utils/roles'
+import { UNIQUE_ROLE, USER_ROLE } from '../utils/roles'
 import {
   MockERC20,
   MockERC721,
@@ -500,7 +500,7 @@ describe('NftRentalMarketplace', () => {
             })
             it("Should NOT cancel a rental offer after deadline's expiration", async () => {
               // move forward in time to expire the offer
-              const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+              const blockTimestamp = await time.latest()
               const timeToMove = rentalOffer.deadline - Number(blockTimestamp) + 1
               await ethers.provider.send('evm_increaseTime', [timeToMove])
 
@@ -553,7 +553,7 @@ describe('NftRentalMarketplace', () => {
               })
               it('Should NOT end a rental if rental is expired', async () => {
                 // move foward in time to expire the offer
-                const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+                const blockTimestamp = await time.latest()
                 const timeToMove = rentalOffer.deadline - Number(blockTimestamp) + 1
                 await ethers.provider.send('evm_increaseTime', [timeToMove])
 
@@ -591,6 +591,228 @@ describe('NftRentalMarketplace', () => {
                   'Pausable: paused',
                 )
               })
+            })
+
+            describe('Batch Withdraw Tokens', async () => {
+              it('Should withdraw tokens after rental is ended and rental offer expired', async () => {
+                await marketplace.connect(borrower).endRental(rentalOffer)
+                await time.increase(ONE_DAY)
+                await expect(
+                  marketplace.connect(lender).batchWithdraw([rentalOffer.tokenAddress], [rentalOffer.tokenId]),
+                )
+                  .to.emit(mockERC721, 'Transfer')
+                  .withArgs(await rolesRegistry.getAddress(), rentalOffer.lender, rentalOffer.tokenId)
+              })
+              it('Should NOT withdraw tokens if contract is paused', async () => {
+                await marketplace.connect(operator).pause()
+                await expect(
+                  marketplace.connect(lender).batchWithdraw([rentalOffer.tokenAddress], [rentalOffer.tokenId]),
+                ).to.be.revertedWith('Pausable: paused')
+              })
+              it('Should NOT withdraw tokens if array mismatch', async () => {
+                await expect(
+                  marketplace.connect(lender).batchWithdraw([rentalOffer.tokenAddress], []),
+                ).to.be.revertedWith('OriumNftMarketplace: arrays length mismatch')
+              })
+              it('Should NOT withdraw tokens if sender is not the owner', async () => {
+                await expect(
+                  marketplace.connect(borrower).batchWithdraw([rentalOffer.tokenAddress], [rentalOffer.tokenId]),
+                ).to.be.revertedWith("OriumNftMarketplace: sender is not the token's owner")
+              })
+            })
+          })
+        })
+      })
+
+      describe('Direct Rentals', async () => {
+        describe('When tokens are not deposited', async () => {
+          describe('batchGrantRole', async () => {
+            let grantRoleParams: GrantRoleParams[]
+            beforeEach(async () => {
+              grantRoleParams = [
+                {
+                  tokenAddress: await mockERC721.getAddress(),
+                  tokenId,
+                  roleId: UNIQUE_ROLE,
+                  recipient: borrower.address,
+                  expirationDate: Number(await time.latest()) + ONE_DAY,
+                  revocable: true,
+                  data: EMPTY_BYTES,
+                },
+              ]
+              await rolesRegistry
+                .connect(lender)
+                .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
+              await mockERC721.connect(lender).setApprovalForAll(await rolesRegistry.getAddress(), true)
+            })
+            it('Should deposit tokens and grant role', async () => {
+              await expect(marketplace.connect(lender).batchGrantRole(grantRoleParams))
+                .to.emit(rolesRegistry, 'RoleGranted')
+                .withArgs(
+                  grantRoleParams[0].tokenAddress,
+                  grantRoleParams[0].tokenId,
+                  grantRoleParams[0].roleId,
+                  lender.address,
+                  grantRoleParams[0].recipient,
+                  grantRoleParams[0].expirationDate,
+                  grantRoleParams[0].revocable,
+                  grantRoleParams[0].data,
+                )
+            })
+            it('Should only grant role when a tokenId is passed', async () => {
+              await expect(marketplace.connect(lender).batchGrantRole(grantRoleParams))
+                .to.emit(rolesRegistry, 'RoleGranted')
+                .withArgs(
+                  grantRoleParams[0].tokenAddress,
+                  grantRoleParams[0].tokenId,
+                  grantRoleParams[0].roleId,
+                  lender.address,
+                  grantRoleParams[0].recipient,
+                  grantRoleParams[0].expirationDate,
+                  grantRoleParams[0].revocable,
+                  grantRoleParams[0].data,
+                )
+            })
+            it('Should NOT deposit tokens and grant role if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(marketplace.connect(lender).batchGrantRole(grantRoleParams)).to.be.revertedWith(
+                'Pausable: paused',
+              )
+            })
+            it('Should NOT deposit tokens and grant role if caller is not the owner of the tokenId', async () => {
+              await expect(marketplace.connect(borrower).batchGrantRole(grantRoleParams)).to.revertedWith(
+                'OriumNftMarketplace: sender is not the owner',
+              )
+            })
+          })
+        })
+
+        describe('When tokens are deposited', async () => {
+          let grantRoleParams: GrantRoleParams[]
+          beforeEach(async () => {
+            grantRoleParams = [
+              {
+                tokenAddress: await mockERC721.getAddress(),
+                tokenId,
+                roleId: UNIQUE_ROLE,
+                recipient: borrower.address,
+                expirationDate: Number(await time.latest()) + ONE_DAY,
+                revocable: true,
+                data: EMPTY_BYTES,
+              },
+            ]
+            await rolesRegistry
+              .connect(lender)
+              .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
+            await mockERC721.connect(lender).setApprovalForAll(await rolesRegistry.getAddress(), true)
+            await marketplace.connect(lender).batchGrantRole(grantRoleParams)
+          })
+          describe('batchGrantRole', async () => {
+            it('Should grant role', async () => {
+              await time.increase(ONE_DAY)
+              grantRoleParams[0].expirationDate = Number(await time.latest()) + ONE_DAY
+              await expect(marketplace.connect(lender).batchGrantRole(grantRoleParams))
+                .to.emit(rolesRegistry, 'RoleGranted')
+                .withArgs(
+                  grantRoleParams[0].tokenAddress,
+                  grantRoleParams[0].tokenId,
+                  grantRoleParams[0].roleId,
+                  lender.address,
+                  grantRoleParams[0].recipient,
+                  grantRoleParams[0].expirationDate,
+                  grantRoleParams[0].revocable,
+                  grantRoleParams[0].data,
+                )
+            })
+          })
+          describe('batchRevokeRole', async () => {
+            it('Should batch revoke role', async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole(
+                    [grantRoleParams[0].tokenAddress],
+                    [grantRoleParams[0].tokenId],
+                    [grantRoleParams[0].roleId],
+                  ),
+              )
+                .to.emit(rolesRegistry, 'RoleRevoked')
+                .withArgs(grantRoleParams[0].tokenAddress, grantRoleParams[0].tokenId, grantRoleParams[0].roleId)
+            })
+            it('Should NOT batch revoke role if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole(
+                    [grantRoleParams[0].tokenAddress],
+                    [grantRoleParams[0].tokenId],
+                    [grantRoleParams[0].roleId],
+                  ),
+              ).to.be.revertedWith('Pausable: paused')
+            })
+            it("Should NOT batch revoke role if array's length are different", async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole(
+                    [grantRoleParams[0].tokenAddress],
+                    [grantRoleParams[0].tokenId],
+                    [grantRoleParams[0].roleId, grantRoleParams[0].roleId],
+                  ),
+              ).to.be.revertedWith('OriumNftMarketplace: arrays length mismatch')
+            })
+            it("Should batch revoke role if sender is token's recipient", async () => {
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  .batchRevokeRole(
+                    [grantRoleParams[0].tokenAddress],
+                    [grantRoleParams[0].tokenId],
+                    [grantRoleParams[0].roleId],
+                  ),
+              )
+                .to.emit(rolesRegistry, 'RoleRevoked')
+                .withArgs(grantRoleParams[0].tokenAddress, grantRoleParams[0].tokenId, grantRoleParams[0].roleId)
+            })
+            it("Should NOT batch revoke role if sender is not token's owner neither recipient", async () => {
+              await expect(
+                marketplace
+                  .connect(notOperator)
+                  .batchRevokeRole(
+                    [grantRoleParams[0].tokenAddress],
+                    [grantRoleParams[0].tokenId],
+                    [grantRoleParams[0].roleId],
+                  ),
+              ).to.be.revertedWith("OriumNftMarketplace: sender is not the token's owner or recipient")
+            })
+            it('Should NOT batch revoke role if role is not revocable', async () => {
+              grantRoleParams[0].revocable = false
+              await rolesRegistry.connect(lender).grantRole(grantRoleParams[0])
+              await rolesRegistry
+                .connect(borrower)
+                .setRoleApprovalForAll(await mockERC721.getAddress(), await marketplace.getAddress(), true)
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole(
+                    [grantRoleParams[0].tokenAddress],
+                    [grantRoleParams[0].tokenId],
+                    [grantRoleParams[0].roleId],
+                  ),
+              ).to.be.revertedWith('OriumNftMarketplace: role is not revocable')
+            })
+            it('Should NOT batch revoke role if role is expired', async () => {
+              await time.increase(ONE_DAY)
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole(
+                    [grantRoleParams[0].tokenAddress],
+                    [grantRoleParams[0].tokenId],
+                    [grantRoleParams[0].roleId],
+                  ),
+              ).to.be.revertedWith('OriumNftMarketplace: role is expired')
             })
           })
         })

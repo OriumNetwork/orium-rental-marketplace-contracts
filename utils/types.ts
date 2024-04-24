@@ -49,3 +49,13 @@ export interface CommitAndGrantRoleParams {
   revocable: boolean
   data: string
 }
+
+export interface GrantRoleParams {
+  roleId: string
+  tokenAddress: string
+  tokenId: number
+  recipient: string
+  expirationDate: number
+  revocable: boolean
+  data: string
+}
