@@ -242,7 +242,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     }
 
     /**
-     * @notice Withdraws the NFT from roles registry.
+     * @notice Withdraws NFTs from roles registry.
      * @dev Can only be called by the token owner.
      * @param _tokenAddresses The NFT tokenAddresses.
      * @param _tokenIds The NFT tokenIds.
