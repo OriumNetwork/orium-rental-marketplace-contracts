@@ -17,7 +17,6 @@ import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNft
  * @author Orium Network Team - developers@orium.network
  */
 contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
-    using ERC165Checker for address;
 
     /** ######### Global Variables ########### **/
 
