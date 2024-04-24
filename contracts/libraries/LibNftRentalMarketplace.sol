@@ -297,7 +297,7 @@ library LibNftRentalMarketplace {
     }
 
     /**
-     * @notice batchGrantRole grant role in a single transaction.
+     * @notice Grants multiple roles.
      * @param _params The array of role params.
      * @param _oriumMarketplaceRoyalties The Orium marketplace royalties contract address.
      */
