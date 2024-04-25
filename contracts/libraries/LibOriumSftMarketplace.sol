@@ -23,22 +23,6 @@ struct RentalOffer {
     bytes[] rolesData;
 }
 
-/// @dev Rental offer info.
-struct RentalOfferLegacy {
-    address lender;
-    address borrower;
-    address tokenAddress;
-    uint256 tokenId;
-    uint256 tokenAmount;
-    address feeTokenAddress;
-    uint256 feeAmountPerSecond;
-    uint256 nonce;
-    uint256 commitmentId;
-    uint64 deadline;
-    bytes32[] roles;
-    bytes[] rolesData;
-}
-
 struct CommitAndGrantRoleParams {
     uint256 commitmentId;
     address tokenAddress;
