@@ -1,18 +1,16 @@
 import { network } from 'hardhat'
 import { print, colors } from '../../utils/misc'
 import addresses, { Network } from '../../addresses'
-import { AddressZero, THREE_MONTHS } from '../../utils/constants'
 import { deployUpgradeableContract } from '../../utils/deploy-upgradeable'
 
 const NETWORK = network.name as Network
-const { Multisig, RolesRegistry } = addresses[NETWORK]
-
-const CONTRACT_NAME = 'OriumMarketplaceRoyalties'
-const OPERATOR_ADDRESS = Multisig.address
-const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, AddressZero, RolesRegistry.address, THREE_MONTHS.toString()]
+const PROXY_CONTRACT_NAME = 'NftRentalMarketplace'
+const OPERATOR_ADDRESS = addresses[NETWORK].Multisig.address
+const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, addresses[NETWORK].OriumMarketplaceRoyalties.address]
+const LIBRARIES_CONTRACT_NAME = ['LibNftRentalMarketplace']
 
 async function main() {
-  await deployUpgradeableContract(CONTRACT_NAME, OPERATOR_ADDRESS, INITIALIZER_ARGUMENTS)
+  await deployUpgradeableContract(PROXY_CONTRACT_NAME, OPERATOR_ADDRESS, INITIALIZER_ARGUMENTS, LIBRARIES_CONTRACT_NAME)
 }
 
 main()
