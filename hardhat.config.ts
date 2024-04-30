@@ -12,13 +12,14 @@ const {
   ENVIRONMENT,
   DEFENDER_TEAM_API_KEY,
   DEFENDER_TEAM_API_SECRET_KEY,
-  MUMBAI_PROVIDER_URL,
+  MOONBEAM_PROVIDER_URL,
   POLYGON_PROVIDER_URL,
   DEV_PRIVATE_KEY,
   PROD_PRIVATE_KEY,
   POLYGONSCAN_API_KEY,
   ETHER_SCAN_API_KEY,
   CRONOSSCAN_API_KEY,
+  MOONSCAN_API_KEY,
   CRONOS_TESTNET_PROVIDER_URL,
   CRONOS_PROVIDER_URL,
 } = process.env
@@ -34,10 +35,10 @@ const BASE_CONFIG = {
   etherscan: {
     apiKey: {
       polygon: POLYGONSCAN_API_KEY,
-      polygonMumbai: POLYGONSCAN_API_KEY,
       goerli: ETHER_SCAN_API_KEY,
       cronosTestnet: CRONOSSCAN_API_KEY,
       cronos: CRONOSSCAN_API_KEY,
+      moonbeam: MOONSCAN_API_KEY,
     },
     customChains: [
       {
@@ -91,11 +92,6 @@ const PROD_CONFIG = {
         blockNumber: 55899875,
       },
     },
-    mumbai: {
-      chainId: 80001,
-      url: MUMBAI_PROVIDER_URL,
-      accounts: [DEV_PRIVATE_KEY],
-    },
     polygon: {
       chainId: 137,
       url: POLYGON_PROVIDER_URL,
@@ -111,6 +107,11 @@ const PROD_CONFIG = {
       chainId: 25,
       url: CRONOS_PROVIDER_URL,
       accounts: [PROD_PRIVATE_KEY],
+    },
+    moonbeam: {
+      chainId: 1284,
+      url: MOONBEAM_PROVIDER_URL,
+      accounts: [DEV_PRIVATE_KEY],
     },
   },
   defender: {

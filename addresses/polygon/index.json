@@ -34,5 +34,8 @@
 		"libraries": [
 			"0x39CdF22FA80A9E7B95Db29efb2936A9561c70601"
 		]
+	},
+	"ERC7432WrapperForERC4907": {
+		"address": ""
 	}
 }

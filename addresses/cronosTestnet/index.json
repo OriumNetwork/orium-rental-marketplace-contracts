@@ -31,5 +31,8 @@
 		"operator": "0x04c8c6c56dab836f8bd62cb6884371507e706806",
 		"implementation": "0xe359D2353D8f2E6Bd574E49F34c987729380EA1C",
 		"proxyAdmin": "0xC3154ccAC181eb9d71ccd53f29F425BDdD52d983"
+	},
+	"ERC7432WrapperForERC4907": {
+		"address": ""
 	}
 }
