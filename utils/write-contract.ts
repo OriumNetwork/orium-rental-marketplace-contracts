@@ -1,7 +1,8 @@
-import { ethers, network } from 'hardhat'
+import { network, ethers } from 'hardhat'
 import config, { Network } from '../addresses'
 import { print, colors, confirmOrDie } from '../utils/misc'
-import { kmsDeployer, kmsProvider } from './deployer'
+import { kmsProvider } from './deployer'
+import { Signer } from 'ethers'
 
 const NETWORK = network.name as Network
 
@@ -18,7 +19,9 @@ export async function callContractFunction(
   FUNCTION_NAME: string,
   FUNCTION_ARGUMENTS: any,
   CUSTOM_FEE_DATA?: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint },
+  CUSTOM_SIGNER?: Signer,
 ) {
+  const signer = CUSTOM_SIGNER || (await ethers.getSigners())[0]
   console.log('CONTRACT_NAME', CONTRACT_NAME)
   await confirmOrDie(
     `Are you sure you want to call ${FUNCTION_NAME} in ${CONTRACT_NAME} contract on ${NETWORK} network?`,
@@ -27,8 +30,9 @@ export async function callContractFunction(
     const FEE_DATA: any = CUSTOM_FEE_DATA
     kmsProvider.getFeeData = async () => FEE_DATA
   }
-  print(colors.warn, `Arguments: ${FUNCTION_ARGUMENTS}`)
-  const contract = await ethers.getContractAt(CONTRACT_NAME, config[NETWORK][CONTRACT_NAME].address, kmsDeployer)
+  print(colors.warn, `Arguments:`)
+  console.log(FUNCTION_ARGUMENTS)
+  const contract = await ethers.getContractAt(CONTRACT_NAME, config[NETWORK][CONTRACT_NAME].address, signer)
   print(colors.highlight, `Sending Transaction...`)
   const response = await contract[FUNCTION_NAME](...FUNCTION_ARGUMENTS)
   print(colors.highlight, `Waiting for transaction to be mined...`)

@@ -11,11 +11,11 @@
 	"KMSDeployer": {
 		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
 	},
-	"OriumMarketplace": {
-		"address": "0x0BA6c992049b3219e733424E24bE7829d7736f6b",
-		"operator": "0x04c8c6c56dab836f8bd62cb6884371507e706806",
-		"implementation": "0xAb8E668acD4FEF935D5DfD869410bf8704688a53",
-		"proxyAdmin": "0xC3154ccAC181eb9d71ccd53f29F425BDdD52d983"
+	"NftRentalMarketplace": {
+		"address": "",
+		"operator": "",
+		"implementation": "",
+		"proxyAdmin": ""
 	},
 	"ImmutableOwnerCreate2Factory": {
 		"address": "0x066f91a9Aa4C33D4ea4c12aBee6f4cb4e919F71d"
