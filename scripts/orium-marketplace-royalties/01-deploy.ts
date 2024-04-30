@@ -5,16 +5,11 @@ import { AddressZero, THREE_MONTHS } from '../../utils/constants'
 import { deployUpgradeableContract } from '../../utils/deploy-upgradeable'
 
 const NETWORK = network.name as Network
-const { KMSDeployer, ERC7432WrapperForERC4907 } = addresses[NETWORK]
+const { KMSDeployer } = addresses[NETWORK]
 
 const CONTRACT_NAME = 'OriumMarketplaceRoyalties'
 const OPERATOR_ADDRESS = KMSDeployer.address
-const INITIALIZER_ARGUMENTS: string[] = [
-  OPERATOR_ADDRESS,
-  ERC7432WrapperForERC4907.address,
-  AddressZero,
-  THREE_MONTHS.toString(),
-]
+const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, AddressZero, AddressZero, THREE_MONTHS.toString()]
 
 async function main() {
   await deployUpgradeableContract(CONTRACT_NAME, OPERATOR_ADDRESS, INITIALIZER_ARGUMENTS)

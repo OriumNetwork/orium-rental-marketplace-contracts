@@ -1,3 +1,4 @@
+// Source: https://github.com/0xcuonghx/ethers-kms-signer/blob/main/packages/ethers-aws-kms-signer/src/aws-kms-signer.ts
 import { GetPublicKeyCommand, KMSClient, SignCommand } from '@aws-sdk/client-kms'
 import { ECDSASigValue } from '@peculiar/asn1-ecc'
 import { AsnConvert } from '@peculiar/asn1-schema'
