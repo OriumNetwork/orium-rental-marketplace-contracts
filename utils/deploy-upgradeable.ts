@@ -14,6 +14,7 @@ const NETWORK = network.name as Network
 const networkConfig: any = network.config
 const provider = new ethers.JsonRpcProvider(networkConfig.url || '')
 const deployer = new AwsKmsSigner(kmsCredentials).connect(provider)
+
 export async function deployUpgradeableContract(
   PROXY_CONTRACT_NAME: string,
   OPERATOR_ADDRESS: string,
