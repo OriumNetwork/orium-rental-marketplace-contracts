@@ -1,10 +1,10 @@
-import mumbai from './mumbai/index.json'
+import moonbeam from './moonbeam/index.json'
 import polygon from './polygon/index.json'
 import cronosTestnet from './cronosTestnet/index.json'
 import cronos from './cronos/index.json'
 
 const config = {
-  mumbai,
+  moonbeam,
   polygon,
   cronosTestnet,
   cronos,
