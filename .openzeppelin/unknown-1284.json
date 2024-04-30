@@ -5,6 +5,16 @@
       "address": "0x1FdB03ee7e0A861D0495075C1459ef87bC4de54c",
       "txHash": "0x0710a2ba6366380ce03c7eea8b4724cace8607e34a829eb076cbec748057e08e",
       "kind": "transparent"
+    },
+    {
+      "address": "0x2711383C11acA1Ab43d94D8006745331ca23b95B",
+      "txHash": "0x97a9f0f743ec63bb4cedb49c0b07eef9209941474c8b0d58a1301a228f1ab474",
+      "kind": "transparent"
+    },
+    {
+      "address": "0x201E1636BB21Dfd51F93815BCD008EAe2Fa29bD9",
+      "txHash": "0xc65d6274d7d69f80a8acf4ddeb73132b1597f2675c2d0b7e4a9eb2a2d13eceb0",
+      "kind": "transparent"
     }
   ],
   "impls": {
@@ -190,6 +200,364 @@
               }
             ],
             "numberOfBytes": "96"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "dcb9cdfd52e3f2d2d84e7309deb1bab1b5bdeb4c6e444ea5c27c79bd6d834e0c": {
+      "address": "0xbD2BaC0Ad6205c40c1CA62530d42c76eF0b2E384",
+      "txHash": "0xb4a59ad9b43cbd4c57667b7517cc1bb45c834d0510dae29dcf685f9002a1189f",
+      "layout": {
+        "solcVersion": "0.8.9",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:29"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:116"
+          },
+          {
+            "label": "oriumMarketplaceRoyalties",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:24"
+          },
+          {
+            "label": "isCreated",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_mapping(t_bytes32,t_bool)",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:27"
+          },
+          {
+            "label": "nonceDeadline",
+            "offset": 0,
+            "slot": "153",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint64))",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:30"
+          },
+          {
+            "label": "roleDeadline",
+            "offset": 0,
+            "slot": "154",
+            "type": "t_mapping(t_bytes32,t_mapping(t_address,t_mapping(t_uint256,t_uint64)))",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:33"
+          },
+          {
+            "label": "rentals",
+            "offset": 0,
+            "slot": "155",
+            "type": "t_mapping(t_bytes32,t_struct(Rental)1951_storage)",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:36"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_uint64))": {
+            "label": "mapping(address => mapping(uint256 => uint64))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_bool)": {
+            "label": "mapping(bytes32 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_mapping(t_address,t_mapping(t_uint256,t_uint64)))": {
+            "label": "mapping(bytes32 => mapping(address => mapping(uint256 => uint64)))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Rental)1951_storage)": {
+            "label": "mapping(bytes32 => struct Rental)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint64)": {
+            "label": "mapping(uint256 => uint64)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Rental)1951_storage": {
+            "label": "struct Rental",
+            "members": [
+              {
+                "label": "borrower",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "expirationDate",
+                "type": "t_uint64",
+                "offset": 20,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64",
+            "numberOfBytes": "8"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        },
+        "namespaces": {}
+      }
+    },
+    "a6e8547bfc157c21d02b324f241dff9c7a3f5498ad69d6286192785b96973869": {
+      "address": "0x1112949A242A0283c2170b9F28931ccBE8878d18",
+      "txHash": "0xfd86bd20c98db94842ccf2fc9cdcee0da4f650d843245db2188d16c9f8fed994",
+      "layout": {
+        "solcVersion": "0.8.9",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:40"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "_paused",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_bool",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:29"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "PausableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol:116"
+          },
+          {
+            "label": "oriumMarketplaceRoyalties",
+            "offset": 0,
+            "slot": "151",
+            "type": "t_address",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:24"
+          },
+          {
+            "label": "isCreated",
+            "offset": 0,
+            "slot": "152",
+            "type": "t_mapping(t_bytes32,t_bool)",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:27"
+          },
+          {
+            "label": "nonceDeadline",
+            "offset": 0,
+            "slot": "153",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint64))",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:30"
+          },
+          {
+            "label": "roleDeadline",
+            "offset": 0,
+            "slot": "154",
+            "type": "t_mapping(t_bytes32,t_mapping(t_address,t_mapping(t_uint256,t_uint64)))",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:33"
+          },
+          {
+            "label": "rentals",
+            "offset": 0,
+            "slot": "155",
+            "type": "t_mapping(t_bytes32,t_struct(Rental)1951_storage)",
+            "contract": "NftRentalMarketplace",
+            "src": "contracts/NftRentalMarketplace.sol:36"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_bytes32": {
+            "label": "bytes32",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_uint64))": {
+            "label": "mapping(address => mapping(uint256 => uint64))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_bool)": {
+            "label": "mapping(bytes32 => bool)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_mapping(t_address,t_mapping(t_uint256,t_uint64)))": {
+            "label": "mapping(bytes32 => mapping(address => mapping(uint256 => uint64)))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bytes32,t_struct(Rental)1951_storage)": {
+            "label": "mapping(bytes32 => struct Rental)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_uint64)": {
+            "label": "mapping(uint256 => uint64)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Rental)1951_storage": {
+            "label": "struct Rental",
+            "members": [
+              {
+                "label": "borrower",
+                "type": "t_address",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "expirationDate",
+                "type": "t_uint64",
+                "offset": 20,
+                "slot": "0"
+              }
+            ],
+            "numberOfBytes": "32"
           },
           "t_uint256": {
             "label": "uint256",

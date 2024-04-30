@@ -28,7 +28,9 @@ export async function deployUpgradeableContract(
   const deployerAddress = await deployer.getAddress()
   const libraries: { [key: string]: string } = {}
 
-  confirmOrDie(`Deploying ${PROXY_CONTRACT_NAME} contract on: ${NETWORK} network with ${deployerAddress}. Continue?`)
+  await confirmOrDie(
+    `Deploying ${PROXY_CONTRACT_NAME} contract on: ${NETWORK} network with ${deployerAddress}. Continue?`,
+  )
 
   if (LIBRARIES_CONTRACT_NAME !== undefined) {
     print(colors.highlight, 'Deploying libraries...')
@@ -97,10 +99,26 @@ export async function deployUpgradeableContract(
     print(colors.error, `Error transferring proxy admin ownership: ${e}`)
   }
 
+  if (LIBRARIES_CONTRACT_NAME) {
+    print(colors.highlight, 'Verifying libraries on Etherscan...')
+    for (const LIBRARY_CONTRACT_NAME of LIBRARIES_CONTRACT_NAME) {
+      try {
+        print(colors.highlight, `Verifying library ${LIBRARY_CONTRACT_NAME}...`)
+        await hre.run('verify:verify', {
+          address: libraries[LIBRARY_CONTRACT_NAME],
+          constructorArguments: [],
+        })
+        print(colors.success, `${LIBRARY_CONTRACT_NAME} verified!`)
+      } catch (e) {
+        print(colors.error, `Error verifying library ${LIBRARY_CONTRACT_NAME}: ${e}`)
+      }
+    }
+  }
+
   print(colors.highlight, 'Verifying contract on Etherscan...')
   await hre.run('verify:verify', {
     address: await contract.getAddress(),
     constructorArguments: [],
   })
-  print(colors.success, 'Contract verified!')
+  print(colors.success, `${PROXY_CONTRACT_NAME} verified!`)
 }
