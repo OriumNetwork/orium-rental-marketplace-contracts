@@ -2,15 +2,30 @@ import hre, { ethers, network, upgrades } from 'hardhat'
 import { print, confirmOrDie, colors } from './misc'
 import { Network } from '../addresses'
 import { updateJsonFile } from './json'
+import { AwsKmsSigner } from './ethers-aws-kms-signer'
 
+const kmsCredentials = {
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'AKIAxxxxxxxxxxxxxxxx', // credentials for your IAM user with KMS access
+  secretAccessKey: process.env.AWS_ACCESS_KEY_SECRET || 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', // credentials for your IAM user with KMS access
+  region: 'us-east-1', // region of your KMS key
+  keyId: process.env.AWS_KMS_KEY_ID || 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', // KMS key id
+}
 const NETWORK = network.name as Network
+const networkConfig: any = network.config
+const provider = new ethers.JsonRpcProvider(networkConfig.url || '')
+const deployer = new AwsKmsSigner(kmsCredentials).connect(provider)
 export async function deployUpgradeableContract(
   PROXY_CONTRACT_NAME: string,
   OPERATOR_ADDRESS: string,
   INITIALIZER_ARGUMENTS: string[],
   LIBRARIES_CONTRACT_NAME?: string[],
+  CUSTOM_FEE_DATA?: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint },
 ) {
-  const deployerAddress = (await ethers.getSigners())[0]
+  if (CUSTOM_FEE_DATA !== undefined) {
+    const FEE_DATA: any = CUSTOM_FEE_DATA
+    provider.getFeeData = async () => FEE_DATA
+  }
+  const deployerAddress = await deployer.getAddress()
   const libraries: { [key: string]: string } = {}
 
   confirmOrDie(`Deploying ${PROXY_CONTRACT_NAME} contract on: ${NETWORK} network with ${deployerAddress}. Continue?`)
@@ -19,7 +34,7 @@ export async function deployUpgradeableContract(
     print(colors.highlight, 'Deploying libraries...')
 
     for (const LIBRARY_CONTRACT_NAME of LIBRARIES_CONTRACT_NAME) {
-      const LibraryFactory = await ethers.getContractFactory(LIBRARY_CONTRACT_NAME)
+      const LibraryFactory = await ethers.getContractFactory(LIBRARY_CONTRACT_NAME, deployer)
       const library = await LibraryFactory.deploy()
       await library.waitForDeployment()
       libraries[LIBRARY_CONTRACT_NAME] = await library.getAddress()
@@ -29,8 +44,10 @@ export async function deployUpgradeableContract(
   }
 
   print(colors.highlight, 'Deploying proxy contract...')
+  console.log('INITIALIZER_ARGUMENTS', INITIALIZER_ARGUMENTS)
   const ContractFactory = await ethers.getContractFactory(PROXY_CONTRACT_NAME, {
     libraries,
+    signer: deployer,
   })
   const contract = await upgrades.deployProxy(ContractFactory, INITIALIZER_ARGUMENTS, {
     unsafeAllowLinkedLibraries: true,
@@ -53,9 +70,7 @@ export async function deployUpgradeableContract(
   }
 
   console.log(deploymentInfo)
-
   updateJsonFile(`addresses/${NETWORK}/index.json`, deploymentInfo)
-
   print(colors.success, 'Config files updated!')
 
   try {
@@ -75,7 +90,7 @@ export async function deployUpgradeableContract(
         type: 'function',
       },
     ]
-    const proxyAdminContract = new ethers.Contract(deploymentInfo[PROXY_CONTRACT_NAME].proxyAdmin, abi)
+    const proxyAdminContract = new ethers.Contract(deploymentInfo[PROXY_CONTRACT_NAME].proxyAdmin, abi, deployer)
     await proxyAdminContract.transferOwnership(OPERATOR_ADDRESS)
     print(colors.success, `Proxy admin ownership transferred to: ${OPERATOR_ADDRESS}`)
   } catch (e) {
@@ -84,7 +99,7 @@ export async function deployUpgradeableContract(
 
   print(colors.highlight, 'Verifying contract on Etherscan...')
   await hre.run('verify:verify', {
-    address: contract.address,
+    address: await contract.getAddress(),
     constructorArguments: [],
   })
   print(colors.success, 'Contract verified!')

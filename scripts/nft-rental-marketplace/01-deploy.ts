@@ -5,7 +5,7 @@ import { deployUpgradeableContract } from '../../utils/deploy-upgradeable'
 
 const NETWORK = network.name as Network
 const PROXY_CONTRACT_NAME = 'NftRentalMarketplace'
-const OPERATOR_ADDRESS = addresses[NETWORK].Multisig.address
+const OPERATOR_ADDRESS = addresses[NETWORK].KMSDeployer.address
 const INITIALIZER_ARGUMENTS: string[] = [OPERATOR_ADDRESS, addresses[NETWORK].OriumMarketplaceRoyalties.address]
 const LIBRARIES_CONTRACT_NAME = ['LibNftRentalMarketplace']
 
