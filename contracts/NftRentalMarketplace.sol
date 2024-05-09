@@ -310,4 +310,13 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     function unpause() external onlyOwner {
         _unpause();
     }
+
+     /**
+     * @notice Sets the address of the OriumMarketplaceRoyalties contract.
+     * @dev Only owner can call this function.
+     * @param _oriumMarketplaceRoyalties The address of the OriumMarketplaceRoyalties contract.
+     */
+    function setOriumMarketplaceRoyalties(address _oriumMarketplaceRoyalties) external onlyOwner {
+        oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
+    }
 }
