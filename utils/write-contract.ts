@@ -12,15 +12,19 @@ const NETWORK = network.name as Network
  * @param CONTRACT_NAME The name of the contract
  * @param FUNCTION_NAME The function to call
  * @param FUNCTION_ARGUMENTS The arguments to pass to the function
- * @param CUSTOM_FEE_DATA The custom fee data (optional)
+ * @param OPTIONS The custom fee data, signer or contract file name
  */
 export async function callContractFunction(
-  CONTRACT_NAME: keyof (typeof config)[Network],
+  CONTRACT_NAME: keyof (typeof config)[Network] | string,
   FUNCTION_NAME: string,
   FUNCTION_ARGUMENTS: any,
-  CUSTOM_FEE_DATA?: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint },
-  CUSTOM_SIGNER?: Signer,
+  OPTIONS: {
+    CUSTOM_FEE_DATA?: { maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }
+    CUSTOM_SIGNER?: Signer
+    CUSTOM_CONTRACT_ADDRESS?: string
+  },
 ) {
+  const { CUSTOM_FEE_DATA, CUSTOM_SIGNER, CUSTOM_CONTRACT_ADDRESS } = OPTIONS
   const signer = CUSTOM_SIGNER || (await ethers.getSigners())[0]
   console.log('CONTRACT_NAME', CONTRACT_NAME)
   await confirmOrDie(
@@ -32,7 +36,11 @@ export async function callContractFunction(
   }
   print(colors.warn, `Arguments:`)
   console.log(FUNCTION_ARGUMENTS)
-  const contract = await ethers.getContractAt(CONTRACT_NAME, config[NETWORK][CONTRACT_NAME].address, signer)
+  const contract = await ethers.getContractAt(
+    CONTRACT_NAME,
+    CUSTOM_CONTRACT_ADDRESS ?? config[NETWORK][CONTRACT_NAME as keyof (typeof config)[Network]].address,
+    signer,
+  )
   print(colors.highlight, `Sending Transaction...`)
   const response = await contract[FUNCTION_NAME](...FUNCTION_ARGUMENTS)
   print(colors.highlight, `Waiting for transaction to be mined...`)
