@@ -17,7 +17,6 @@ import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNft
  * @author Orium Network Team - developers@orium.network
  */
 contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
-
     /** ######### Global Variables ########### **/
 
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
@@ -240,10 +239,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @param _tokenAddresses The NFT tokenAddresses.
      * @param _tokenIds The NFT tokenIds.
      */
-    function batchWithdraw(
-        address[] calldata _tokenAddresses,
-        uint256[] calldata _tokenIds
-    ) external whenNotPaused {
+    function batchWithdraw(address[] calldata _tokenAddresses, uint256[] calldata _tokenIds) external whenNotPaused {
         LibNftRentalMarketplace.batchWithdraw(oriumMarketplaceRoyalties, _tokenAddresses, _tokenIds);
     }
 
@@ -285,7 +281,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         );
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
-        for(uint256 i = 0; i < _offer.roles.length; i++) {
+        for (uint256 i = 0; i < _offer.roles.length; i++) {
             roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = uint64(block.timestamp);
         }
         emit RentalOfferCancelled(_offer.lender, _offer.nonce);
@@ -309,14 +305,5 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      */
     function unpause() external onlyOwner {
         _unpause();
-    }
-
-     /**
-     * @notice Sets the address of the OriumMarketplaceRoyalties contract.
-     * @dev Only owner can call this function.
-     * @param _oriumMarketplaceRoyalties The address of the OriumMarketplaceRoyalties contract.
-     */
-    function setOriumMarketplaceRoyalties(address _oriumMarketplaceRoyalties) external onlyOwner {
-        oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
     }
 }
