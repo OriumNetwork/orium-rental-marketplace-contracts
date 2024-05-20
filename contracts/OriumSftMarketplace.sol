@@ -229,7 +229,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
-     * @notice Cancels a rental offer.
+     * @notice Delist a rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
     function delistRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
@@ -237,7 +237,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
-     * @notice Cancels a rental offer.
+     * @notice Delist a rental offer and withdraw it.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
     function delistRentalOfferAndWithdraw(RentalOffer calldata _offer) external whenNotPaused {
