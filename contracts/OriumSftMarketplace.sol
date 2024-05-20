@@ -198,7 +198,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
     }
 
-      /**
+    /**
      * @notice Cancels a rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
