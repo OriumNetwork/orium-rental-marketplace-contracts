@@ -29,10 +29,10 @@
 	"OriumSftMarketplace": {
 		"address": "0xB1D47B09aa6D81d7B00C3A37705a6A157B83C49F",
 		"operator": "0x359E1208DE02Af11461A37D72165Ef2dcD2Adfc8",
-		"implementation": "0xd04d97d855A24b4E70D5723Bb90C194EC8946938",
+		"implementation": "0x28c0DFe3e6B53ff3A25B9655A0B9D62120Ae34Fc",
 		"proxyAdmin": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD",
 		"libraries": {
-			"LibOriumSftMarketplace": "0x69C4c9D8B8D815c57Cb252f228159b2794094a17"
+			"LibOriumSftMarketplace": "0xF992Cf6815aC9c08B3631b5587e16d561ef9a969"
 		}
 	},
 	"ERC7432WrapperForERC4907": {
