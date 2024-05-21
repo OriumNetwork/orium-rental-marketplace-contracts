@@ -229,6 +229,26 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
+     * @notice Delist a rental offer.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function delistRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
+        _delistRentalOffer(_offer);
+    }
+
+    /**
+     * @notice Delist a rental offer and withdraw it.
+     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
+     */
+    function delistRentalOfferAndWithdraw(RentalOffer calldata _offer) external whenNotPaused {
+        _delistRentalOffer(_offer);
+        IERC7589 _rolesRegistry = IERC7589(
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
+        );
+        _rolesRegistry.releaseTokens(_offer.commitmentId);
+    }
+
+    /**
      * @notice Ends the rental prematurely.
      * @dev Can only be called by the borrower.
      * @dev Borrower needs to approve marketplace to revoke the roles.
@@ -424,6 +444,22 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             _royaltyInfo.treasury,
             _lenderAddress
         );
+    }
+
+    /**
+     * @dev Cancels a rental offer.
+     * @param _offer The rental offer struct.
+     */
+    function _delistRentalOffer(RentalOffer calldata _offer) internal {
+        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
+        require(isCreated[_offerHash], 'OriumSftMarketplace: Offer not created');
+        require(msg.sender == _offer.lender, 'OriumSftMarketplace: Only lender can cancel a rental offer');
+        require(
+            nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp,
+            'OriumSftMarketplace: Nonce expired or not used yet'
+        );
+        nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
+        emit RentalOfferCancelled(_offer.lender, _offer.nonce);
     }
 
     /** ============================ Core Functions  ================================== **/

@@ -631,6 +631,93 @@ describe('OriumSftMarketplace', () => {
             })
           })
 
+          describe('Delist Rental Offer and Withdraw', async () => {
+            it('Should delist a rental offer and releaseTokens from rolesRegistry', async () => {
+              await expect(marketplace.connect(lender).delistRentalOfferAndWithdraw(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+                .to.emit(rolesRegistry, 'TokensReleased')
+                .withArgs(rentalOffer.commitmentId)
+            })
+            it('Should NOT delist a rental offer if tokens was released before directly from registry', async () => {
+              await rolesRegistry.connect(lender).releaseTokens(rentalOffer.commitmentId)
+              await expect(marketplace.connect(lender).delistRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
+                'SftRolesRegistry: account not approved',
+              )
+            })
+            it('Should NOT delist a rental offer if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(marketplace.connect(borrower).delistRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
+                'Pausable: paused',
+              )
+            })
+            it('Should NOT delist a rental offer if nonce not used yet by caller', async () => {
+              await expect(
+                marketplace.connect(notOperator).delistRentalOfferAndWithdraw(rentalOffer),
+              ).to.be.revertedWith('OriumSftMarketplace: Only lender can cancel a rental offer')
+            })
+            it("Should NOT delist a rental offer after deadline's expiration", async () => {
+              // move forward in time to expire the offer
+              const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+              const timeToMove = rentalOffer.deadline - Number(blockTimestamp) + 1
+              await ethers.provider.send('evm_increaseTime', [timeToMove])
+
+              await expect(marketplace.connect(lender).delistRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: Nonce expired or not used yet',
+              )
+            })
+            it("Should NOT delist a rental offer if it's not created", async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .delistRentalOfferAndWithdraw({ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }),
+              ).to.be.revertedWith('OriumSftMarketplace: Offer not created')
+            })
+          })
+
+          describe('Delist Rental Offer', async () => {
+            it('Should delist a rental offer and releaseTokens from rolesRegistry', async () => {
+              await expect(marketplace.connect(lender).delistRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+                .to.not.emit(rolesRegistry, 'TokensReleased')
+            })
+            it('Should delist a rental offer if tokens was released before directly from registry', async () => {
+              await rolesRegistry.connect(lender).releaseTokens(rentalOffer.commitmentId)
+              await expect(marketplace.connect(lender).delistRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+            })
+            it('Should NOT delist a rental offer if contract is paused', async () => {
+              await marketplace.connect(operator).pause()
+              await expect(marketplace.connect(borrower).delistRentalOffer(rentalOffer)).to.be.revertedWith(
+                'Pausable: paused',
+              )
+            })
+            it('Should NOT delist a rental offer if nonce not used yet by caller', async () => {
+              await expect(marketplace.connect(notOperator).delistRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: Only lender can cancel a rental offer',
+              )
+            })
+            it("Should NOT delist a rental offer after deadline's expiration", async () => {
+              // move forward in time to expire the offer
+              const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+              const timeToMove = rentalOffer.deadline - Number(blockTimestamp) + 1
+              await ethers.provider.send('evm_increaseTime', [timeToMove])
+
+              await expect(marketplace.connect(lender).delistRentalOffer(rentalOffer)).to.be.revertedWith(
+                'OriumSftMarketplace: Nonce expired or not used yet',
+              )
+            })
+            it("Should NOT delist a rental offer if it's not created", async () => {
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .delistRentalOffer({ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }),
+              ).to.be.revertedWith('OriumSftMarketplace: Offer not created')
+            })
+          })
+
           describe('Batch Release Tokens', async () => {
             it('Should release tokens from rolesRegistry', async () => {
               await time.increase(ONE_DAY)
