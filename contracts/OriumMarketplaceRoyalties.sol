@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.9;
 
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { IOriumMarketplaceRoyalties } from "./interfaces/IOriumMarketplaceRoyalties.sol";
+import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
+import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
+import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 
 /**
  * @title Orium Marketplace Royalties
@@ -124,7 +124,7 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
         uint256 _royaltyPercentage = tokenAddressToRoyaltyInfo[_tokenAddress].royaltyPercentageInWei;
         require(
             _royaltyPercentage + _feePercentageInWei < MAX_PERCENTAGE,
-            "OriumMarketplaceRoyalties: Royalty percentage + marketplace fee cannot be greater than 100%"
+            'OriumMarketplaceRoyalties: Royalty percentage + marketplace fee cannot be greater than 100%'
         );
 
         feeInfo[_tokenAddress] = FeeInfo({ feePercentageInWei: _feePercentageInWei, isCustomFee: _isCustomFee });
@@ -149,14 +149,14 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
         if (msg.sender != owner()) {
             require(
                 msg.sender == tokenAddressToRoyaltyInfo[_tokenAddress].creator,
-                "OriumMarketplaceRoyalties: Only creator or owner can set the royalty info"
+                'OriumMarketplaceRoyalties: Only creator or owner can set the royalty info'
             );
-            require(msg.sender == _creator, "OriumMarketplaceRoyalties: sender and creator mismatch");
+            require(msg.sender == _creator, 'OriumMarketplaceRoyalties: sender and creator mismatch');
         }
 
         require(
             _royaltyPercentageInWei + marketplaceFeeOf(_tokenAddress) < MAX_PERCENTAGE,
-            "OriumMarketplaceRoyalties: Royalty percentage + marketplace fee cannot be greater than 100%"
+            'OriumMarketplaceRoyalties: Royalty percentage + marketplace fee cannot be greater than 100%'
         );
 
         tokenAddressToRoyaltyInfo[_tokenAddress] = RoyaltyInfo({
@@ -174,7 +174,7 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
      * @param _maxDuration The maximum duration of a rental offer.
      */
     function setMaxDuration(uint64 _maxDuration) external onlyOwner {
-        require(_maxDuration > 0, "OriumMarketplaceRoyalties: Max duration should be greater than 0");
+        require(_maxDuration > 0, 'OriumMarketplaceRoyalties: Max duration should be greater than 0');
         maxDuration = _maxDuration;
     }
 
@@ -209,7 +209,7 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
 
     /**
      * @notice Sets the trusted fee token addresses for a token.
-     * @dev Can only be called by the owner. 
+     * @dev Can only be called by the owner.
      * @param _tokenAddresses The NFT or SFT addresses.
      * @param _feeTokenAddresses The fee token addresses.
      * @param _isTrusted The boolean array.
@@ -221,7 +221,7 @@ contract OriumMarketplaceRoyalties is Initializable, OwnableUpgradeable, IOriumM
     ) external onlyOwner {
         require(
             _tokenAddresses.length == _feeTokenAddresses.length && _tokenAddresses.length == _isTrusted.length,
-            "OriumMarketplaceRoyalties: Arrays should have the same length"
+            'OriumMarketplaceRoyalties: Arrays should have the same length'
         );
         for (uint256 i = 0; i < _tokenAddresses.length; i++) {
             isTrustedFeeTokenAddressForToken[_tokenAddresses[i]][_feeTokenAddresses[i]] = _isTrusted[i];

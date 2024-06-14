@@ -307,8 +307,7 @@ library LibNftRentalMarketplace {
             );
             require(
                 msg.sender == IERC721(_params[i].tokenAddress).ownerOf(_params[i].tokenId) ||
-                    msg.sender ==
-                    IERC7432(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId),
+                    msg.sender == IERC7432(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId),
                 'OriumNftMarketplace: sender is not the owner'
             );
 

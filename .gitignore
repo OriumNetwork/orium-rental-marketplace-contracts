@@ -11,6 +11,7 @@ coverage.json
 out
 cache_forge
 forge-artifacts
+.npmrc
 
 
 .openzeppelin/unknown-31337.json

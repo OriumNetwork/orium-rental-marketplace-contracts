@@ -2,12 +2,12 @@
 
 pragma solidity 0.8.9;
 
-import { Test } from "../../lib/forge-std/src/Test.sol";
-import { OriumSftMarketplace } from "../../contracts/OriumSftMarketplace.sol";
-import { OriumMarketplaceRoyalties } from "../../contracts/OriumMarketplaceRoyalties.sol";
-import { SftRolesRegistrySingleRole } from "../../contracts/mocks/SftRolesRegistrySingleRole.sol";
-import { MockERC1155 } from "../../contracts/mocks/MockERC1155.sol";
-import { MockERC20 } from "../../contracts/mocks/MockERC20.sol";
+import { Test } from '../../lib/forge-std/src/Test.sol';
+import { OriumSftMarketplace } from '../../contracts/OriumSftMarketplace.sol';
+import { OriumMarketplaceRoyalties } from '../../contracts/OriumMarketplaceRoyalties.sol';
+import { SftRolesRegistrySingleRole } from '../../contracts/mocks/SftRolesRegistrySingleRole.sol';
+import { MockERC1155 } from '../../contracts/mocks/MockERC1155.sol';
+import { MockERC20 } from '../../contracts/mocks/MockERC20.sol';
 
 contract SetupTest is Test {
     OriumSftMarketplace public marketplace;
@@ -15,7 +15,7 @@ contract SetupTest is Test {
     SftRolesRegistrySingleRole public rolesRegistry;
     MockERC1155 public sft;
     MockERC20 public feeToken;
-    
+
     uint64 public constant MAX_DURATION = 90 days;
     uint256 public constant tokenId = 1;
     uint256 public constant tokenAmount = 1;
@@ -51,8 +51,8 @@ contract SetupTest is Test {
         _trustedFeeTokens[0] = address(feeToken);
         address[] memory _trustedNftTokens = new address[](1);
         _trustedNftTokens[0] = address(sft);
-        
-        sft.mint(address(lender), tokenId, tokenAmount, "");
+
+        sft.mint(address(lender), tokenId, tokenAmount, '');
         royalties.setTrustedNftTokens(_trustedNftTokens, _isTrusted);
         royalties.setTrustedFeeTokens(_trustedFeeTokens, _isTrusted);
         royalties.setRolesRegistry(address(sft), address(rolesRegistry));

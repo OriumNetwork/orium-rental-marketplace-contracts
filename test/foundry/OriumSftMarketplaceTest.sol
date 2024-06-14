@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.9;
 
-import { SetupTest } from "./SetupTest.sol";
-import { RentalOffer } from "../../contracts/libraries/LibOriumSftMarketplace.sol";
+import { SetupTest } from './SetupTest.sol';
+import { RentalOffer } from '../../contracts/libraries/LibOriumSftMarketplace.sol';
 
 contract OriumSftMarketplaceTest is SetupTest {
     uint256 nonceCounter;
@@ -21,7 +21,7 @@ contract OriumSftMarketplaceTest is SetupTest {
         roles[0] = UNIQUE_ROLE;
 
         bytes[] memory rolesData = new bytes[](1);
-        rolesData[0] = "0x";
+        rolesData[0] = '0x';
 
         RentalOffer memory _offer = RentalOffer({
             lender: lenderFuzz,
@@ -38,7 +38,7 @@ contract OriumSftMarketplaceTest is SetupTest {
             rolesData: rolesData
         });
 
-        sft.mint(lenderFuzz, tokenId, tokenAmount, "");
+        sft.mint(lenderFuzz, tokenId, tokenAmount, '');
         vm.startPrank(lenderFuzz);
         sft.setApprovalForAll(address(rolesRegistry), true);
         rolesRegistry.setRoleApprovalForAll(address(sft), address(marketplace), true);
@@ -46,7 +46,7 @@ contract OriumSftMarketplaceTest is SetupTest {
         vm.stopPrank();
     }
 
-   function test_fuzz_acceptRentalOffer(address lenderFuzz, address borrowerFuzz, uint64 duration) public {
+    function test_fuzz_acceptRentalOffer(address lenderFuzz, address borrowerFuzz, uint64 duration) public {
         vm.assume(lenderFuzz != address(0) && lenderFuzz.code.length == 0);
         vm.assume(borrowerFuzz != address(0) && borrowerFuzz.code.length == 0);
         uint64 deadline = uint64(block.timestamp + 30 days);
@@ -56,7 +56,7 @@ contract OriumSftMarketplaceTest is SetupTest {
         roles[0] = UNIQUE_ROLE;
 
         bytes[] memory rolesData = new bytes[](1);
-        rolesData[0] = "0x";
+        rolesData[0] = '0x';
 
         RentalOffer memory _offer = RentalOffer({
             lender: lenderFuzz,
@@ -74,7 +74,7 @@ contract OriumSftMarketplaceTest is SetupTest {
         });
 
         vm.startPrank(lenderFuzz);
-        sft.mint(lenderFuzz, tokenId, tokenAmount, "");
+        sft.mint(lenderFuzz, tokenId, tokenAmount, '');
         sft.setApprovalForAll(address(rolesRegistry), true);
         rolesRegistry.setRoleApprovalForAll(address(sft), address(marketplace), true);
         marketplace.createRentalOffer(_offer);
@@ -94,7 +94,7 @@ contract OriumSftMarketplaceTest is SetupTest {
         roles[0] = UNIQUE_ROLE;
 
         bytes[] memory rolesData = new bytes[](1);
-        rolesData[0] = "0x";
+        rolesData[0] = '0x';
 
         RentalOffer memory _offer = RentalOffer({
             lender: lenderFuzz,
@@ -112,7 +112,7 @@ contract OriumSftMarketplaceTest is SetupTest {
         });
 
         vm.startPrank(lenderFuzz);
-        sft.mint(lenderFuzz, tokenId, tokenAmount, "");
+        sft.mint(lenderFuzz, tokenId, tokenAmount, '');
         sft.setApprovalForAll(address(rolesRegistry), true);
         rolesRegistry.setRoleApprovalForAll(address(sft), address(marketplace), true);
         marketplace.createRentalOffer(_offer);
@@ -129,7 +129,7 @@ contract OriumSftMarketplaceTest is SetupTest {
         roles[0] = UNIQUE_ROLE;
 
         bytes[] memory rolesData = new bytes[](1);
-        rolesData[0] = "0x";
+        rolesData[0] = '0x';
 
         RentalOffer memory _offer = RentalOffer({
             lender: lender,
@@ -146,7 +146,7 @@ contract OriumSftMarketplaceTest is SetupTest {
             rolesData: rolesData
         });
 
-        sft.mint(lender, tokenId, tokenAmount, "");
+        sft.mint(lender, tokenId, tokenAmount, '');
         vm.startPrank(lender);
         sft.setApprovalForAll(address(rolesRegistry), true);
         rolesRegistry.setRoleApprovalForAll(address(sft), address(marketplace), true);

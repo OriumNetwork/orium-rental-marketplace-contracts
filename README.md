@@ -2,7 +2,6 @@
 
 Orium Protocol for renting NFTs. Powered by ERC7432 and ERC7589.
 
-
 ## Getting Started
 
 To get started with this project, clone the repository and run the following commands:
@@ -13,7 +12,6 @@ npm run compile
 npm test
 npm run coverage
 ```
-
 
 ## Install Foundry
 

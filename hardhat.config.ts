@@ -38,7 +38,7 @@ const BASE_CONFIG = {
       goerli: ETHER_SCAN_API_KEY,
       cronosTestnet: CRONOSSCAN_API_KEY,
       cronos: CRONOSSCAN_API_KEY,
-      moonbeam: MOONSCAN_API_KEY,
+      //moonbeam: MOONSCAN_API_KEY,
     },
     customChains: [
       {
@@ -108,11 +108,11 @@ const PROD_CONFIG = {
       url: CRONOS_PROVIDER_URL,
       accounts: [PROD_PRIVATE_KEY],
     },
-    moonbeam: {
-      chainId: 1284,
-      url: MOONBEAM_PROVIDER_URL,
-      accounts: [DEV_PRIVATE_KEY],
-    },
+    // moonbeam: {
+    //   chainId: 1284,
+    //   url: MOONBEAM_PROVIDER_URL,
+    //   accounts: [DEV_PRIVATE_KEY],
+    // },
   },
   defender: {
     apiKey: DEFENDER_TEAM_API_KEY,

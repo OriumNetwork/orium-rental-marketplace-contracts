@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.9;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
 /**
  * @title MockERC20
@@ -13,7 +13,7 @@ contract MockERC20 is ERC20 {
     bool public revertTransfer;
     uint256 public revertTransferCount;
 
-    constructor() ERC20("PaymentToken", "PAY") {}
+    constructor() ERC20('PaymentToken', 'PAY') {}
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
