@@ -106,6 +106,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
+
     function createRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
         LibNftRentalMarketplace.validateCreateRentalOfferParams(
             oriumMarketplaceRoyalties,
@@ -118,7 +119,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] < block.timestamp,
                 'NftRentalMarketplace: role still has an active offer'
             );
-            roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _offer.deadline;
+            roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _offer.deadline - _offer.minDuration;
         }
 
         bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
@@ -149,7 +150,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
         bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
-
         LibNftRentalMarketplace.validateAcceptRentalOfferParams(
             _offer.borrower,
             _offer.minDuration,
@@ -179,6 +179,12 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _offer.roles,
             _offer.rolesData
         );
+
+        for (uint256 i = 0; i < _offer.roles.length; i++) {
+            if(_expirationDate > roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId]) {
+                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _expirationDate;
+            }
+        }
 
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
 
@@ -282,7 +288,12 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
         for (uint256 i = 0; i < _offer.roles.length; i++) {
-            roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = uint64(block.timestamp);
+
+            if(rentals[_offerHash].expirationDate > uint64(block.timestamp)) {
+                roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = rentals[_offerHash].expirationDate;
+            }else {
+                roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = uint64(block.timestamp);
+            }
         }
         emit RentalOfferCancelled(_offer.lender, _offer.nonce);
     }

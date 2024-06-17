@@ -4,7 +4,15 @@ import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
 import { GrantRoleParams, RentalOffer, RoyaltyInfo } from '../utils/types'
-import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
+import {
+  AddressZero,
+  EMPTY_BYTES,
+  ONE_DAY,
+  ONE_HOUR,
+  THREE_MONTHS,
+  TWENTY_THREE_HOURS,
+  TEN_MINUTES,
+} from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { UNIQUE_ROLE, USER_ROLE } from '../utils/roles'
 import {
@@ -163,6 +171,28 @@ describe('NftRentalMarketplace', () => {
                   rentalOffer.rolesData,
                 )
             })
+            it('Should create more than one rental offer for the same role, if the (Deadline - minduration) is reached ', async () => {
+              rentalOffer.minDuration = TWENTY_THREE_HOURS
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              await time.increase(ONE_HOUR)
+              rentalOffer.deadline = Number(await time.latest()) + ONE_DAY
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCreated')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.lender,
+                  rentalOffer.borrower,
+                  rentalOffer.feeTokenAddress,
+                  rentalOffer.feeAmountPerSecond,
+                  rentalOffer.deadline,
+                  rentalOffer.minDuration,
+                  rentalOffer.roles,
+                  rentalOffer.rolesData,
+                )
+            })
             it('Should create rental offer if token is already deposited in rolesRegistry', async function () {
               await mockERC721.connect(lender).approve(await rolesRegistry.getAddress(), tokenId)
               await rolesRegistry.connect(lender).grantRole({
@@ -191,6 +221,7 @@ describe('NftRentalMarketplace', () => {
                   rentalOffer.rolesData,
                 )
             })
+
             it('Should NOT create a rental offer if contract is paused', async () => {
               await marketplace.connect(operator).pause()
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
@@ -267,6 +298,17 @@ describe('NftRentalMarketplace', () => {
             })
             it('Should NOT create more than one rental offer for the same role', async () => {
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'NftRentalMarketplace: role still has an active offer',
+              )
+            })
+            it('Should NOT create more than one rental when the (Deadline - minduration) is not be reached. ', async () => {
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.minDuration = TWENTY_THREE_HOURS
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              await time.increase(TEN_MINUTES)
+
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
                 'NftRentalMarketplace: role still has an active offer',
