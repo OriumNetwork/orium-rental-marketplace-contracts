@@ -53,13 +53,14 @@ library LibNftRentalMarketplace {
         address _rolesRegistry = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).nftRolesRegistryOf(
             _offer.tokenAddress
         );
-        address _nftOwner = IERC721(_offer.tokenAddress).ownerOf(_offer.tokenId);
+
+        // sender must be the ERC-721 or the ERC-7432 owner to create a rental offer
         require(
-            msg.sender == _nftOwner ||
-                (msg.sender == IERC7432(_rolesRegistry).ownerOf(_offer.tokenAddress, _offer.tokenId) &&
-                    _rolesRegistry == _nftOwner),
+            msg.sender == IERC721(_offer.tokenAddress).ownerOf(_offer.tokenId) ||
+                msg.sender == IERC7432(_rolesRegistry).ownerOf(_offer.tokenAddress, _offer.tokenId),
             'NftRentalMarketplace: only token owner can call this function'
         );
+
         require(
             IOriumMarketplaceRoyalties(_oriumMarketplaceRoyalties).isTrustedFeeTokenAddressForToken(
                 _offer.tokenAddress,
@@ -307,8 +308,7 @@ library LibNftRentalMarketplace {
             );
             require(
                 msg.sender == IERC721(_params[i].tokenAddress).ownerOf(_params[i].tokenId) ||
-                    msg.sender ==
-                    IERC7432(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId),
+                    msg.sender == IERC7432(_rolesRegistry).ownerOf(_params[i].tokenAddress, _params[i].tokenId),
                 'OriumNftMarketplace: sender is not the owner'
             );
 
