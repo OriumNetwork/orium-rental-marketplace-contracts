@@ -1,10 +1,8 @@
 import { print, colors } from '../../utils/misc'
 import { upgradeProxy } from '../../utils/upgrade-proxy'
 
-const CONTRACT_NAME = 'NftRentalMarketplace'
-
 async function main() {
-  await upgradeProxy(CONTRACT_NAME)
+  await upgradeProxy('NftRentalMarketplace', ['LibNftRentalMarketplace'])
 }
 
 main()
