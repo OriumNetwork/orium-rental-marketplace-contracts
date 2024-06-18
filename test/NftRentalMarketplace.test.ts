@@ -300,7 +300,7 @@ describe('NftRentalMarketplace', () => {
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'NftRentalMarketplace: role still has an active offer',
+                'NftRentalMarketplace: role still has an active offer or rental',
               )
             })
             it('Should NOT create more than one rental when the (Deadline - minduration) is not be reached. ', async () => {
@@ -311,7 +311,7 @@ describe('NftRentalMarketplace', () => {
 
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'NftRentalMarketplace: role still has an active offer',
+                'NftRentalMarketplace: role still has an active offer or rental',
               )
             })
           })

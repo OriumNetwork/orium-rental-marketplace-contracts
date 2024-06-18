@@ -116,7 +116,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         for (uint256 i = 0; i < _offer.roles.length; i++) {
             require(
                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] < block.timestamp,
-                'NftRentalMarketplace: role still has an active offer'
+                'NftRentalMarketplace: role still has an active offer or rental'
             );
             roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _offer.deadline - _offer.minDuration;
         }
