@@ -398,6 +398,26 @@ describe('NftRentalMarketplace', () => {
                 'RentalStarted',
               )
             })
+            it('Should DEADLINE UPDATED', async () => {
+              await time.increase(ONE_DAY)
+              rentalOffer.minDuration = duration / 2
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.deadline = Number(await time.latest()) + ONE_HOUR + TEN_MINUTES
+              const blockTimestamp = Number(await time.latest())
+              console.log('blockTimestamp:', blockTimestamp.toString())
+              const newExpirationDate = blockTimestamp + duration - 1
+              console.log('newExpirationDate', newExpirationDate.toString())
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              const updatedRoleDeadline = await marketplace.roleDeadline(
+                USER_ROLE,
+                await mockERC721.getAddress(),
+                tokenId,
+              )
+              console.log('Updated Role Deadline:', updatedRoleDeadline.toString())
+              await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
+
+              expect(newExpirationDate).to.be.greaterThan(updatedRoleDeadline)
+            })
             it('Should accept rental offer if marketplace fee is zero', async () => {
               await marketplaceRoyalties
                 .connect(operator)
