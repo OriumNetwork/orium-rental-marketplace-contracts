@@ -4,7 +4,15 @@ import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers'
 import { expect } from 'chai'
 import { toWei } from '../utils/bignumber'
 import { GrantRoleParams, RentalOffer, RoyaltyInfo } from '../utils/types'
-import { AddressZero, EMPTY_BYTES, ONE_DAY, ONE_HOUR, THREE_MONTHS } from '../utils/constants'
+import {
+  AddressZero,
+  EMPTY_BYTES,
+  ONE_DAY,
+  ONE_HOUR,
+  THREE_MONTHS,
+  TWENTY_THREE_HOURS,
+  TEN_MINUTES,
+} from '../utils/constants'
 import { randomBytes } from 'crypto'
 import { UNIQUE_ROLE, USER_ROLE } from '../utils/roles'
 import {
@@ -163,6 +171,28 @@ describe('NftRentalMarketplace', () => {
                   rentalOffer.rolesData,
                 )
             })
+            it('Should create a rental offer for the same role, if the (Deadline - minduration) is reached ', async () => {
+              rentalOffer.minDuration = TWENTY_THREE_HOURS
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              await time.increase(ONE_HOUR)
+              rentalOffer.deadline = Number(await time.latest()) + ONE_DAY
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCreated')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.lender,
+                  rentalOffer.borrower,
+                  rentalOffer.feeTokenAddress,
+                  rentalOffer.feeAmountPerSecond,
+                  rentalOffer.deadline,
+                  rentalOffer.minDuration,
+                  rentalOffer.roles,
+                  rentalOffer.rolesData,
+                )
+            })
             it('Should create rental offer if token is already deposited in rolesRegistry', async function () {
               await mockERC721.connect(lender).approve(await rolesRegistry.getAddress(), tokenId)
               await rolesRegistry.connect(lender).grantRole({
@@ -191,6 +221,7 @@ describe('NftRentalMarketplace', () => {
                   rentalOffer.rolesData,
                 )
             })
+
             it('Should NOT create a rental offer if contract is paused', async () => {
               await marketplace.connect(operator).pause()
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
@@ -269,7 +300,18 @@ describe('NftRentalMarketplace', () => {
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'NftRentalMarketplace: role still has an active offer',
+                'NftRentalMarketplace: role still has an active offer or rental',
+              )
+            })
+            it('Should NOT create more than one rental when the (Deadline - minduration) is not be reached. ', async () => {
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.minDuration = TWENTY_THREE_HOURS
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              await time.increase(TEN_MINUTES)
+
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'NftRentalMarketplace: role still has an active offer or rental',
               )
             })
           })
@@ -355,6 +397,26 @@ describe('NftRentalMarketplace', () => {
                 marketplace,
                 'RentalStarted',
               )
+            })
+            it('Should Accept a rental offer and update roleDeadLine if expiration date is greater than storage info.', async () => {
+              await time.increase(ONE_DAY)
+              rentalOffer.minDuration = duration / 2
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.deadline = Number(await time.latest()) + ONE_HOUR + TEN_MINUTES
+              const blockTimestamp = Number(await time.latest())
+              console.log('blockTimestamp:', blockTimestamp.toString())
+              const newExpirationDate = blockTimestamp + duration - 1
+              console.log('newExpirationDate', newExpirationDate.toString())
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              const updatedRoleDeadline = await marketplace.roleDeadline(
+                USER_ROLE,
+                await mockERC721.getAddress(),
+                tokenId,
+              )
+              console.log('Updated Role Deadline:', updatedRoleDeadline.toString())
+              await marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration)
+
+              expect(newExpirationDate).to.be.greaterThan(updatedRoleDeadline)
             })
             it('Should accept rental offer if marketplace fee is zero', async () => {
               await marketplaceRoyalties
@@ -514,6 +576,88 @@ describe('NftRentalMarketplace', () => {
                   .connect(lender)
                   .cancelRentalOffer({ ...rentalOffer, nonce: `0x${randomBytes(32).toString('hex')}` }),
               ).to.be.revertedWith('NftRentalMarketplace: Offer not created')
+            })
+            it('Should cancel a rental offer with an active role', async () => {
+              await time.increase(ONE_DAY)
+              rentalOffer.borrower = borrower.address
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.deadline = Number(await time.latest()) + ONE_DAY
+              rentalOffer.feeAmountPerSecond = toWei('0')
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+
+              const blockTimestamp = await time.latest()
+              const expirationDate = Number(blockTimestamp) + duration
+
+              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration - 1))
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
+
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+            })
+            it('Should cancel a rental offer with an active role And DO NOT let create another rental offer', async () => {
+              await time.increase(ONE_DAY)
+              rentalOffer.borrower = borrower.address
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.deadline = Number(await time.latest()) + ONE_DAY
+              rentalOffer.feeAmountPerSecond = toWei('0')
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+
+              const blockTimestamp = await time.latest()
+              const expirationDate = Number(blockTimestamp) + duration
+
+              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration - 1))
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
+
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
+                'NftRentalMarketplace: role still has an active offer or rental',
+              )
+            })
+
+            it('Should cancel a rental offer with an active role And LET create another rental offer when expiration date is reached', async () => {
+              await time.increase(ONE_DAY)
+              rentalOffer.borrower = borrower.address
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.deadline = Number(await time.latest()) + ONE_DAY
+              rentalOffer.feeAmountPerSecond = toWei('0')
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+
+              const blockTimestamp = await time.latest()
+              const expirationDate = Number(blockTimestamp) + duration
+
+              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration - 1))
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
+
+              await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCancelled')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce)
+
+              await time.increase(ONE_HOUR * 2)
+
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
+                .to.emit(marketplace, 'RentalOfferCreated')
+                .withArgs(
+                  rentalOffer.nonce,
+                  rentalOffer.tokenAddress,
+                  rentalOffer.tokenId,
+                  rentalOffer.lender,
+                  rentalOffer.borrower,
+                  rentalOffer.feeTokenAddress,
+                  rentalOffer.feeAmountPerSecond,
+                  rentalOffer.deadline,
+                  rentalOffer.minDuration,
+                  rentalOffer.roles,
+                  rentalOffer.rolesData,
+                )
             })
           })
 
