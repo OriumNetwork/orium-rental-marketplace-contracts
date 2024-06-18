@@ -597,7 +597,7 @@ describe('NftRentalMarketplace', () => {
 
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
-                'NftRentalMarketplace: role still has an active offer',
+                'NftRentalMarketplace: role still has an active offer or rental',
               )
             })
 
