@@ -398,7 +398,7 @@ describe('NftRentalMarketplace', () => {
                 'RentalStarted',
               )
             })
-            it('Should DEADLINE UPDATED', async () => {
+            it('Should Accept a rental offer and update roleDeadLine if expiration date is greater than storage info.', async () => {
               await time.increase(ONE_DAY)
               rentalOffer.minDuration = duration / 2
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
