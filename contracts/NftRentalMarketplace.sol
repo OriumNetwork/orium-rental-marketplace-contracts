@@ -234,6 +234,12 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _offer.roles
         );
 
+        for (uint256 i = 0; i < _offer.roles.length; i++) {
+            if( roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] > uint64(block.timestamp) ) {
+                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = uint64(block.timestamp); 
+            }
+        }
+        
         _rental.expirationDate = uint64(block.timestamp);
         emit RentalEnded(_offer.lender, _offer.nonce);
     }
