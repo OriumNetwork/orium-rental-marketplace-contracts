@@ -35,7 +35,7 @@
 	"NftRentalMarketplace": {
 		"address": "0x201E1636BB21Dfd51F93815BCD008EAe2Fa29bD9",
 		"operator": "0x04c8c6c56dab836f8bd62cb6884371507e706806",
-		"implementation": "0xA4c07bCF0ACE9e85Ce59BDD8eC7590a1d946216d",
+		"implementation": "0x830cbc0e100e72e8682391a668ce6c9db703848f",
 		"proxyAdmin": "0x668e73cF24361cfE13801681d8885e6632A7Eaa6",
 		"libraries": {
 			"LibNftRentalMarketplace": "0x4BDb2d8f3833b38307dfC19231dC7cD65b59504a"
