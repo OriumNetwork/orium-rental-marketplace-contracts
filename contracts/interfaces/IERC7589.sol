@@ -67,7 +67,7 @@ interface IERC7589 is IERC165 {
     /// @param _isApproved The approval status.
     event RoleApprovalForAll(address indexed _tokenAddress, address indexed _operator, bool _isApproved);
 
-    /** External Functions **/
+    /** External Functions **/  
 
     /// @notice Commits tokens (deposits on a contract or freezes balance).
     /// @param _grantor The owner of the SFTs.

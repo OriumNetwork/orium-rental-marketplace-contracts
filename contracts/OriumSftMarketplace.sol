@@ -7,6 +7,8 @@ import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/I
 import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
 import { IERC1155 } from '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import { IERC7589 } from './interfaces/IERC7589.sol';
+import { IERC7589New } from './interfaces/IERC7589New.sol';
+
 import { LibOriumSftMarketplace, RentalOffer, CommitAndGrantRoleParams } from './libraries/LibOriumSftMarketplace.sol';
 import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalties.sol';
 
@@ -20,6 +22,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
 
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
     address public oriumMarketplaceRoyalties;
+
+    /// @dev wearable Address
+    address public wearableAddress = 0x58de9AaBCaeEC0f69883C94318810ad79Cc6a44f;
 
     /// @dev hashedOffer => bool
     mapping(bytes32 => bool) public isCreated;
@@ -127,13 +132,24 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
 
-        if (_offer.commitmentId == 0) {
-            _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
-                _offer.lender,
-                _offer.tokenAddress,
-                _offer.tokenId,
-                _offer.tokenAmount
-            );
+        if (_offer.tokenAddress == wearableAddress) {
+            if (_offer.commitmentId == 0) {
+                _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
+                    _offer.lender,
+                    _offer.tokenAddress,
+                    _offer.tokenId,
+                    _offer.tokenAmount
+                );
+            }
+        } else {
+            if (_offer.commitmentId == 0) {
+                _offer.commitmentId = IERC7589New(_rolesRegistryAddress).lockTokens(
+                    _offer.lender,
+                    _offer.tokenAddress,
+                    _offer.tokenId,
+                    _offer.tokenAmount
+                );
+            }
         }
 
         nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
@@ -302,14 +318,25 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             );
 
             IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
+            IERC7589New _rolesRegistryNew = IERC7589New(_rolesRegistryAddress);
+
             uint256 _validCommitmentId = _params[i].commitmentId;
             if (_params[i].commitmentId == 0) {
-                _validCommitmentId = _rolesRegistry.commitTokens(
-                    msg.sender,
-                    _params[i].tokenAddress,
-                    _params[i].tokenId,
-                    _params[i].tokenAmount
-                );
+                if (_params[i].tokenAddress == wearableAddress) {
+                    _validCommitmentId = _rolesRegistry.commitTokens(
+                        msg.sender,
+                        _params[i].tokenAddress,
+                        _params[i].tokenId,
+                        _params[i].tokenAmount
+                    );
+                } else {
+                    _validCommitmentId = _rolesRegistryNew.lockTokens(
+                        msg.sender,
+                        _params[i].tokenAddress,
+                        _params[i].tokenId,
+                        _params[i].tokenAmount
+                    );
+                }
             } else {
                 // if the user provided a valid commitmentId, it's necessary to verify if they actually own it,
                 // and if all other parameters passed match the commitmentId
