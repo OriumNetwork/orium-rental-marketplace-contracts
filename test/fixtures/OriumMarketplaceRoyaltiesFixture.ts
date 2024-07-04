@@ -11,8 +11,14 @@ export async function deployMarketplaceRoyaltiesContracts() {
 
   const nftRolesRegistry: IERC7432 = await ethers.getContractAt('IERC7432', RolesRegistryAddress)
 
+  const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
+  const mockERC1155: MockERC1155 = await MockERC1155Factory.deploy()
+  await mockERC1155.waitForDeployment()
+
+  const marketplaceaddress = await mockERC1155.getAddress()
+
   const SftRolesRegistryFactory = await ethers.getContractFactory('SftRolesRegistrySingleRole')
-  const sftRolesRegistry: SftRolesRegistrySingleRole = await SftRolesRegistryFactory.deploy()
+  const sftRolesRegistry: SftRolesRegistrySingleRole = await SftRolesRegistryFactory.deploy(marketplaceaddress)
   await sftRolesRegistry.waitForDeployment()
 
   const MarketplaceRoyaltiesFactory = await ethers.getContractFactory('OriumMarketplaceRoyalties')
@@ -28,10 +34,6 @@ export async function deployMarketplaceRoyaltiesContracts() {
     'OriumMarketplaceRoyalties',
     await marketplaceRoyaltiesProxy.getAddress(),
   )
-
-  const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
-  const mockERC1155: MockERC1155 = await MockERC1155Factory.deploy()
-  await mockERC1155.waitForDeployment()
 
   const MockERC20Factory = await ethers.getContractFactory('MockERC20')
   const mockERC20: MockERC20 = await MockERC20Factory.deploy()

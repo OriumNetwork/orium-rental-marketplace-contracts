@@ -111,6 +111,8 @@ describe('OriumSftMarketplace', () => {
             rolesData: [EMPTY_BYTES],
           }
 
+          await rolesRegistry.setTokenAddressAllowed(rentalOffer.tokenAddress, true)
+
           await mockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
           await rolesRegistry
             .connect(lender)
@@ -146,7 +148,7 @@ describe('OriumSftMarketplace', () => {
                     tokenId,
                     tokenAmount,
                   )
-                  .to.emit(rolesRegistry, 'TokensCommitted')
+                  .to.emit(rolesRegistry, 'TokensLocked')
                   .withArgs(lender.address, 1, await mockERC1155.getAddress(), tokenId, tokenAmount)
               })
               it('Should create a rental offer if collection has a custom roles registry', async function () {
@@ -179,7 +181,7 @@ describe('OriumSftMarketplace', () => {
                     tokenId,
                     tokenAmount,
                   )
-                  .to.emit(rolesRegistry, 'TokensCommitted')
+                  .to.emit(rolesRegistry, 'TokensLocked')
                   .withArgs(lender.address, 1, await mockERC1155.getAddress(), tokenId, tokenAmount)
               })
               it('Should create a rental offer with feeAmountPerSecond equal to 0 if offer is private', async function () {
@@ -210,7 +212,7 @@ describe('OriumSftMarketplace', () => {
                     tokenId,
                     tokenAmount,
                   )
-                  .to.emit(rolesRegistry, 'TokensCommitted')
+                  .to.emit(rolesRegistry, 'TokensLocked')
                   .withArgs(lender.address, 1, await mockERC1155.getAddress(), tokenId, tokenAmount)
               })
               it('Should NOT create a rental offer if caller is not the lender', async () => {
@@ -337,7 +339,7 @@ describe('OriumSftMarketplace', () => {
                     rentalOffer.roles,
                     rentalOffer.rolesData,
                   )
-                  .to.not.emit(rolesRegistry, 'TokensCommitted')
+                  .to.not.emit(rolesRegistry, 'TokensLocked')
                   .to.not.emit(mockERC1155, 'TransferSingle')
               })
               it("Should NOT create a rental offer if commitmentId grantor and offer lender's address are different", async () => {
@@ -345,7 +347,7 @@ describe('OriumSftMarketplace', () => {
                 await mockERC1155.connect(creator).setApprovalForAll(await rolesRegistry.getAddress(), true)
                 await rolesRegistry
                   .connect(creator)
-                  .commitTokens(creator.address, rentalOffer.tokenAddress, rentalOffer.tokenId, rentalOffer.tokenAmount)
+                  .lockTokens(creator.address, rentalOffer.tokenAddress, rentalOffer.tokenId, rentalOffer.tokenAmount)
                 rentalOffer.commitmentId = BigInt(2)
                 await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
                   'OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId',
@@ -355,6 +357,9 @@ describe('OriumSftMarketplace', () => {
                 const AnotherMockERC1155 = await ethers.getContractFactory('MockERC1155')
                 const anotherMockERC1155 = await AnotherMockERC1155.deploy()
                 await anotherMockERC1155.waitForDeployment()
+                const marketplaceaddress = await anotherMockERC1155.getAddress()
+                await rolesRegistry.setTokenAddressAllowed(marketplaceaddress, true)
+
                 await anotherMockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
                 await anotherMockERC1155.connect(lender).setApprovalForAll(await rolesRegistry.getAddress(), true)
                 await marketplaceRoyalties
@@ -366,7 +371,7 @@ describe('OriumSftMarketplace', () => {
                   )
                 await rolesRegistry
                   .connect(lender)
-                  .commitTokens(lender.address, await anotherMockERC1155.getAddress(), tokenId, tokenAmount)
+                  .lockTokens(lender.address, await anotherMockERC1155.getAddress(), tokenId, tokenAmount)
 
                 rentalOffer.tokenAddress = await anotherMockERC1155.getAddress()
                 await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
@@ -379,7 +384,7 @@ describe('OriumSftMarketplace', () => {
                 await mockERC1155.connect(lender).setApprovalForAll(await rolesRegistry.getAddress(), true)
                 await rolesRegistry
                   .connect(lender)
-                  .commitTokens(lender.address, rentalOffer.tokenAddress, newTokenId, rentalOffer.tokenAmount)
+                  .lockTokens(lender.address, rentalOffer.tokenAddress, newTokenId, rentalOffer.tokenAmount)
                 rentalOffer.commitmentId = BigInt(2)
                 await expect(marketplace.connect(lender).createRentalOffer(rentalOffer)).to.be.revertedWith(
                   "OriumSftMarketplace: tokenId provided does not match commitment's tokenId",
@@ -592,11 +597,11 @@ describe('OriumSftMarketplace', () => {
               await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
                 .to.emit(marketplace, 'RentalOfferCancelled')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce)
-                .to.emit(rolesRegistry, 'TokensReleased')
+                .to.emit(rolesRegistry, 'TokensUnlocked')
                 .withArgs(rentalOffer.commitmentId)
             })
             it('Should cancel a rental offer if tokens was released before directly from registry', async () => {
-              await rolesRegistry.connect(lender).releaseTokens(rentalOffer.commitmentId)
+              await rolesRegistry.connect(lender).unlockTokens(rentalOffer.commitmentId)
               await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
                 .to.emit(marketplace, 'RentalOfferCancelled')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce)
@@ -636,13 +641,13 @@ describe('OriumSftMarketplace', () => {
               await expect(marketplace.connect(lender).delistRentalOfferAndWithdraw(rentalOffer))
                 .to.emit(marketplace, 'RentalOfferCancelled')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce)
-                .to.emit(rolesRegistry, 'TokensReleased')
+                .to.emit(rolesRegistry, 'TokensUnlocked')
                 .withArgs(rentalOffer.commitmentId)
             })
             it('Should NOT delist a rental offer if tokens was released before directly from registry', async () => {
-              await rolesRegistry.connect(lender).releaseTokens(rentalOffer.commitmentId)
+              await rolesRegistry.connect(lender).unlockTokens(rentalOffer.commitmentId)
               await expect(marketplace.connect(lender).delistRentalOfferAndWithdraw(rentalOffer)).to.be.revertedWith(
-                'SftRolesRegistry: account not approved',
+                'ERC7589RolesRegistry: sender is not owner or approved',
               )
             })
             it('Should NOT delist a rental offer if contract is paused', async () => {
@@ -680,10 +685,10 @@ describe('OriumSftMarketplace', () => {
               await expect(marketplace.connect(lender).delistRentalOffer(rentalOffer))
                 .to.emit(marketplace, 'RentalOfferCancelled')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce)
-                .to.not.emit(rolesRegistry, 'TokensReleased')
+                .to.not.emit(rolesRegistry, 'TokensUnlocked')
             })
             it('Should delist a rental offer if tokens was released before directly from registry', async () => {
-              await rolesRegistry.connect(lender).releaseTokens(rentalOffer.commitmentId)
+              await rolesRegistry.connect(lender).unlockTokens(rentalOffer.commitmentId)
               await expect(marketplace.connect(lender).delistRentalOffer(rentalOffer))
                 .to.emit(marketplace, 'RentalOfferCancelled')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce)
@@ -724,7 +729,7 @@ describe('OriumSftMarketplace', () => {
               await expect(
                 marketplace.connect(lender).batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
               )
-                .to.emit(rolesRegistry, 'TokensReleased')
+                .to.emit(rolesRegistry, 'TokensUnlocked')
                 .withArgs(rentalOffer.commitmentId)
             })
             it('Should NOT release tokens if contract is paused', async () => {
@@ -808,7 +813,7 @@ describe('OriumSftMarketplace', () => {
                   .connect(borrower)
                   .revokeRole(rentalOffer.commitmentId, rentalOffer.roles[0], borrower.address)
                 await expect(marketplace.connect(borrower).endRental(rentalOffer)).to.be.revertedWith(
-                  'SftRolesRegistry: grantee mismatch',
+                  'ERC7589RolesRegistry: role does not exist',
                 )
               })
               it('Should NOT end rental twice', async () => {
@@ -824,7 +829,7 @@ describe('OriumSftMarketplace', () => {
                 await expect(marketplace.connect(lender).cancelRentalOffer(rentalOffer))
                   .to.emit(marketplace, 'RentalOfferCancelled')
                   .withArgs(rentalOffer.lender, rentalOffer.nonce)
-                  .to.not.emit(rolesRegistry, 'TokensReleased')
+                  .to.not.emit(rolesRegistry, 'TokensUnlocked')
               })
             })
 
@@ -837,7 +842,7 @@ describe('OriumSftMarketplace', () => {
                     .connect(lender)
                     .batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
                 )
-                  .to.emit(rolesRegistry, 'TokensReleased')
+                  .to.emit(rolesRegistry, 'TokensUnlocked')
                   .withArgs(rentalOffer.commitmentId)
               })
               it('Should NOT release tokens if rental is active', async function () {
@@ -845,7 +850,7 @@ describe('OriumSftMarketplace', () => {
                   marketplace
                     .connect(lender)
                     .batchReleaseTokens([rentalOffer.tokenAddress], [rentalOffer.commitmentId]),
-                ).to.be.revertedWith('SftRolesRegistry: commitment has an active non-revocable role')
+                ).to.be.revertedWith('ERC7589RolesRegistry: NFT is locked')
               })
             })
           })
@@ -876,8 +881,10 @@ describe('OriumSftMarketplace', () => {
               await mockERC1155.connect(lender).setApprovalForAll(await rolesRegistry.getAddress(), true)
             })
             it('Should commit tokens and grant role', async () => {
+              await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
+
               await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
-                .to.emit(rolesRegistry, 'TokensCommitted')
+                .to.emit(rolesRegistry, 'TokensLocked')
                 .withArgs(lender.address, 1, await mockERC1155.getAddress(), tokenId, tokenAmount)
                 .to.emit(rolesRegistry, 'RoleGranted')
                 .withArgs(
@@ -890,10 +897,12 @@ describe('OriumSftMarketplace', () => {
                 )
             })
             it('Should only grant role when a commitmentId is passed', async () => {
+              await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
+
               commitAndGrantRoleParams[0].commitmentId = BigInt(1)
               await rolesRegistry
                 .connect(lender)
-                .commitTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
+                .lockTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
               await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
                 .to.emit(rolesRegistry, 'RoleGranted')
                 .withArgs(
@@ -912,40 +921,44 @@ describe('OriumSftMarketplace', () => {
               ).to.be.revertedWith('Pausable: paused')
             })
             it('Should NOT commit tokens and grant role if caller is not the grantor of the commitmentId', async () => {
+              await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
               commitAndGrantRoleParams[0].commitmentId = BigInt(1)
               await rolesRegistry
                 .connect(lender)
-                .commitTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
+                .lockTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
               await expect(
                 marketplace.connect(borrower).batchCommitTokensAndGrantRole(commitAndGrantRoleParams),
               ).to.revertedWith('OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId')
             })
             it('Should NOT commit tokens and grant role if tokenAddress does not match the commitment', async () => {
+              await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
               commitAndGrantRoleParams[0].commitmentId = BigInt(1)
               commitAndGrantRoleParams[0].tokenAddress = AddressZero
               await rolesRegistry
                 .connect(lender)
-                .commitTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
+                .lockTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
               await expect(
                 marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams),
               ).to.revertedWith("OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress")
             })
             it('Should NOT commit tokens and grant role if tokenId does not match the commitment', async () => {
+              await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
               commitAndGrantRoleParams[0].commitmentId = BigInt(1)
               commitAndGrantRoleParams[0].tokenId = 0
               await rolesRegistry
                 .connect(lender)
-                .commitTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
+                .lockTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
               await expect(
                 marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams),
               ).to.revertedWith("OriumSftMarketplace: tokenId provided does not match commitment's tokenId")
             })
             it('Should NOT commit tokens and grant role if tokenAmount does not match the commitment', async () => {
+              await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
               commitAndGrantRoleParams[0].commitmentId = BigInt(1)
               commitAndGrantRoleParams[0].tokenAmount = BigInt(0)
               await rolesRegistry
                 .connect(lender)
-                .commitTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
+                .lockTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
               await expect(
                 marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams),
               ).to.revertedWith("OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount")
@@ -969,6 +982,7 @@ describe('OriumSftMarketplace', () => {
                 data: EMPTY_BYTES,
               },
             ]
+            await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
             await rolesRegistry
               .connect(lender)
               .setRoleApprovalForAll(await mockERC1155.getAddress(), await marketplace.getAddress(), true)

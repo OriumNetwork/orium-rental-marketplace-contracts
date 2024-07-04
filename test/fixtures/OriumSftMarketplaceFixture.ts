@@ -1,6 +1,11 @@
 import { ethers, upgrades } from 'hardhat'
 import { AddressZero, THREE_MONTHS } from '../../utils/constants'
-import { OriumMarketplaceRoyalties, OriumSftMarketplace, SftRolesRegistrySingleRole } from '../../typechain-types'
+import {
+  OriumMarketplaceRoyalties,
+  OriumSftMarketplace,
+  SftRolesRegistrySingleRole,
+  MockERC1155,
+} from '../../typechain-types'
 
 /**
  * @dev deployer, operator needs to be the first accounts in the hardhat ethers.getSigners()
@@ -10,8 +15,14 @@ import { OriumMarketplaceRoyalties, OriumSftMarketplace, SftRolesRegistrySingleR
 export async function deploySftMarketplaceContracts() {
   const [, operator] = await ethers.getSigners()
 
+  const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
+  const mockERC1155: MockERC1155 = await MockERC1155Factory.deploy()
+  await mockERC1155.waitForDeployment()
+
+  const marketplaceaddress = await mockERC1155.getAddress()
+
   const RolesRegistryFactory = await ethers.getContractFactory('SftRolesRegistrySingleRole')
-  const rolesRegistry: SftRolesRegistrySingleRole = await RolesRegistryFactory.deploy()
+  const rolesRegistry: SftRolesRegistrySingleRole = await RolesRegistryFactory.deploy(marketplaceaddress)
   await rolesRegistry.waitForDeployment()
 
   const MarketplaceRoyaltiesFactory = await ethers.getContractFactory('OriumMarketplaceRoyalties')
@@ -49,9 +60,9 @@ export async function deploySftMarketplaceContracts() {
     await marketplaceProxy.getAddress(),
   )
 
-  const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
-  const mockERC1155 = await MockERC1155Factory.deploy()
-  await mockERC1155.waitForDeployment()
+  // const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
+  // const mockERC1155 = await MockERC1155Factory.deploy()
+  // await mockERC1155.waitForDeployment()
 
   const secondMockERC1155 = await MockERC1155Factory.deploy()
   await secondMockERC1155.waitForDeployment()
