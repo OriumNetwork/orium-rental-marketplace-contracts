@@ -102,7 +102,7 @@ library LibOriumSftMarketplace {
             "OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount"
         );
         require(
-            _rolesRegistry.grantorOf(_commitmentId) == _expectedGrantor,
+            _rolesRegistry.ownerOf(_commitmentId) == _expectedGrantor,
             "OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId"
         );
         require(
@@ -192,14 +192,14 @@ library LibOriumSftMarketplace {
             address _rolesRegistryAddress = IOriumMarketplaceRoyalties(_oriumMarketplaceRoyaltiesAddress)
                 .sftRolesRegistryOf(_tokenAddresses[i]);
             require(
-                IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
+                IERC7589(_rolesRegistryAddress).ownerOf(_commitmentIds[i]) == msg.sender,
                 "OriumSftMarketplace: sender is not the commitment's grantor"
             );
             require(
                 IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
                 "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
             );
-            IERC7589(_rolesRegistryAddress).releaseTokens(_commitmentIds[i]);
+            IERC7589(_rolesRegistryAddress).unlockTokens(_commitmentIds[i]);
         }
     }
 
@@ -230,15 +230,15 @@ library LibOriumSftMarketplace {
                 _tokenAddresses[i]
             );
             require(
-                IERC7589(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i], _grantees[i]),
+                IERC7589(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i]),
                 "OriumSftMarketplace: role is not revocable"
             );
             require(
-                IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i], _grantees[i]) > block.timestamp,
+                IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i]) > block.timestamp,
                 "OriumSftMarketplace: role is expired"
             );
             require(
-                msg.sender == _grantees[i] || IERC7589(_rolesRegistryAddress).grantorOf(_commitmentIds[i]) == msg.sender,
+                msg.sender == _grantees[i] || IERC7589(_rolesRegistryAddress).ownerOf(_commitmentIds[i]) == msg.sender,
                 "OriumSftMarketplace: sender is not the commitment's grantor or grantee"
             );
             require(

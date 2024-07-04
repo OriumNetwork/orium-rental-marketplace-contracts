@@ -128,7 +128,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
 
         if (_offer.commitmentId == 0) {
-            _offer.commitmentId = IERC7589(_rolesRegistryAddress).commitTokens(
+            _offer.commitmentId = IERC7589(_rolesRegistryAddress).lockTokens(
                 _offer.lender,
                 _offer.tokenAddress,
                 _offer.tokenId,
@@ -221,7 +221,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             rentals[_offerHash].expirationDate < block.timestamp &&
             _rolesRegistry.tokenAmountOf(_offer.commitmentId) > 0
         ) {
-            _rolesRegistry.releaseTokens(_offer.commitmentId);
+            _rolesRegistry.unlockTokens(_offer.commitmentId);
         }
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
@@ -245,7 +245,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         IERC7589 _rolesRegistry = IERC7589(
             IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
         );
-        _rolesRegistry.releaseTokens(_offer.commitmentId);
+        _rolesRegistry.unlockTokens(_offer.commitmentId);
     }
 
     /**
@@ -304,7 +304,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
             uint256 _validCommitmentId = _params[i].commitmentId;
             if (_params[i].commitmentId == 0) {
-                _validCommitmentId = _rolesRegistry.commitTokens(
+                _validCommitmentId = _rolesRegistry.lockTokens(
                     msg.sender,
                     _params[i].tokenAddress,
                     _params[i].tokenId,
