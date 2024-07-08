@@ -5,6 +5,7 @@ import {
   OriumSftMarketplace,
   SftRolesRegistrySingleRole,
   MockERC1155,
+  SftRolesRegistrySingleRoleLegacy,
 } from '../../typechain-types'
 
 /**
@@ -24,6 +25,10 @@ export async function deploySftMarketplaceContracts() {
   const RolesRegistryFactory = await ethers.getContractFactory('SftRolesRegistrySingleRole')
   const rolesRegistry: SftRolesRegistrySingleRole = await RolesRegistryFactory.deploy(marketplaceaddress)
   await rolesRegistry.waitForDeployment()
+
+  const SftRolesRegistrySingleRoleLegacy = await ethers.getContractFactory('SftRolesRegistrySingleRoleLegacy')
+  const rolesRegistryLegacy: SftRolesRegistrySingleRoleLegacy = await SftRolesRegistrySingleRoleLegacy.deploy()
+  await rolesRegistryLegacy.waitForDeployment()
 
   const MarketplaceRoyaltiesFactory = await ethers.getContractFactory('OriumMarketplaceRoyalties')
   const marketplaceRoyaltiesProxy = await upgrades.deployProxy(MarketplaceRoyaltiesFactory, [
@@ -60,9 +65,9 @@ export async function deploySftMarketplaceContracts() {
     await marketplaceProxy.getAddress(),
   )
 
-  // const MockERC1155Factory = await ethers.getContractFactory('MockERC1155')
-  // const mockERC1155 = await MockERC1155Factory.deploy()
-  // await mockERC1155.waitForDeployment()
+  const WaerableFactory = await ethers.getContractFactory('MockERC1155')
+  const waereableToken = await WaerableFactory.deploy()
+  await waereableToken.waitForDeployment()
 
   const secondMockERC1155 = await MockERC1155Factory.deploy()
   await secondMockERC1155.waitForDeployment()
@@ -71,5 +76,14 @@ export async function deploySftMarketplaceContracts() {
   const mockERC20 = await MockERC20Factory.deploy()
   await mockERC20.waitForDeployment()
 
-  return [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20, secondMockERC1155] as const
+  return [
+    marketplace,
+    marketplaceRoyalties,
+    rolesRegistry,
+    mockERC1155,
+    mockERC20,
+    secondMockERC1155,
+    waereableToken,
+    rolesRegistryLegacy,
+  ] as const
 }

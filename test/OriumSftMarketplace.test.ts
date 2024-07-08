@@ -14,14 +14,17 @@ import {
   OriumMarketplaceRoyalties,
   OriumSftMarketplace,
   SftRolesRegistrySingleRole,
+  SftRolesRegistrySingleRoleLegacy,
 } from '../typechain-types'
 
 describe('OriumSftMarketplace', () => {
   let marketplace: OriumSftMarketplace
   let marketplaceRoyalties: OriumMarketplaceRoyalties
   let rolesRegistry: SftRolesRegistrySingleRole
+  let SftRolesRegistrySingleRoleLegacy: SftRolesRegistrySingleRoleLegacy
   let mockERC1155: MockERC1155
   let secondMockERC1155: MockERC1155
+  let wearableToken: MockERC1155
   let mockERC20: MockERC20
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
@@ -46,7 +49,7 @@ describe('OriumSftMarketplace', () => {
   beforeEach(async () => {
     // we are disabling this rule so ; may not be added automatically by prettier at the beginning of the line
     // prettier-ignore
-    [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20, secondMockERC1155] = await loadFixture(deploySftMarketplaceContracts)
+    [marketplace, marketplaceRoyalties, rolesRegistry, mockERC1155, mockERC20, secondMockERC1155, wearableToken, SftRolesRegistrySingleRoleLegacy] = await loadFixture(deploySftMarketplaceContracts)
   })
 
   describe('Main Functions', async () => {
@@ -54,6 +57,7 @@ describe('OriumSftMarketplace', () => {
       const duration = ONE_HOUR
       const tokenId = 1
       const tokenAmount = BigInt(2)
+      const wearableAddress = '0x58de9AaBCaeEC0f69883C94318810ad79Cc6a44f'
 
       beforeEach(async () => {
         await mockERC1155.mint(lender.address, tokenId, tokenAmount, '0x')
@@ -61,13 +65,24 @@ describe('OriumSftMarketplace', () => {
         await marketplaceRoyalties
           .connect(operator)
           .setTrustedFeeTokenForToken(
-            [await mockERC1155.getAddress(), await secondMockERC1155.getAddress()],
-            [await mockERC20.getAddress(), await mockERC20.getAddress()],
-            [true, true],
+            [await mockERC1155.getAddress(), await secondMockERC1155.getAddress(), wearableAddress],
+            [await mockERC20.getAddress(), await mockERC20.getAddress(), await mockERC20.getAddress()],
+            [true, true, true],
           )
         await marketplaceRoyalties
           .connect(operator)
           .setRolesRegistry(await secondMockERC1155.getAddress(), await rolesRegistry.getAddress())
+
+        // Manually set its address to wearableAddress by redeploying the contract at that address
+        await ethers.provider.send('hardhat_setCode', [
+          wearableAddress,
+          await ethers.provider.getCode(wearableToken.getAddress()),
+        ])
+
+        wearableToken = await ethers.getContractAt('MockERC1155', wearableAddress)
+
+        await wearableToken.mint(lender.address, tokenId, tokenAmount, '0x')
+        await wearableToken.connect(lender).setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
       })
 
       describe('Rental Offers', async () => {
@@ -118,6 +133,15 @@ describe('OriumSftMarketplace', () => {
             .connect(lender)
             .setRoleApprovalForAll(await mockERC1155.getAddress(), await marketplace.getAddress(), true)
           await mockERC1155.connect(lender).setApprovalForAll(await rolesRegistry.getAddress(), true)
+
+          await SftRolesRegistrySingleRoleLegacy.connect(lender).setRoleApprovalForAll(
+            await wearableToken.getAddress(),
+            await marketplace.getAddress(),
+            true,
+          )
+          await wearableToken
+            .connect(lender)
+            .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
         })
         describe('When Rental Offer is not created', async () => {
           describe('Create Rental Offer', async () => {
@@ -214,6 +238,59 @@ describe('OriumSftMarketplace', () => {
                   )
                   .to.emit(rolesRegistry, 'TokensLocked')
                   .withArgs(lender.address, 1, await mockERC1155.getAddress(), tokenId, tokenAmount)
+              })
+              it('Should use IERC7589Legacy if tokenAddress matches wearableAddress', async () => {
+                await marketplaceRoyalties
+                  .connect(operator)
+                  .setRolesRegistry(
+                    await wearableToken.getAddress(),
+                    await SftRolesRegistrySingleRoleLegacy.getAddress(),
+                  )
+                await wearableToken.setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+                const rentalOfferLegacy = {
+                  nonce: `0x${randomBytes(32).toString('hex')}`,
+                  commitmentId: BigInt(0),
+                  lender: lender.address,
+                  borrower: AddressZero,
+                  tokenAddress: wearableAddress,
+                  tokenId,
+                  tokenAmount,
+                  feeTokenAddress: await mockERC20.getAddress(),
+                  feeAmountPerSecond: toWei('0.0000001'),
+                  deadline: Number((await ethers.provider.getBlock('latest'))?.timestamp) + ONE_DAY,
+                  minDuration: 1,
+                  roles: [UNIQUE_ROLE],
+                  rolesData: [EMPTY_BYTES],
+                }
+
+                await expect(marketplace.connect(lender).createRentalOffer(rentalOfferLegacy))
+                  .to.emit(marketplace, 'RentalOfferCreated')
+                  .withArgs(
+                    rentalOfferLegacy.nonce,
+                    rentalOfferLegacy.tokenAddress,
+                    rentalOfferLegacy.tokenId,
+                    rentalOfferLegacy.tokenAmount,
+                    1,
+                    rentalOfferLegacy.lender,
+                    rentalOfferLegacy.borrower,
+                    rentalOfferLegacy.feeTokenAddress,
+                    rentalOfferLegacy.feeAmountPerSecond,
+                    rentalOfferLegacy.deadline,
+                    rentalOfferLegacy.minDuration,
+                    rentalOfferLegacy.roles,
+                    rentalOfferLegacy.rolesData,
+                  )
+                  .to.emit(wearableToken, 'TransferSingle')
+                  .withArgs(
+                    await SftRolesRegistrySingleRoleLegacy.getAddress(),
+                    lender.address,
+                    await SftRolesRegistrySingleRoleLegacy.getAddress(),
+                    tokenId,
+                    tokenAmount,
+                  )
+                  .to.emit(SftRolesRegistrySingleRoleLegacy, 'TokensCommitted')
+                  .withArgs(lender.address, 1, wearableToken.getAddress(), tokenId, tokenAmount)
               })
               it('Should NOT create a rental offer if caller is not the lender', async () => {
                 await expect(marketplace.connect(notOperator).createRentalOffer(rentalOffer)).to.be.revertedWith(
@@ -896,6 +973,37 @@ describe('OriumSftMarketplace', () => {
                   commitAndGrantRoleParams[0].data,
                 )
             })
+            it('Should use IERC7589Legacy if tokenAddress matches wearableAddress and Commit Tokens', async () => {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setRolesRegistry(await wearableToken.getAddress(), await SftRolesRegistrySingleRoleLegacy.getAddress())
+              await wearableToken.setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              commitAndGrantRoleParams[0].tokenAddress = await wearableToken.getAddress()
+
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).setRoleApprovalForAll(
+                await wearableToken.getAddress(),
+                await marketplace.getAddress(),
+                true,
+              )
+              await wearableToken
+                .connect(lender)
+                .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+                .to.emit(SftRolesRegistrySingleRoleLegacy, 'TokensCommitted')
+                .withArgs(lender.address, 1, await wearableToken.getAddress(), tokenId, tokenAmount)
+                .to.emit(SftRolesRegistrySingleRoleLegacy, 'RoleGranted')
+                .withArgs(
+                  1,
+                  commitAndGrantRoleParams[0].role,
+                  commitAndGrantRoleParams[0].grantee,
+                  commitAndGrantRoleParams[0].expirationDate,
+                  commitAndGrantRoleParams[0].revocable,
+                  commitAndGrantRoleParams[0].data,
+                )
+            })
+
             it('Should only grant role when a commitmentId is passed', async () => {
               await rolesRegistry.setTokenAddressAllowed(commitAndGrantRoleParams[0].tokenAddress, true)
 

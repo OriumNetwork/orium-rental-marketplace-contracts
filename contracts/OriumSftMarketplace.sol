@@ -314,13 +314,12 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
                 _params[i].tokenAddress
             );
 
-            IERC7589Legacy _rolesRegistryLegacy = IERC7589Legacy(_rolesRegistryAddress);
             IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
             
             uint256 _validCommitmentId = _params[i].commitmentId;
             if (_params[i].commitmentId == 0) {
                 if(_params[i].tokenAddress == wearableAddress) {
-                _validCommitmentId = _rolesRegistryLegacy.commitTokens(
+                _validCommitmentId = IERC7589Legacy(_rolesRegistryAddress).commitTokens(
                     msg.sender,
                     _params[i].tokenAddress,
                     _params[i].tokenId,
