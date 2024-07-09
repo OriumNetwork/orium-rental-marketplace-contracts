@@ -139,7 +139,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
                 _offer.tokenId,
                 _offer.tokenAmount
             );
-            }else {
+            } else {
                 _offer.commitmentId = IERC7589(_rolesRegistryAddress).lockTokens(
                 _offer.lender,
                 _offer.tokenAddress,

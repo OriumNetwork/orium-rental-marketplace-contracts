@@ -208,37 +208,6 @@ describe('OriumSftMarketplace', () => {
                   .to.emit(rolesRegistry, 'TokensLocked')
                   .withArgs(lender.address, 1, await mockERC1155.getAddress(), tokenId, tokenAmount)
               })
-              it('Should create a rental offer with feeAmountPerSecond equal to 0 if offer is private', async function () {
-                rentalOffer.feeAmountPerSecond = BigInt(0)
-                rentalOffer.borrower = lender.address
-                await expect(marketplace.connect(lender).createRentalOffer(rentalOffer))
-                  .to.emit(marketplace, 'RentalOfferCreated')
-                  .withArgs(
-                    rentalOffer.nonce,
-                    rentalOffer.tokenAddress,
-                    rentalOffer.tokenId,
-                    rentalOffer.tokenAmount,
-                    1,
-                    rentalOffer.lender,
-                    rentalOffer.borrower,
-                    rentalOffer.feeTokenAddress,
-                    rentalOffer.feeAmountPerSecond,
-                    rentalOffer.deadline,
-                    rentalOffer.minDuration,
-                    rentalOffer.roles,
-                    rentalOffer.rolesData,
-                  )
-                  .to.emit(mockERC1155, 'TransferSingle')
-                  .withArgs(
-                    await rolesRegistry.getAddress(),
-                    lender.address,
-                    await rolesRegistry.getAddress(),
-                    tokenId,
-                    tokenAmount,
-                  )
-                  .to.emit(rolesRegistry, 'TokensLocked')
-                  .withArgs(lender.address, 1, await mockERC1155.getAddress(), tokenId, tokenAmount)
-              })
               it('Should use IERC7589Legacy if tokenAddress matches wearableAddress', async () => {
                 await marketplaceRoyalties
                   .connect(operator)
@@ -489,6 +458,19 @@ describe('OriumSftMarketplace', () => {
           })
           describe('Accept Rental Offer', async () => {
             it('Should accept a public rental offer', async () => {
+              const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+              const expirationDate = Number(blockTimestamp) + duration + 1
+              await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
+            })
+            it('Should create a rental offer with feeAmountPerSecond equal to 0 if offer is private', async function () {
+              rentalOffer.feeAmountPerSecond = BigInt(0)
+              rentalOffer.borrower = borrower.address
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
+              rentalOffer.commitmentId = BigInt(2)
+
               const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
               const expirationDate = Number(blockTimestamp) + duration + 1
               await expect(marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration))
