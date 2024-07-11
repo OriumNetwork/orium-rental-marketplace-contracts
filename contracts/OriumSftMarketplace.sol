@@ -346,7 +346,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /** ######### Internals ########### **/
 
     /**
-     * @dev Validates the create rental offer.
+     * @dev Validates if is wearable address to use commit or lock functions.
      * @param _tokenAddress The SFT tokenAddresses.
      * @param _rolesRegistryAddress roles registry address.
      * @param _lender The address of the user lending the SFT.
@@ -378,12 +378,12 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
-     * @dev Validates the create rental offer.
-     * @param _tokenAddress The address of the contract of the SFT to rent
+     * @dev Validates if is wearable address to use current or legacy grantRole.
+     * @param _tokenAddress The address of the contract of the SFT to rent.
      * @param _rolesRegistryAddress The rental offer struct.
      * @param _commitmentId The commitmentId of the SFT to rent.
      * @param _role role to be assigned to the borrower.
-     * @param _grantee recipient .
+     * @param _grantee recipient.
      * @param _expirationDate expiration date of role.
      * @param _revocable role is recovable.
      * @param _data data struct to send others informations.
