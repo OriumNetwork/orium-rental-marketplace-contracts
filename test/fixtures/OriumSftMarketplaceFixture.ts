@@ -65,9 +65,9 @@ export async function deploySftMarketplaceContracts() {
     await marketplaceProxy.getAddress(),
   )
 
-  const WaerableFactory = await ethers.getContractFactory('MockERC1155')
-  const waereableToken = await WaerableFactory.deploy()
-  await waereableToken.waitForDeployment()
+  const WearableFactory = await ethers.getContractFactory('MockERC1155')
+  const wearableToken = await WearableFactory.deploy()
+  await wearableToken.waitForDeployment()
 
   const secondMockERC1155 = await MockERC1155Factory.deploy()
   await secondMockERC1155.waitForDeployment()
@@ -83,7 +83,7 @@ export async function deploySftMarketplaceContracts() {
     mockERC1155,
     mockERC20,
     secondMockERC1155,
-    waereableToken,
+    wearableToken,
     rolesRegistryLegacy,
   ] as const
 }

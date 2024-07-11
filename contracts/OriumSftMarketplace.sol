@@ -22,8 +22,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
     address public oriumMarketplaceRoyalties;
 
-    /// @dev Wearable address
-    address public constant wearableAddress = 0x58de9AaBCaeEC0f69883C94318810ad79Cc6a44f;
+    /// @dev Aavegotchi Wearable address (legacy, only valid on Polygon)
+    address public constant aavegotchiWearableAddress = 0x58de9AaBCaeEC0f69883C94318810ad79Cc6a44f;
 
     /// @dev hashedOffer => bool
     mapping(bytes32 => bool) public isCreated;
@@ -132,21 +132,13 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         _validateCreateRentalOffer(_offer, _rolesRegistryAddress);
 
         if (_offer.commitmentId == 0) {
-            if(_offer.tokenAddress == wearableAddress ){
-            _offer.commitmentId = IERC7589Legacy(_rolesRegistryAddress).commitTokens(
-                _offer.lender,
+            _offer.commitmentId = _commitOrLockTokens(
                 _offer.tokenAddress,
+                _rolesRegistryAddress,
+                _offer.lender,
                 _offer.tokenId,
                 _offer.tokenAmount
-            );
-            } else {
-                _offer.commitmentId = IERC7589(_rolesRegistryAddress).lockTokens(
-                _offer.lender,
-                _offer.tokenAddress,
-                _offer.tokenId,
-                _offer.tokenAmount
-                );
-            }   
+            );  
         }
 
         nonceDeadline[msg.sender][_offer.nonce] = _offer.deadline;
@@ -212,36 +204,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     }
 
     /**
-     * @notice Cancels a rental offer.
-     * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
-     */
-    function cancelRentalOffer(RentalOffer calldata _offer) external whenNotPaused {
-        bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
-        require(isCreated[_offerHash], 'OriumSftMarketplace: Offer not created');
-        require(msg.sender == _offer.lender, 'OriumSftMarketplace: Only lender can cancel a rental offer');
-        require(
-            nonceDeadline[_offer.lender][_offer.nonce] > block.timestamp,
-            'OriumSftMarketplace: Nonce expired or not used yet'
-        );
-
-        IERC7589 _rolesRegistry = IERC7589(
-            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
-        );
-        // if There are no active rentals, release tokens (else, tokens will be released via `batchReleaseTokens`)
-        // this is ok for single-role tokens, but tokens with multiple roles might revert if another non-revocable role exists
-        // if token amount is 0, it means that the tokens were already released, trying to release it again would revert the transaction
-        if (
-            rentals[_offerHash].expirationDate < block.timestamp &&
-            _rolesRegistry.tokenAmountOf(_offer.commitmentId) > 0
-        ) {
-            _rolesRegistry.unlockTokens(_offer.commitmentId);
-        }
-
-        nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
-        emit RentalOfferCancelled(_offer.lender, _offer.nonce);
-    }
-
-    /**
      * @notice Delist a rental offer.
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      */
@@ -258,7 +220,15 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         IERC7589 _rolesRegistry = IERC7589(
             IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
         );
-        _rolesRegistry.unlockTokens(_offer.commitmentId);
+        IERC7589Legacy _rolesRegistryLegacy = IERC7589Legacy(
+            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
+        );
+
+        if(_offer.tokenAddress == aavegotchiWearableAddress) {
+            _rolesRegistryLegacy.releaseTokens(_offer.commitmentId);
+        } else {
+            _rolesRegistry.unlockTokens(_offer.commitmentId);
+        }
     }
 
     /**
@@ -313,26 +283,16 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
                 _params[i].tokenAddress
             );
-
-            IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
-            
+        
             uint256 _validCommitmentId = _params[i].commitmentId;
             if (_params[i].commitmentId == 0) {
-                if(_params[i].tokenAddress == wearableAddress) {
-                _validCommitmentId = IERC7589Legacy(_rolesRegistryAddress).commitTokens(
-                    msg.sender,
+                _validCommitmentId = _commitOrLockTokens(
                     _params[i].tokenAddress,
+                    _rolesRegistryAddress,
+                    msg.sender,
                     _params[i].tokenId,
                     _params[i].tokenAmount
                 );
-              } else {
-                _validCommitmentId = _rolesRegistry.lockTokens(
-                    msg.sender,
-                    _params[i].tokenAddress,
-                    _params[i].tokenId,
-                    _params[i].tokenAmount
-                );
-              }
             } else {
                 // if the user provided a valid commitmentId, it's necessary to verify if they actually own it,
                 // and if all other parameters passed match the commitmentId
@@ -346,7 +306,9 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
                 );
             }
 
-            _rolesRegistry.grantRole(
+            _grantRole(
+                _params[i].tokenAddress,
+                _rolesRegistryAddress,
                 _validCommitmentId,
                 _params[i].role,
                 _params[i].grantee,
@@ -380,7 +342,83 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
     }
 
+   
     /** ######### Internals ########### **/
+
+    /**
+     * @dev Validates the create rental offer.
+     * @param _tokenAddress The SFT tokenAddresses.
+     * @param _rolesRegistryAddress roles registry address.
+     * @param _lender The address of the user lending the SFT.
+     * @param _tokenId The tokenId of the SFT to rent.
+     * @param _tokenAmount The amount of SFT to rent.
+     */
+    function _commitOrLockTokens(
+        address _tokenAddress,
+        address _rolesRegistryAddress,
+        address _lender,
+        uint256 _tokenId,
+        uint256 _tokenAmount
+    ) internal returns (uint256) {
+        if (_tokenAddress == aavegotchiWearableAddress) {
+            return IERC7589Legacy(_rolesRegistryAddress).commitTokens(
+                _lender,
+                _tokenAddress,
+                _tokenId,
+                _tokenAmount
+            );
+        } else {
+            return IERC7589(_rolesRegistryAddress).lockTokens(
+                _lender,
+                _tokenAddress,
+                _tokenId,
+                _tokenAmount
+            );
+        }
+    }
+
+    /**
+     * @dev Validates the create rental offer.
+     * @param _tokenAddress The address of the contract of the SFT to rent
+     * @param _rolesRegistryAddress The rental offer struct.
+     * @param _commitmentId The commitmentId of the SFT to rent.
+     * @param _role role to be assigned to the borrower.
+     * @param _grantee recipient .
+     * @param _expirationDate expiration date of role.
+     * @param _revocable role is recovable.
+     * @param _data data struct to send others informations.
+     */
+    function _grantRole(
+        address _tokenAddress,
+        address _rolesRegistryAddress,
+        uint256 _commitmentId,
+        bytes32 _role,
+        address _grantee,
+        uint64 _expirationDate,
+        bool _revocable,
+        bytes memory _data
+    ) internal {
+        if (_tokenAddress == aavegotchiWearableAddress) {
+            IERC7589Legacy(_rolesRegistryAddress).grantRole(
+                _commitmentId,
+                _role,
+                _grantee,
+                _expirationDate,
+                _revocable,
+                _data
+            );
+        } else {
+            IERC7589(_rolesRegistryAddress).grantRole(
+                _commitmentId,
+                _role,
+                _grantee,
+                _expirationDate,
+                _revocable,
+                _data
+            );
+        }
+    }
+
     /**
      * @dev Validates the create rental offer.
      * @param _offer The rental offer struct.
@@ -484,6 +522,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
         emit RentalOfferCancelled(_offer.lender, _offer.nonce);
     }
+
+
 
     /** ============================ Core Functions  ================================== **/
 

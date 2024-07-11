@@ -3,16 +3,14 @@
 pragma solidity 0.8.9;
 
 import { ISftRolesRegistryLegacy } from './ISftRolesRegistryLegacy.sol';
-import { ICommitTokensAndGrantRoleExtensionLegacy } from './ICommitTokensAndGrantRoleExtensionLegacy.sol';
 import { IERC165 } from '@openzeppelin/contracts/utils/introspection/IERC165.sol';
 import { IERC1155 } from '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import { IERC1155Receiver } from '@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
-
 import { ERC1155Holder, ERC1155Receiver } from '@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol';
 import { ERC165Checker } from '@openzeppelin/contracts/utils/introspection/ERC165Checker.sol';
 
 // Semi-fungible token (SFT) registry with only one role (UNIQUE_ROLE)
-contract SftRolesRegistrySingleRoleLegacy is ISftRolesRegistryLegacy, ERC1155Holder, ICommitTokensAndGrantRoleExtensionLegacy {
+contract SftRolesRegistrySingleRoleLegacy is ISftRolesRegistryLegacy, ERC1155Holder {
     bytes32 public constant UNIQUE_ROLE = keccak256('UNIQUE_ROLE');
 
     uint256 public commitmentCount;
@@ -119,26 +117,6 @@ contract SftRolesRegistrySingleRoleLegacy is ISftRolesRegistryLegacy, ERC1155Hol
         emit RoleApprovalForAll(_tokenAddress, _operator, _isApproved);
     }
 
-    /** Optional External Functions **/
-
-    function commitTokensAndGrantRole(
-        address _grantor,
-        address _tokenAddress,
-        uint256 _tokenId,
-        uint256 _tokenAmount,
-        bytes32 _role,
-        address _grantee,
-        uint64 _expirationDate,
-        bool _revocable,
-        bytes calldata _data
-    ) external override onlyOwnerOrApproved(_grantor, _tokenAddress) returns (uint256 commitmentId_) {
-        require(_tokenAmount > 0, 'SftRolesRegistry: tokenAmount must be greater than zero');
-        require(_role == UNIQUE_ROLE, 'SftRolesRegistry: role not supported');
-        require(_expirationDate > block.timestamp, 'SftRolesRegistry: expiration date must be in the future');
-        commitmentId_ = _createCommitment(_grantor, _tokenAddress, _tokenId, _tokenAmount);
-        _grantOrUpdateRole(commitmentId_, _role, _grantee, _expirationDate, _revocable, _data);
-    }
-
     /** View Functions **/
 
     function grantorOf(uint256 _commitmentId) external view returns (address grantor_) {
@@ -194,8 +172,7 @@ contract SftRolesRegistrySingleRoleLegacy is ISftRolesRegistryLegacy, ERC1155Hol
     ) public view virtual override(ERC1155Receiver, IERC165) returns (bool) {
         return
             interfaceId == type(ISftRolesRegistryLegacy).interfaceId ||
-            interfaceId == type(IERC1155Receiver).interfaceId ||
-            interfaceId == type(ICommitTokensAndGrantRoleExtensionLegacy).interfaceId;
+            interfaceId == type(IERC1155Receiver).interfaceId;
     }
 
     /** Helper Functions **/

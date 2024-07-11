@@ -7,11 +7,10 @@ import { IERC1155Receiver } from '@openzeppelin/contracts/token/ERC1155/IERC1155
 import { ERC1155Holder, ERC1155Receiver } from '@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol';
 import { IERC7589 } from '../interfaces/IERC7589.sol';
 import { IERC1155 } from '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
-import { IERC7589LockTokensAndGrantRoleExtension } from '../interfaces/IERC7589LockTokensAndGrantRoleExtension.sol';
 import { Uint64SortedLinkedListLibrary } from  './Uint64SortedLinkedListLibrary.sol';
-import { IOriumWrapperManager } from './IOriumWrapperManager.sol';
 
-contract SftRolesRegistrySingleRole is IERC7589, ERC1155Holder, IERC7589LockTokensAndGrantRoleExtension {
+
+contract SftRolesRegistrySingleRole is IERC7589, ERC1155Holder {
     using Uint64SortedLinkedListLibrary for Uint64SortedLinkedListLibrary.List;
 
     struct TokenLock {
@@ -85,7 +84,6 @@ contract SftRolesRegistrySingleRole is IERC7589, ERC1155Holder, IERC7589LockToke
         marketplaceAddress = _marketplaceAddress;
         supportedInterfaces[type(IERC7589).interfaceId] = true;
         supportedInterfaces[type(IERC1155Receiver).interfaceId] = true;
-        supportedInterfaces[type(IERC7589LockTokensAndGrantRoleExtension).interfaceId] = true;
     }
 
     /** ERC-7589 External Functions **/
@@ -148,23 +146,6 @@ contract SftRolesRegistrySingleRole is IERC7589, ERC1155Holder, IERC7589LockToke
 
     function setRoleApprovalForAll(address _tokenAddress, address _operator, bool _approved) external {
         roleApprovals[msg.sender][_tokenAddress][_operator] = _approved;
-    }
-
-    /** ERC-7589 Lock Tokens and Grant Role Extension External Functions **/
-
-    function lockTokensAndGrantRole(
-        address _owner,
-        address _tokenAddress,
-        uint256 _tokenId,
-        uint256 _tokenAmount,
-        bytes32 _roleId,
-        address _recipient,
-        uint64 _expirationDate,
-        bool _revocable,
-        bytes calldata _data
-    ) external returns (uint256 lockId_) {
-        lockId_ = _lockTokens(_owner, _tokenAddress, _tokenId, _tokenAmount);
-        _grantERC7589Role(lockId_, _roleId, _recipient, _expirationDate, _revocable, _data);
     }
 
     /** Manager External Functions **/
