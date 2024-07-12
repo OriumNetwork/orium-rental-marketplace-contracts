@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.9;
 
-import { ISftRolesRegistryLegacy } from './ISftRolesRegistryLegacy.sol';
+import { IERC7589Legacy } from '../interfaces/IERC7589Legacy.sol';
 import { IERC165 } from '@openzeppelin/contracts/utils/introspection/IERC165.sol';
 import { IERC1155 } from '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import { IERC1155Receiver } from '@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol';
@@ -10,7 +10,7 @@ import { ERC1155Holder, ERC1155Receiver } from '@openzeppelin/contracts/token/ER
 import { ERC165Checker } from '@openzeppelin/contracts/utils/introspection/ERC165Checker.sol';
 
 // Semi-fungible token (SFT) registry with only one role (UNIQUE_ROLE)
-contract SftRolesRegistrySingleRoleLegacy is ISftRolesRegistryLegacy, ERC1155Holder {
+contract SftRolesRegistrySingleRoleLegacy is IERC7589Legacy, ERC1155Holder {
     bytes32 public constant UNIQUE_ROLE = keccak256('UNIQUE_ROLE');
 
     uint256 public commitmentCount;
@@ -171,7 +171,7 @@ contract SftRolesRegistrySingleRoleLegacy is ISftRolesRegistryLegacy, ERC1155Hol
         bytes4 interfaceId
     ) public view virtual override(ERC1155Receiver, IERC165) returns (bool) {
         return
-            interfaceId == type(ISftRolesRegistryLegacy).interfaceId ||
+            interfaceId == type(IERC7589Legacy).interfaceId ||
             interfaceId == type(IERC1155Receiver).interfaceId;
     }
 

@@ -101,22 +101,39 @@ library LibOriumSftMarketplace {
         address _rolesRegistryAddress
     ) external view {
         IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
-        require(
-            _rolesRegistry.tokenAmountOf(_commitmentId) == _tokenAmount,
-            "OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount"
-        );
-        require(
-            _rolesRegistry.ownerOf(_commitmentId) == _expectedGrantor,
-            'OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId'
-        );
-        require(
-            _rolesRegistry.tokenAddressOf(_commitmentId) == _tokenAddress,
-            "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
-        );
-        require(
-            _rolesRegistry.tokenIdOf(_commitmentId) == _tokenId,
-            "OriumSftMarketplace: tokenId provided does not match commitment's tokenId"
-        );
+        IERC7589Legacy _rolesRegistryLegacy = IERC7589Legacy(_rolesRegistryAddress);
+
+        if (_tokenAddress == aavegotchiWearableAddress) {
+            require(
+                _rolesRegistryLegacy.grantorOf(_commitmentId) == _expectedGrantor,
+                'OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId'
+            );
+            require(
+                _rolesRegistryLegacy.tokenAmountOf(_commitmentId) == _tokenAmount,
+                "OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount"
+            );
+            require(
+                _rolesRegistryLegacy.tokenIdOf(_commitmentId) == _tokenId,
+                "OriumSftMarketplace: tokenId provided does not match commitment's tokenId"
+            );
+        } else {
+            require(
+                _rolesRegistry.tokenAmountOf(_commitmentId) == _tokenAmount,
+                "OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount"
+            );
+            require(
+                _rolesRegistry.ownerOf(_commitmentId) == _expectedGrantor,
+                'OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId'
+            );
+            require(
+                _rolesRegistry.tokenAddressOf(_commitmentId) == _tokenAddress,
+                "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
+            );
+            require(
+                _rolesRegistry.tokenIdOf(_commitmentId) == _tokenId,
+                "OriumSftMarketplace: tokenId provided does not match commitment's tokenId"
+            );
+        }
     }
 
     /**
@@ -250,15 +267,26 @@ library LibOriumSftMarketplace {
                     "OriumSftMarketplace: sender is not the commitment's grantor or grantee Legacy"
                 );
                 require(
+                    IERC7589Legacy(_rolesRegistryAddress).roleExpirationDate(
+                        _commitmentIds[i],
+                        _roles[i],
+                        _grantees[i]
+                    ) > block.timestamp,
+                    'OriumSftMarketplace: role is expired'
+                );
+                require(
                     IERC7589Legacy(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i], _grantees[i]),
                     'OriumSftMarketplace: role is not revocable Legacy'
                 );
-                IERC7589Legacy(_rolesRegistryAddress).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
             } else {
                 require(
                     msg.sender == _grantees[i] ||
                         IERC7589(_rolesRegistryAddress).ownerOf(_commitmentIds[i]) == msg.sender,
                     "OriumSftMarketplace: sender is not the commitment's grantor or grantee"
+                );
+                require(
+                    IERC7589(_rolesRegistryAddress).roleExpirationDate(_commitmentIds[i], _roles[i]) > block.timestamp,
+                    'OriumSftMarketplace: role is expired'
                 );
                 require(
                     IERC7589(_rolesRegistryAddress).isRoleRevocable(_commitmentIds[i], _roles[i]),
@@ -268,8 +296,8 @@ library LibOriumSftMarketplace {
                     IERC7589(_rolesRegistryAddress).tokenAddressOf(_commitmentIds[i]) == _tokenAddresses[i],
                     "OriumSftMarketplace: tokenAddress provided does not match commitment's tokenAddress"
                 );
-                IERC7589(_rolesRegistryAddress).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
             }
+            IERC7589(_rolesRegistryAddress).revokeRole(_commitmentIds[i], _roles[i], _grantees[i]);
         }
     }
 
