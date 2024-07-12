@@ -1393,6 +1393,65 @@ describe('OriumSftMarketplace', () => {
                   .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [await wearableToken.getAddress()]),
               ).to.be.revertedWith('OriumSftMarketplace: role is not revocable Legacy')
             })
+            it('Should NOT batch revoke role if if role is expired', async () => {
+              await rolesRegistry
+                .connect(lender)
+                .grantRole(
+                  1,
+                  UNIQUE_ROLE,
+                  borrower.address,
+                  Number((await ethers.provider.getBlock('latest'))?.timestamp) + ONE_DAY,
+                  false,
+                  EMPTY_BYTES,
+                )
+              await rolesRegistry
+                .connect(borrower)
+                .setRoleApprovalForAll(await mockERC1155.getAddress(), await marketplace.getAddress(), true)
+              await time.increase(ONE_DAY)
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [await mockERC1155.getAddress()]),
+              ).to.be.revertedWith('OriumSftMarketplace: role is expired')
+            })
+            it('Should NOT batch LEGACY revoke role if role is expired', async () => {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setRolesRegistry(await wearableToken.getAddress(), await SftRolesRegistrySingleRoleLegacy.getAddress())
+              await wearableToken.setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              commitAndGrantRoleParams[0].tokenAddress = await wearableToken.getAddress()
+
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).setRoleApprovalForAll(
+                await wearableToken.getAddress(),
+                await marketplace.getAddress(),
+                true,
+              )
+              await wearableToken
+                .connect(lender)
+                .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+              expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).grantRole(
+                1,
+                UNIQUE_ROLE,
+                borrower.address,
+                Number((await ethers.provider.getBlock('latest'))?.timestamp) + ONE_DAY,
+                false,
+                EMPTY_BYTES,
+              )
+              await SftRolesRegistrySingleRoleLegacy.connect(borrower).setRoleApprovalForAll(
+                await wearableToken.getAddress(),
+                await marketplace.getAddress(),
+                true,
+              )
+              await time.increase(ONE_DAY)
+              await expect(
+                marketplace
+                  .connect(lender)
+                  .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [await wearableToken.getAddress()]),
+              ).to.be.revertedWith('OriumSftMarketplace: role is expired')
+            })
           })
         })
       })
