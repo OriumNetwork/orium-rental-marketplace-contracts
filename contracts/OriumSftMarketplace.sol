@@ -217,16 +217,16 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      */
     function delistRentalOfferAndWithdraw(RentalOffer calldata _offer) external whenNotPaused {
         _delistRentalOffer(_offer);
-        IERC7589 _rolesRegistry = IERC7589(
-            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
-        );
-        IERC7589Legacy _rolesRegistryLegacy = IERC7589Legacy(
-            IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
-        );
 
         if (_offer.tokenAddress == aavegotchiWearableAddress) {
+            IERC7589Legacy _rolesRegistryLegacy = IERC7589Legacy(
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
+            );
             _rolesRegistryLegacy.releaseTokens(_offer.commitmentId);
         } else {
+            IERC7589 _rolesRegistry = IERC7589(
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
+            );
             _rolesRegistry.unlockTokens(_offer.commitmentId);
         }
     }

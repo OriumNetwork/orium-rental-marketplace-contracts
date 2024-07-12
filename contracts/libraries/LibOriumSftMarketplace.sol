@@ -100,10 +100,8 @@ library LibOriumSftMarketplace {
         address _expectedGrantor,
         address _rolesRegistryAddress
     ) external view {
-        IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
-        IERC7589Legacy _rolesRegistryLegacy = IERC7589Legacy(_rolesRegistryAddress);
-
         if (_tokenAddress == aavegotchiWearableAddress) {
+            IERC7589Legacy _rolesRegistryLegacy = IERC7589Legacy(_rolesRegistryAddress);
             require(
                 _rolesRegistryLegacy.grantorOf(_commitmentId) == _expectedGrantor,
                 'OriumSftMarketplace: expected grantor does not match the grantor of the commitmentId'
@@ -117,6 +115,7 @@ library LibOriumSftMarketplace {
                 "OriumSftMarketplace: tokenId provided does not match commitment's tokenId"
             );
         } else {
+            IERC7589 _rolesRegistry = IERC7589(_rolesRegistryAddress);
             require(
                 _rolesRegistry.tokenAmountOf(_commitmentId) == _tokenAmount,
                 "OriumSftMarketplace: tokenAmount provided does not match commitment's tokenAmount"
