@@ -505,25 +505,23 @@ describe('OriumSftMarketplace', () => {
                     await SftRolesRegistrySingleRoleLegacy.getAddress(),
                   )
 
-                await marketplace.connect(lender).createRentalOffer(rentalOfferLegacy)
-                await time.increase(ONE_DAY)
-                rentalOfferLegacy.commitmentId = BigInt(1)
-                rentalOfferLegacy.nonce = `0x${randomBytes(32).toString('hex')}`
-                rentalOfferLegacy.deadline = (await time.latest()) + ONE_DAY
-
                 const newTokenId = 2
                 await wearableToken.mint(lender.address, newTokenId, rentalOfferLegacy.tokenAmount, '0x')
                 await wearableToken
                   .connect(lender)
                   .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
-
                 await SftRolesRegistrySingleRoleLegacy.connect(lender).commitTokens(
                   lender.address,
                   rentalOfferLegacy.tokenAddress,
                   newTokenId,
                   rentalOfferLegacy.tokenAmount,
                 )
-                rentalOfferLegacy.commitmentId = BigInt(2)
+
+                rentalOfferLegacy.commitmentId = BigInt(1)
+                rentalOfferLegacy.nonce = `0x${randomBytes(32).toString('hex')}`
+                rentalOfferLegacy.deadline = (await time.latest()) + ONE_DAY
+
+                rentalOffer.commitmentId = BigInt(2)
                 await expect(marketplace.connect(lender).createRentalOffer(rentalOfferLegacy)).to.be.revertedWith(
                   "OriumSftMarketplace: tokenId provided does not match commitment's tokenId",
                 )
@@ -538,7 +536,6 @@ describe('OriumSftMarketplace', () => {
             })
           })
         })
-
         describe('When Rental Offer is created', async () => {
           let totalFeeAmount: bigint
           beforeEach(async () => {
@@ -1135,6 +1132,41 @@ describe('OriumSftMarketplace', () => {
                   commitAndGrantRoleParams[0].data,
                 )
             })
+            it('Should only grant Legacy role when a commitmentId is passed', async () => {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setRolesRegistry(await wearableToken.getAddress(), await SftRolesRegistrySingleRoleLegacy.getAddress())
+              await wearableToken.setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              commitAndGrantRoleParams[0].tokenAddress = await wearableToken.getAddress()
+
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).setRoleApprovalForAll(
+                await wearableToken.getAddress(),
+                await marketplace.getAddress(),
+                true,
+              )
+              await wearableToken
+                .connect(lender)
+                .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              commitAndGrantRoleParams[0].commitmentId = BigInt(1)
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).commitTokens(
+                lender.address,
+                await wearableToken.getAddress(),
+                tokenId,
+                tokenAmount,
+              )
+              await expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+                .to.emit(SftRolesRegistrySingleRoleLegacy, 'RoleGranted')
+                .withArgs(
+                  1,
+                  commitAndGrantRoleParams[0].role,
+                  commitAndGrantRoleParams[0].grantee,
+                  commitAndGrantRoleParams[0].expirationDate,
+                  commitAndGrantRoleParams[0].revocable,
+                  commitAndGrantRoleParams[0].data,
+                )
+            })
             it('Should NOT commit tokens and grant role if contract is paused', async () => {
               await marketplace.connect(operator).pause()
               await expect(
@@ -1169,6 +1201,34 @@ describe('OriumSftMarketplace', () => {
               await rolesRegistry
                 .connect(lender)
                 .lockTokens(lender.address, await mockERC1155.getAddress(), tokenId, tokenAmount)
+              await expect(
+                marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams),
+              ).to.revertedWith("OriumSftMarketplace: tokenId provided does not match commitment's tokenId")
+            })
+            it('Should NOT commit Legacy tokens and grant role if tokenId does not match the commitment', async () => {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setRolesRegistry(await wearableToken.getAddress(), await SftRolesRegistrySingleRoleLegacy.getAddress())
+              await wearableToken.setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).setRoleApprovalForAll(
+                await wearableToken.getAddress(),
+                await marketplace.getAddress(),
+                true,
+              )
+              await wearableToken
+                .connect(lender)
+                .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              commitAndGrantRoleParams[0].tokenAddress = await wearableToken.getAddress()
+              commitAndGrantRoleParams[0].commitmentId = BigInt(1)
+              commitAndGrantRoleParams[0].tokenId = 0
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).commitTokens(
+                lender.address,
+                await wearableToken.getAddress(),
+                tokenId,
+                tokenAmount,
+              )
               await expect(
                 marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams),
               ).to.revertedWith("OriumSftMarketplace: tokenId provided does not match commitment's tokenId")
@@ -1278,6 +1338,32 @@ describe('OriumSftMarketplace', () => {
                 .to.emit(rolesRegistry, 'RoleRevoked')
                 .withArgs(1, UNIQUE_ROLE, borrower.address)
             })
+            it("Should batch revoke Legacy role if sender is commitment's grantee", async () => {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setRolesRegistry(await wearableToken.getAddress(), await SftRolesRegistrySingleRoleLegacy.getAddress())
+              await wearableToken.setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+
+              commitAndGrantRoleParams[0].tokenAddress = await wearableToken.getAddress()
+
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).setRoleApprovalForAll(
+                await wearableToken.getAddress(),
+                await marketplace.getAddress(),
+                true,
+              )
+              await wearableToken
+                .connect(lender)
+                .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
+              expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+
+              await expect(
+                marketplace
+                  .connect(borrower)
+                  .batchRevokeRole([1], [UNIQUE_ROLE], [borrower.address], [await wearableToken.getAddress()]),
+              )
+                .to.emit(SftRolesRegistrySingleRoleLegacy, 'RoleRevoked')
+                .withArgs(1, UNIQUE_ROLE, borrower.address)
+            })
             it('Should use IERC7589Legacy if tokenAddress matches wearableAddress and Batch Revole Role ', async () => {
               await marketplaceRoyalties
                 .connect(operator)
@@ -1321,7 +1407,19 @@ describe('OriumSftMarketplace', () => {
                 await marketplace.getAddress(),
                 true,
               )
+              await wearableToken
+                .connect(lender)
+                .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
               expect(marketplace.connect(lender).batchCommitTokensAndGrantRole(commitAndGrantRoleParams))
+
+              await SftRolesRegistrySingleRoleLegacy.connect(lender).grantRole(
+                1,
+                UNIQUE_ROLE,
+                borrower.address,
+                Number((await ethers.provider.getBlock('latest'))?.timestamp) + ONE_DAY,
+                false,
+                EMPTY_BYTES,
+              )
 
               await expect(
                 marketplace
