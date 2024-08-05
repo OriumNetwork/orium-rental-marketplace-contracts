@@ -5,6 +5,7 @@ pragma solidity 0.8.9;
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
+import { ReentrancyGuardUpgradeable } from '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
 import { IERC1155 } from '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
 import { IERC7589 } from './interfaces/IERC7589.sol';
 import { IERC7589Legacy } from './interfaces/IERC7589Legacy.sol';
@@ -16,7 +17,7 @@ import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalt
  * @dev This contract is used to manage SFTs rentals, powered by ERC-7589 Semi-Fungible Token Roles
  * @author Orium Network Team - developers@orium.network
  */
-contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
+contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     /** ######### Global Variables ########### **/
 
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
@@ -110,6 +111,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function initialize(address _owner, address _oriumMarketplaceRoyalties) public initializer {
         __Pausable_init();
         __Ownable_init();
+        __ReentrancyGuard_init();
 
         oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
 
@@ -124,7 +126,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
-
     function createRentalOffer(RentalOffer memory _offer) external whenNotPaused {
         address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
             _offer.tokenAddress
@@ -168,8 +169,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _duration The duration of the rental.
      */
-
-    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+    function acceptRentalOffer(
+        RentalOffer calldata _offer,
+        uint64 _duration
+    ) external payable whenNotPaused nonReentrant {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
         LibOriumSftMarketplace.validateAcceptRentalOffer(
@@ -441,15 +444,23 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
         uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
 
-        LibOriumSftMarketplace.transferFees(
-            _feeTokenAddress,
-            _marketplaceFeeAmount,
-            _royaltyAmount,
-            _lenderAmount,
-            owner(),
-            _royaltyInfo.treasury,
-            _lenderAddress
-        );
+        // Check if the fee token address is zero address (i.e., native token)
+        if (_feeTokenAddress == address(0)) {
+            require(msg.value == _feeAmount, 'OriumSftMarketplace: Incorrect native token amount');
+            payable(owner()).transfer(_marketplaceFeeAmount);
+            payable(_royaltyInfo.treasury).transfer(_royaltyAmount);
+            payable(_lenderAddress).transfer(_lenderAmount);
+        } else {
+            LibOriumSftMarketplace.transferFees(
+                _feeTokenAddress,
+                _marketplaceFeeAmount,
+                _royaltyAmount,
+                _lenderAmount,
+                owner(),
+                _royaltyInfo.treasury,
+                _lenderAddress
+            );
+        }
     }
 
     /**
@@ -496,5 +507,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function setOriumMarketplaceRoyalties(address _oriumMarketplaceRoyalties) external onlyOwner {
         oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
     }
+
     /** ######### Getters ########### **/
 }
