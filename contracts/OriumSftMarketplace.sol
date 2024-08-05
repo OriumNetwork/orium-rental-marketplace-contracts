@@ -444,9 +444,8 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
         uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
 
-        // Check if the fee token address is zero address (i.e., native token)
         if (_feeTokenAddress == address(0)) {
-            require(msg.value == _feeAmount, 'OriumSftMarketplace: Incorrect native token amount');
+            require(msg.value >= _feeAmount, 'OriumSftMarketplace: Insufficient native token amount');
             payable(owner()).transfer(_marketplaceFeeAmount);
             payable(_royaltyInfo.treasury).transfer(_royaltyAmount);
             payable(_lenderAddress).transfer(_lenderAmount);
