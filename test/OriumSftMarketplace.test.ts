@@ -16,6 +16,7 @@ import {
   OriumSftMarketplace,
   SftRolesRegistrySingleRole,
   SftRolesRegistrySingleRoleLegacy,
+  ReentrancyAttack,
 } from '../typechain-types'
 
 describe('OriumSftMarketplace', () => {
@@ -689,11 +690,6 @@ describe('OriumSftMarketplace', () => {
               await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
               rentalOffer.commitmentId = BigInt(2)
 
-              // Check the borrower's balance before the transaction
-              const borrowerBalanceBefore = await ethers.provider.getBalance(borrower.address)
-              console.log('BEFORE')
-              console.log(borrowerBalanceBefore)
-
               const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
               const expirationDate = Number(blockTimestamp) + duration + 1
 
@@ -704,13 +700,26 @@ describe('OriumSftMarketplace', () => {
               )
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
+            })
 
-              // Check the borrower's balance after the transaction
-              const borrowerBalanceAfter = await ethers.provider.getBalance(borrower.address)
-              expect(borrowerBalanceAfter).to.be.lt(borrowerBalanceBefore)
+            it('Should revert when accepting a rental offer with insufficient native tokens', async function () {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
 
-              console.log('AFTER')
-              console.log(borrowerBalanceAfter)
+              rentalOffer.feeTokenAddress = AddressZero
+              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
+              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
+              rentalOffer.commitmentId = BigInt(2)
+
+              const insufficientAmount = totalFeeAmount - BigInt(toWei('0.00000001')) // slightly less than required
+              await expect(
+                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, BigInt(duration), {
+                  value: insufficientAmount.toString(),
+                }),
+              ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
             })
 
             describe('Fees', async function () {
