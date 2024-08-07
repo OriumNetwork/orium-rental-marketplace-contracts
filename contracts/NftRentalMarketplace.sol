@@ -9,6 +9,7 @@ import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalt
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
+import { ReentrancyGuardUpgradeable } from '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
 import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNftRentalMarketplace.sol';
 
 /**
@@ -16,7 +17,7 @@ import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNft
  * @dev This contract is used to manage NFTs rentals, powered by ERC-7432 Non-Fungible Token Roles
  * @author Orium Network Team - developers@orium.network
  */
-contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
+contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     /** ######### Global Variables ########### **/
 
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
@@ -92,6 +93,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     function initialize(address _owner, address _oriumMarketplaceRoyalties) external initializer {
         __Pausable_init();
         __Ownable_init();
+        __ReentrancyGuard_init();
 
         oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
 
@@ -146,7 +148,10 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _duration The duration of the rental.
      */
-    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+    function acceptRentalOffer(
+        RentalOffer calldata _offer,
+        uint64 _duration
+    ) external payable whenNotPaused nonReentrant {
         bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
         LibNftRentalMarketplace.validateAcceptRentalOfferParams(
@@ -159,15 +164,38 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _expirationDate
         );
 
-        LibNftRentalMarketplace.transferFees(
-            _offer.feeTokenAddress,
-            owner(),
-            _offer.lender,
-            oriumMarketplaceRoyalties,
-            _offer.tokenAddress,
-            _offer.feeAmountPerSecond,
-            _duration
-        );
+        if (_offer.feeTokenAddress == address(0)) {
+            uint256 totalFeeAmount = _offer.feeAmountPerSecond * _duration;
+            require(msg.value >= totalFeeAmount, 'NftRentalMarketplace: Incorrect native token amount');
+
+            uint256 marketplaceFeeAmount = LibNftRentalMarketplace.getAmountFromPercentage(
+                totalFeeAmount,
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).marketplaceFeeOf(_offer.tokenAddress)
+            );
+            IOriumMarketplaceRoyalties.RoyaltyInfo memory royaltyInfo = IOriumMarketplaceRoyalties(
+                oriumMarketplaceRoyalties
+            ).royaltyInfoOf(_offer.tokenAddress);
+
+            uint256 royaltyAmount = LibNftRentalMarketplace.getAmountFromPercentage(
+                totalFeeAmount,
+                royaltyInfo.royaltyPercentageInWei
+            );
+            uint256 lenderAmount = totalFeeAmount - marketplaceFeeAmount - royaltyAmount;
+
+            payable(owner()).transfer(marketplaceFeeAmount);
+            payable(royaltyInfo.treasury).transfer(royaltyAmount);
+            payable(_offer.lender).transfer(lenderAmount);
+        } else {
+            LibNftRentalMarketplace.transferFees(
+                _offer.feeTokenAddress,
+                owner(),
+                _offer.lender,
+                oriumMarketplaceRoyalties,
+                _offer.tokenAddress,
+                _offer.feeAmountPerSecond,
+                _duration
+            );
+        }
 
         LibNftRentalMarketplace.grantRoles(
             oriumMarketplaceRoyalties,
@@ -180,8 +208,8 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         );
 
         for (uint256 i = 0; i < _offer.roles.length; i++) {
-            if(_expirationDate > roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId]) {
-                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _expirationDate;
+            if (_expirationDate > roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId]) {
+                roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _expirationDate;
             }
         }
 
@@ -233,7 +261,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _offer.tokenId,
             _offer.roles
         );
-             
+
         uint64 _offerDeadline = nonceDeadline[_offer.lender][_offer.nonce];
         if (_offerDeadline < uint64(block.timestamp)) {
             for (uint256 i = 0; i < _offer.roles.length; i++) {
@@ -268,6 +296,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @dev owner will be msg.sender and it must approve the marketplace to revoke the roles.
      * @param _tokenAddresses The array of tokenAddresses
      * @param _tokenIds The array of tokenIds
+     * @param _roleIds The array of roleIds
      */
     function batchRevokeRole(
         address[] memory _tokenAddresses,
@@ -294,7 +323,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
         for (uint256 i = 0; i < _offer.roles.length; i++) {
-
             if (rentals[_offerHash].expirationDate > uint64(block.timestamp)) {
                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = rentals[_offerHash].expirationDate;
             } else {
