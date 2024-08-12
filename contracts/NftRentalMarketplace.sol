@@ -93,11 +93,18 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     function initialize(address _owner, address _oriumMarketplaceRoyalties) external initializer {
         __Pausable_init();
         __Ownable_init();
-        __ReentrancyGuard_init();
 
         oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
 
         transferOwnership(_owner);
+    }
+
+    /**
+     * @notice Initializes the reentrancy guard for the new version.
+     * @dev This function can only be called once, after the contract upgrade.
+     */
+    function initializeV2() external reinitializer(2) {
+        __ReentrancyGuard_init();
     }
 
     /** ============================ Rental Functions  ================================== **/
@@ -164,38 +171,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _expirationDate
         );
 
-        if (_offer.feeTokenAddress == address(0)) {
-            uint256 totalFeeAmount = _offer.feeAmountPerSecond * _duration;
-            require(msg.value >= totalFeeAmount, 'NftRentalMarketplace: Incorrect native token amount');
-
-            uint256 marketplaceFeeAmount = LibNftRentalMarketplace.getAmountFromPercentage(
-                totalFeeAmount,
-                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).marketplaceFeeOf(_offer.tokenAddress)
-            );
-            IOriumMarketplaceRoyalties.RoyaltyInfo memory royaltyInfo = IOriumMarketplaceRoyalties(
-                oriumMarketplaceRoyalties
-            ).royaltyInfoOf(_offer.tokenAddress);
-
-            uint256 royaltyAmount = LibNftRentalMarketplace.getAmountFromPercentage(
-                totalFeeAmount,
-                royaltyInfo.royaltyPercentageInWei
-            );
-            uint256 lenderAmount = totalFeeAmount - marketplaceFeeAmount - royaltyAmount;
-
-            payable(owner()).transfer(marketplaceFeeAmount);
-            payable(royaltyInfo.treasury).transfer(royaltyAmount);
-            payable(_offer.lender).transfer(lenderAmount);
-        } else {
-            LibNftRentalMarketplace.transferFees(
-                _offer.feeTokenAddress,
-                owner(),
-                _offer.lender,
-                oriumMarketplaceRoyalties,
-                _offer.tokenAddress,
-                _offer.feeAmountPerSecond,
-                _duration
-            );
-        }
+        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         LibNftRentalMarketplace.grantRoles(
             oriumMarketplaceRoyalties,
@@ -330,6 +306,54 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             }
         }
         emit RentalOfferCancelled(_offer.lender, _offer.nonce);
+    }
+
+    /**
+     * @dev Transfers the fees to the marketplace, the creator and the lender.
+     * @param _feeTokenAddress The address of the ERC20 token for rental fees.
+     * @param _feeAmountPerSecond  The amount of fee per second.
+     * @param _duration The duration of the rental.
+     * @param _lenderAddress The address of the lender.
+     */
+    function _transferFees(
+        address _tokenAddress,
+        address _feeTokenAddress,
+        uint256 _feeAmountPerSecond,
+        uint64 _duration,
+        address _lenderAddress
+    ) internal {
+        if (_feeTokenAddress == address(0)) {
+            uint256 totalFeeAmount = _feeAmountPerSecond * _duration;
+            require(msg.value >= totalFeeAmount, 'NftRentalMarketplace: Incorrect native token amount');
+
+            uint256 marketplaceFeeAmount = LibNftRentalMarketplace.getAmountFromPercentage(
+                totalFeeAmount,
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).marketplaceFeeOf(_tokenAddress)
+            );
+            IOriumMarketplaceRoyalties.RoyaltyInfo memory royaltyInfo = IOriumMarketplaceRoyalties(
+                oriumMarketplaceRoyalties
+            ).royaltyInfoOf(_tokenAddress);
+
+            uint256 royaltyAmount = LibNftRentalMarketplace.getAmountFromPercentage(
+                totalFeeAmount,
+                royaltyInfo.royaltyPercentageInWei
+            );
+            uint256 lenderAmount = totalFeeAmount - marketplaceFeeAmount - royaltyAmount;
+
+            payable(owner()).transfer(marketplaceFeeAmount);
+            payable(royaltyInfo.treasury).transfer(royaltyAmount);
+            payable(_lenderAddress).transfer(lenderAmount);
+        } else {
+            LibNftRentalMarketplace.transferFees(
+                _feeTokenAddress,
+                owner(),
+                _lenderAddress,
+                oriumMarketplaceRoyalties,
+                _tokenAddress,
+                _feeAmountPerSecond,
+                _duration
+            );
+        }
     }
 
     /** ============================ Core Functions  ================================== **/

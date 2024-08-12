@@ -111,11 +111,18 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function initialize(address _owner, address _oriumMarketplaceRoyalties) public initializer {
         __Pausable_init();
         __Ownable_init();
-        __ReentrancyGuard_init();
 
         oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
 
         transferOwnership(_owner);
+    }
+
+    /**
+     * @notice Initializes the reentrancy guard for the new version.
+     * @dev This function can only be called once, after the contract upgrade.
+     */
+    function initializeV2() external reinitializer(2) {
+        __ReentrancyGuard_init();
     }
 
     /** ============================ Rental Functions  ================================== **/
@@ -445,7 +452,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
 
         if (_feeTokenAddress == address(0)) {
-            require(msg.value >= _feeAmount, 'OriumSftMarketplace: Insufficient native token amount');
+            require(msg.value == _feeAmount, 'OriumSftMarketplace: Insufficient native token amount');
             payable(owner()).transfer(_marketplaceFeeAmount);
             payable(_royaltyInfo.treasury).transfer(_royaltyAmount);
             payable(_lenderAddress).transfer(_lenderAmount);

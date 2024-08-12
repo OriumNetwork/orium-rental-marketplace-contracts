@@ -16,7 +16,6 @@ import {
   OriumSftMarketplace,
   SftRolesRegistrySingleRole,
   SftRolesRegistrySingleRoleLegacy,
-  ReentrancyAttack,
 } from '../typechain-types'
 
 describe('OriumSftMarketplace', () => {
@@ -1608,6 +1607,10 @@ describe('OriumSftMarketplace', () => {
           await expect(marketplace.initialize(operator.address, ethers.ZeroAddress)).to.be.revertedWith(
             'Initializable: contract is already initialized',
           )
+        })
+        it('Should NOT initialize the contract with initializeV2 if already initialized', async () => {
+          await marketplace.initializeV2()
+          await expect(marketplace.initializeV2()).to.be.revertedWith('Initializable: contract is already initialized')
         })
       })
 

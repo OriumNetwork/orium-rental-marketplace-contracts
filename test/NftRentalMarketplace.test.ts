@@ -1049,6 +1049,10 @@ describe('NftRentalMarketplace', () => {
             'Initializable: contract is already initialized',
           )
         })
+        it('Should NOT initialize the contract with initializeV2 if already initialized', async () => {
+          await marketplace.initializeV2()
+          await expect(marketplace.initializeV2()).to.be.revertedWith('Initializable: contract is already initialized')
+        })
       })
       describe('Pausable', async () => {
         describe('Pause', async () => {
