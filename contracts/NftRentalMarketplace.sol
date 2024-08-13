@@ -9,7 +9,6 @@ import { IOriumMarketplaceRoyalties } from './interfaces/IOriumMarketplaceRoyalt
 import { OwnableUpgradeable } from '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 import { Initializable } from '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import { PausableUpgradeable } from '@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol';
-import { ReentrancyGuardUpgradeable } from '@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol';
 import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNftRentalMarketplace.sol';
 
 /**
@@ -17,7 +16,7 @@ import { LibNftRentalMarketplace, RentalOffer, Rental } from './libraries/LibNft
  * @dev This contract is used to manage NFTs rentals, powered by ERC-7432 Non-Fungible Token Roles
  * @author Orium Network Team - developers@orium.network
  */
-contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
+contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgradeable {
     /** ######### Global Variables ########### **/
 
     /// @dev oriumMarketplaceRoyalties stores the collection royalties and fees
@@ -99,14 +98,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         transferOwnership(_owner);
     }
 
-    /**
-     * @notice Initializes the reentrancy guard for the new version.
-     * @dev This function can only be called once, after the contract upgrade.
-     */
-    function initializeV2() external reinitializer(2) {
-        __ReentrancyGuard_init();
-    }
-
     /** ============================ Rental Functions  ================================== **/
 
     /** ######### Setters ########### **/
@@ -158,7 +149,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     function acceptRentalOffer(
         RentalOffer calldata _offer,
         uint64 _duration
-    ) external payable whenNotPaused nonReentrant {
+    ) external payable whenNotPaused {
         bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
         LibNftRentalMarketplace.validateAcceptRentalOfferParams(
