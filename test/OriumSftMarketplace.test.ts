@@ -16,6 +16,7 @@ import {
   OriumSftMarketplace,
   SftRolesRegistrySingleRole,
   SftRolesRegistrySingleRoleLegacy,
+  ReentrancyAttack,
 } from '../typechain-types'
 
 describe('OriumSftMarketplace', () => {
@@ -27,6 +28,7 @@ describe('OriumSftMarketplace', () => {
   let secondMockERC1155: MockERC1155
   let wearableToken: MockERC1155
   let mockERC20: MockERC20
+  let attackContract: ReentrancyAttack
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -719,6 +721,36 @@ describe('OriumSftMarketplace', () => {
                   value: insufficientAmount.toString(),
                 }),
               ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
+            })
+
+            it('should prevent double accept in the same transaction', async () => {
+              const AttackContract = await ethers.getContractFactory('ReentrancyAttack')
+              attackContract = (await AttackContract.deploy(marketplace)) as ReentrancyAttack
+              await attackContract.waitForDeployment()
+
+              await marketplaceRoyalties
+                .connect(operator)
+                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
+
+              rentalOffer.feeTokenAddress = AddressZero
+              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
+              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
+              rentalOffer.commitmentId = BigInt(2)
+
+              await borrower.sendTransaction({
+                to: attackContract.getAddress(),
+                value: totalFeeAmount,
+              })
+
+              const doubleTotalFeeAmount = totalFeeAmount * BigInt(2)
+
+              await expect(
+                attackContract
+                  .connect(borrower)
+                  .attemptDoubleAccept(rentalOffer, duration, { value: doubleTotalFeeAmount.toString() }),
+              ).to.be.revertedWith('OriumSftMarketplace: This offer has an ongoing rental')
             })
 
             describe('Fees', async function () {
