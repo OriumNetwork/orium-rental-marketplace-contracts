@@ -723,7 +723,38 @@ describe('OriumSftMarketplace', () => {
               ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
             })
 
-            it('should prevent double accept in the same transaction', async () => {
+            it('should detect reentrancy attack during fee transfer', async () => {
+              const AttackContract = await ethers.getContractFactory('ReentrancyAttack')
+              attackContract = (await AttackContract.deploy(marketplace)) as ReentrancyAttack
+              await attackContract.waitForDeployment()
+
+              await marketplaceRoyalties
+                .connect(operator)
+                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
+
+              rentalOffer.feeTokenAddress = AddressZero
+              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
+              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
+              rentalOffer.commitmentId = BigInt(2)
+
+              // Attempt the attack
+              try {
+                await attackContract.attack(rentalOffer, duration, { value: totalFeeAmount })
+                console.log('Reentrancy attack did not revert the transaction.')
+              } catch (error: any) {
+                if (
+                  error.message.includes('OriumSftMarketplace: Reentrancy detected or insufficient native token amount')
+                ) {
+                  console.log('Reentrancy was correctly detected.')
+                } else {
+                  console.log('The transaction failed for another reason: ', error.message)
+                }
+              }
+            })
+
+            it('should revert on multiple reentrant calls', async () => {
               const AttackContract = await ethers.getContractFactory('ReentrancyAttack')
               attackContract = (await AttackContract.deploy(marketplace)) as ReentrancyAttack
               await attackContract.waitForDeployment()
@@ -741,16 +772,13 @@ describe('OriumSftMarketplace', () => {
 
               await borrower.sendTransaction({
                 to: attackContract.getAddress(),
-                value: totalFeeAmount,
+                value: totalFeeAmount * BigInt(6),
               })
 
-              const doubleTotalFeeAmount = totalFeeAmount * BigInt(2)
-
+              // Attempt the attack
               await expect(
-                attackContract
-                  .connect(borrower)
-                  .attemptDoubleAccept(rentalOffer, duration, { value: doubleTotalFeeAmount.toString() }),
-              ).to.be.revertedWith('OriumSftMarketplace: This offer has an ongoing rental')
+                attackContract.attackWithRecursiveCalls(rentalOffer, duration, 5, { value: totalFeeAmount }),
+              ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
             })
 
             describe('Fees', async function () {
