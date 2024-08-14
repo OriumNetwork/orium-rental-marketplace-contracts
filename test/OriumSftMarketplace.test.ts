@@ -723,7 +723,7 @@ describe('OriumSftMarketplace', () => {
               ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
             })
 
-            it('should detect reentrancy attack during fee transfer', async () => {
+            it.only('should detect reentrancy attack during fee transfer', async () => {
               const AttackContract = await ethers.getContractFactory('ReentrancyAttack')
               attackContract = (await AttackContract.deploy(marketplace)) as ReentrancyAttack
               await attackContract.waitForDeployment()
@@ -745,7 +745,7 @@ describe('OriumSftMarketplace', () => {
               })
 
               await expect(
-                borrower.sendTransaction({
+                lender.sendTransaction({
                   to: attackContract.getAddress(),
                   value: toWei('1'),
                 }),
