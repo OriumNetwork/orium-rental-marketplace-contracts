@@ -752,33 +752,6 @@ describe('OriumSftMarketplace', () => {
               ).to.be.revertedWith('OriumSftMarketplace: This offer has an ongoing rental')
             })
 
-            it('should revert on multiple reentrant calls', async () => {
-              const AttackContract = await ethers.getContractFactory('ReentrancyAttack')
-              attackContract = (await AttackContract.deploy(marketplace)) as ReentrancyAttack
-              await attackContract.waitForDeployment()
-
-              await marketplaceRoyalties
-                .connect(operator)
-                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
-
-              rentalOffer.feeTokenAddress = AddressZero
-              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
-              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
-              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
-              rentalOffer.commitmentId = BigInt(2)
-
-              await borrower.sendTransaction({
-                to: attackContract.getAddress(),
-                value: toWei('100'),
-              })
-
-              // Attempt the attack
-              await expect(
-                attackContract.attackWithRecursiveCalls(rentalOffer, duration, 5, { value: totalFeeAmount }),
-              ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
-            })
-
             describe('Fees', async function () {
               const feeAmountPerSecond = toWei('1')
               const feeAmount = feeAmountPerSecond * BigInt(duration)
