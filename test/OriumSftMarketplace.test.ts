@@ -731,27 +731,25 @@ describe('OriumSftMarketplace', () => {
               await marketplaceRoyalties
                 .connect(operator)
                 .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
-
+              rentalOffer.minDuration = duration
               rentalOffer.feeTokenAddress = AddressZero
               rentalOffer.feeAmountPerSecond = toWei('0.0000001')
               const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+
               rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
               await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
               rentalOffer.commitmentId = BigInt(2)
 
-              // Attempt the attack
-              try {
-                await attackContract.attack(rentalOffer, duration, { value: totalFeeAmount })
-                console.log('Reentrancy attack did not revert the transaction.')
-              } catch (error: any) {
-                if (
-                  error.message.includes('OriumSftMarketplace: Reentrancy detected or insufficient native token amount')
-                ) {
-                  console.log('Reentrancy was correctly detected.')
-                } else {
-                  console.log('The transaction failed for another reason: ', error.message)
-                }
-              }
+              await attackContract.connect(lender).attack(rentalOffer, duration, {
+                value: totalFeeAmount,
+              })
+
+              await expect(
+                borrower.sendTransaction({
+                  to: attackContract.getAddress(),
+                  value: toWei('1'),
+                }),
+              ).to.be.revertedWith('OriumSftMarketplace: This offer has an ongoing rental')
             })
 
             it('should revert on multiple reentrant calls', async () => {
@@ -772,7 +770,7 @@ describe('OriumSftMarketplace', () => {
 
               await borrower.sendTransaction({
                 to: attackContract.getAddress(),
-                value: totalFeeAmount * BigInt(6),
+                value: toWei('100'),
               })
 
               // Attempt the attack
