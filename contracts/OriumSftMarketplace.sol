@@ -183,8 +183,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             _expirationDate
         );
 
-        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
-
         IERC7589 _rolesRegistry = IERC7589(
             IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
         );
@@ -200,6 +198,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         }
 
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
     }

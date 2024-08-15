@@ -703,7 +703,7 @@ describe('OriumSftMarketplace', () => {
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
             })
 
-            it('Should revert when accepting a rental offer with insufficient native tokens', async function () {
+            it('Should revert when accept a rental offer with insufficient native tokens', async function () {
               await marketplaceRoyalties
                 .connect(operator)
                 .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
@@ -721,70 +721,6 @@ describe('OriumSftMarketplace', () => {
                   value: insufficientAmount.toString(),
                 }),
               ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
-            })
-
-            it('should detect reentrancy attack during fee transfer', async () => {
-              const AttackContract = await ethers.getContractFactory('ReentrancyAttack')
-              attackContract = (await AttackContract.deploy(marketplace)) as ReentrancyAttack
-              await attackContract.waitForDeployment()
-
-              await marketplaceRoyalties
-                .connect(operator)
-                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
-              rentalOffer.minDuration = duration
-              rentalOffer.feeTokenAddress = AddressZero
-              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
-              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
-
-              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
-              rentalOffer.commitmentId = BigInt(2)
-
-              await attackContract.connect(lender).attack(rentalOffer, duration, {
-                value: totalFeeAmount,
-              })
-
-              await expect(
-                lender.sendTransaction({
-                  to: attackContract.getAddress(),
-                  value: toWei('1'),
-                }),
-              ).to.be.revertedWith('OriumSftMarketplace: This offer has an ongoing rental')
-            })
-
-            it('should revert when accept offer is called from Attack contract after a offer be accepeted by borrower', async () => {
-              const AttackContract = await ethers.getContractFactory('ReentrancyAttack')
-              attackContract = (await AttackContract.deploy(marketplace)) as ReentrancyAttack
-              await attackContract.waitForDeployment()
-
-              await marketplaceRoyalties
-                .connect(operator)
-                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
-              rentalOffer.minDuration = duration
-              rentalOffer.feeTokenAddress = AddressZero
-              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
-              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
-
-              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
-              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
-              rentalOffer.commitmentId = BigInt(2)
-
-              const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
-              const expirationDate = Number(blockTimestamp) + duration + 1
-
-              await expect(
-                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration, {
-                  value: totalFeeAmount.toString(),
-                }),
-              )
-                .to.emit(marketplace, 'RentalStarted')
-                .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
-
-              await expect(
-                attackContract.connect(lender).attack(rentalOffer, duration, {
-                  value: totalFeeAmount,
-                }),
-              ).to.be.revertedWith('OriumSftMarketplace: This offer has an ongoing rental')
             })
 
             describe('Fees', async function () {

@@ -162,8 +162,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _expirationDate
         );
 
-        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
-
         LibNftRentalMarketplace.grantRoles(
             oriumMarketplaceRoyalties,
             _offer.tokenAddress,
@@ -181,6 +179,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         }
 
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
     }
