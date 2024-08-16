@@ -484,13 +484,14 @@ describe('NftRentalMarketplace', () => {
                 .connect(operator)
                 .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
               await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
 
               const blockTimestamp = await time.latest()
               const expirationDate = blockTimestamp + duration + 1
 
               await expect(
                 marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration, {
-                  value: totalFeeAmount.toString(),
+                  value: totalFeeAmount,
                 }),
               )
                 .to.emit(marketplace, 'RentalStarted')

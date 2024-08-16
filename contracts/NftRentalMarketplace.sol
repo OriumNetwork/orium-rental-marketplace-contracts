@@ -314,7 +314,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
     ) internal {
         if (_feeTokenAddress == address(0)) {
             uint256 totalFeeAmount = _feeAmountPerSecond * _duration;
-            require(msg.value >= totalFeeAmount, 'NftRentalMarketplace: Incorrect native token amount');
+            require(msg.value == totalFeeAmount, 'NftRentalMarketplace: Incorrect native token amount');
 
             uint256 marketplaceFeeAmount = LibNftRentalMarketplace.getAmountFromPercentage(
                 totalFeeAmount,
