@@ -124,7 +124,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @dev To optimize for gas, only the offer hash is stored on-chain
      * @param _offer The rental offer struct.
      */
-
     function createRentalOffer(RentalOffer memory _offer) external whenNotPaused {
         address _rolesRegistryAddress = IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(
             _offer.tokenAddress
@@ -168,8 +167,10 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _duration The duration of the rental.
      */
-
-    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+    function acceptRentalOffer(
+        RentalOffer calldata _offer,
+        uint64 _duration
+    ) external payable whenNotPaused {
         bytes32 _offerHash = LibOriumSftMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
         LibOriumSftMarketplace.validateAcceptRentalOffer(
@@ -181,8 +182,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
             nonceDeadline[_offer.lender][_offer.nonce],
             _expirationDate
         );
-
-        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         IERC7589 _rolesRegistry = IERC7589(
             IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).sftRolesRegistryOf(_offer.tokenAddress)
@@ -199,6 +198,7 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         }
 
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
     }
@@ -441,15 +441,22 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
         );
         uint256 _lenderAmount = _feeAmount - _royaltyAmount - _marketplaceFeeAmount;
 
-        LibOriumSftMarketplace.transferFees(
-            _feeTokenAddress,
-            _marketplaceFeeAmount,
-            _royaltyAmount,
-            _lenderAmount,
-            owner(),
-            _royaltyInfo.treasury,
-            _lenderAddress
-        );
+        if (_feeTokenAddress == address(0)) {
+            require(msg.value == _feeAmount, 'OriumSftMarketplace: Insufficient native token amount');
+            payable(owner()).transfer(_marketplaceFeeAmount);
+            payable(_royaltyInfo.treasury).transfer(_royaltyAmount);
+            payable(_lenderAddress).transfer(_lenderAmount);
+        } else {
+            LibOriumSftMarketplace.transferFees(
+                _feeTokenAddress,
+                _marketplaceFeeAmount,
+                _royaltyAmount,
+                _lenderAmount,
+                owner(),
+                _royaltyInfo.treasury,
+                _lenderAddress
+            );
+        }
     }
 
     /**
@@ -496,5 +503,6 @@ contract OriumSftMarketplace is Initializable, OwnableUpgradeable, PausableUpgra
     function setOriumMarketplaceRoyalties(address _oriumMarketplaceRoyalties) external onlyOwner {
         oriumMarketplaceRoyalties = _oriumMarketplaceRoyalties;
     }
+
     /** ######### Getters ########### **/
 }

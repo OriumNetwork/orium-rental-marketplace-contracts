@@ -358,6 +358,7 @@ describe('NftRentalMarketplace', () => {
                 .to.emit(marketplace, 'RentalStarted')
                 .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
             })
+
             it('Should accept a rental offer more than once', async () => {
               const rentalExpirationDate1 = Number(await time.latest()) + duration + 1
 
@@ -451,6 +452,51 @@ describe('NftRentalMarketplace', () => {
                 marketplace.connect(notOperator).acceptRentalOffer(rentalOffer, duration),
               ).to.be.revertedWith('NftRentalMarketplace: Sender is not allowed to rent this NFT')
             })
+            it('Should revert when accepting a rental offer with insufficient native tokens', async () => {
+              await time.increase(ONE_DAY)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.borrower = borrower.address
+              rentalOffer.deadline = Number(await time.latest()) + ONE_DAY
+              rentalOffer.feeTokenAddress = AddressZero
+              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
+              await marketplaceRoyalties
+                .connect(operator)
+                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+
+              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+
+              const insufficientAmount = totalFeeAmount - toWei('0.00000001') // slightly less than required
+              await expect(
+                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration, {
+                  value: insufficientAmount.toString(),
+                }),
+              ).to.be.revertedWith('NftRentalMarketplace: Incorrect native token amount')
+            })
+            it('Should accept a rental offer with native tokens', async () => {
+              await time.increase(ONE_DAY)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              rentalOffer.borrower = borrower.address
+              rentalOffer.deadline = Number(await time.latest()) + ONE_DAY
+              rentalOffer.feeTokenAddress = AddressZero
+              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
+              await marketplaceRoyalties
+                .connect(operator)
+                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
+              await marketplace.connect(lender).createRentalOffer(rentalOffer)
+              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+
+              const blockTimestamp = await time.latest()
+              const expirationDate = blockTimestamp + duration + 1
+
+              await expect(
+                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration, {
+                  value: totalFeeAmount,
+                }),
+              )
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
+            })
             it('Should NOT accept a rental offer if offer is expired', async () => {
               // move foward in time to expire the offer
               const blockTimestamp = await time.latest()
@@ -473,6 +519,7 @@ describe('NftRentalMarketplace', () => {
                 marketplace.connect(borrower).acceptRentalOffer(rentalOffer, maxDuration),
               ).to.be.revertedWith('NftRentalMarketplace: expiration date is greater than offer deadline')
             })
+
             describe('Fees', async function () {
               const feeAmountPerSecond = toWei('1')
               const feeAmount = feeAmountPerSecond * BigInt(duration)
@@ -495,6 +542,7 @@ describe('NftRentalMarketplace', () => {
                   .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
                   .to.emit(mockERC20, 'Transfer')
               })
+
               it('Should accept a rental offer if marketplace fee is 0', async () => {
                 await marketplaceRoyalties
                   .connect(operator)
@@ -504,6 +552,7 @@ describe('NftRentalMarketplace', () => {
                   'RentalStarted',
                 )
               })
+
               it('Should accept a rental offer if royalty fee is 0', async () => {
                 await marketplaceRoyalties
                   .connect(creator)

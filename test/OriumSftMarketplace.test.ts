@@ -1,4 +1,5 @@
-/* eslint-disable no-unexpected-multiline */
+// SPDX-License-Identifier: CC0-1.0
+
 import { ethers } from 'hardhat'
 import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers'
 import { deploySftMarketplaceContracts } from './fixtures/OriumSftMarketplaceFixture'
@@ -15,6 +16,7 @@ import {
   OriumSftMarketplace,
   SftRolesRegistrySingleRole,
   SftRolesRegistrySingleRoleLegacy,
+  ReentrancyAttack,
 } from '../typechain-types'
 
 describe('OriumSftMarketplace', () => {
@@ -26,6 +28,7 @@ describe('OriumSftMarketplace', () => {
   let secondMockERC1155: MockERC1155
   let wearableToken: MockERC1155
   let mockERC20: MockERC20
+  let attackContract: ReentrancyAttack
 
   // We are disabling this rule because hardhat uses first account as deployer by default, and we are separating deployer and operator
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -143,6 +146,7 @@ describe('OriumSftMarketplace', () => {
             .connect(lender)
             .setApprovalForAll(await SftRolesRegistrySingleRoleLegacy.getAddress(), true)
         })
+
         describe('When Rental Offer is not created', async () => {
           describe('Create Rental Offer', async () => {
             describe("When commitmentId doesn't exist", async () => {
@@ -674,6 +678,51 @@ describe('OriumSftMarketplace', () => {
                 marketplace.connect(borrower).acceptRentalOffer(rentalOffer, maxDuration),
               ).to.be.revertedWith('OriumSftMarketplace: expiration date is greater than offer deadline')
             })
+            // New test case for accepting rental offer with native tokens
+            it('Should accept a rental offer with native tokens', async () => {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
+
+              rentalOffer.feeTokenAddress = AddressZero
+              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
+              totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
+              rentalOffer.commitmentId = BigInt(2)
+
+              const blockTimestamp = (await ethers.provider.getBlock('latest'))?.timestamp
+              const expirationDate = Number(blockTimestamp) + duration + 1
+
+              await expect(
+                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, duration, {
+                  value: totalFeeAmount.toString(),
+                }),
+              )
+                .to.emit(marketplace, 'RentalStarted')
+                .withArgs(rentalOffer.lender, rentalOffer.nonce, borrower.address, expirationDate)
+            })
+
+            it('Should revert when accept a rental offer with insufficient native tokens', async function () {
+              await marketplaceRoyalties
+                .connect(operator)
+                .setTrustedFeeTokenForToken([rentalOffer.tokenAddress], [AddressZero], [true])
+
+              rentalOffer.feeTokenAddress = AddressZero
+              rentalOffer.feeAmountPerSecond = toWei('0.0000001')
+              const totalFeeAmount = rentalOffer.feeAmountPerSecond * BigInt(duration)
+              rentalOffer.nonce = `0x${randomBytes(32).toString('hex')}`
+              await marketplace.connect(lender).createRentalOffer({ ...rentalOffer, commitmentId: BigInt(0) })
+              rentalOffer.commitmentId = BigInt(2)
+
+              const insufficientAmount = totalFeeAmount - BigInt(toWei('0.00000001')) // slightly less than required
+              await expect(
+                marketplace.connect(borrower).acceptRentalOffer(rentalOffer, BigInt(duration), {
+                  value: insufficientAmount.toString(),
+                }),
+              ).to.be.revertedWith('OriumSftMarketplace: Insufficient native token amount')
+            })
+
             describe('Fees', async function () {
               const feeAmountPerSecond = toWei('1')
               const feeAmount = feeAmountPerSecond * BigInt(duration)

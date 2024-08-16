@@ -146,7 +146,10 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @param _offer The rental offer struct. It should be the same as the one used to create the offer.
      * @param _duration The duration of the rental.
      */
-    function acceptRentalOffer(RentalOffer calldata _offer, uint64 _duration) external whenNotPaused {
+    function acceptRentalOffer(
+        RentalOffer calldata _offer,
+        uint64 _duration
+    ) external payable whenNotPaused {
         bytes32 _offerHash = LibNftRentalMarketplace.hashRentalOffer(_offer);
         uint64 _expirationDate = uint64(block.timestamp + _duration);
         LibNftRentalMarketplace.validateAcceptRentalOfferParams(
@@ -157,16 +160,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _duration,
             nonceDeadline[_offer.lender][_offer.nonce],
             _expirationDate
-        );
-
-        LibNftRentalMarketplace.transferFees(
-            _offer.feeTokenAddress,
-            owner(),
-            _offer.lender,
-            oriumMarketplaceRoyalties,
-            _offer.tokenAddress,
-            _offer.feeAmountPerSecond,
-            _duration
         );
 
         LibNftRentalMarketplace.grantRoles(
@@ -180,12 +173,13 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
         );
 
         for (uint256 i = 0; i < _offer.roles.length; i++) {
-            if(_expirationDate > roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId]) {
-                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _expirationDate;
+            if (_expirationDate > roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId]) {
+                roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = _expirationDate;
             }
         }
 
         rentals[_offerHash] = Rental({ borrower: msg.sender, expirationDate: _expirationDate });
+        _transferFees(_offer.tokenAddress, _offer.feeTokenAddress, _offer.feeAmountPerSecond, _duration, _offer.lender);
 
         emit RentalStarted(_offer.lender, _offer.nonce, msg.sender, _expirationDate);
     }
@@ -233,7 +227,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             _offer.tokenId,
             _offer.roles
         );
-             
+
         uint64 _offerDeadline = nonceDeadline[_offer.lender][_offer.nonce];
         if (_offerDeadline < uint64(block.timestamp)) {
             for (uint256 i = 0; i < _offer.roles.length; i++) {
@@ -268,6 +262,7 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
      * @dev owner will be msg.sender and it must approve the marketplace to revoke the roles.
      * @param _tokenAddresses The array of tokenAddresses
      * @param _tokenIds The array of tokenIds
+     * @param _roleIds The array of roleIds
      */
     function batchRevokeRole(
         address[] memory _tokenAddresses,
@@ -294,7 +289,6 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
 
         nonceDeadline[msg.sender][_offer.nonce] = uint64(block.timestamp);
         for (uint256 i = 0; i < _offer.roles.length; i++) {
-
             if (rentals[_offerHash].expirationDate > uint64(block.timestamp)) {
                 roleDeadline[_offer.roles[i]][_offer.tokenAddress][_offer.tokenId] = rentals[_offerHash].expirationDate;
             } else {
@@ -302,6 +296,54 @@ contract NftRentalMarketplace is Initializable, OwnableUpgradeable, PausableUpgr
             }
         }
         emit RentalOfferCancelled(_offer.lender, _offer.nonce);
+    }
+
+    /**
+     * @dev Transfers the fees to the marketplace, the creator and the lender.
+     * @param _feeTokenAddress The address of the ERC20 token for rental fees.
+     * @param _feeAmountPerSecond  The amount of fee per second.
+     * @param _duration The duration of the rental.
+     * @param _lenderAddress The address of the lender.
+     */
+    function _transferFees(
+        address _tokenAddress,
+        address _feeTokenAddress,
+        uint256 _feeAmountPerSecond,
+        uint64 _duration,
+        address _lenderAddress
+    ) internal {
+        if (_feeTokenAddress == address(0)) {
+            uint256 totalFeeAmount = _feeAmountPerSecond * _duration;
+            require(msg.value == totalFeeAmount, 'NftRentalMarketplace: Incorrect native token amount');
+
+            uint256 marketplaceFeeAmount = LibNftRentalMarketplace.getAmountFromPercentage(
+                totalFeeAmount,
+                IOriumMarketplaceRoyalties(oriumMarketplaceRoyalties).marketplaceFeeOf(_tokenAddress)
+            );
+            IOriumMarketplaceRoyalties.RoyaltyInfo memory royaltyInfo = IOriumMarketplaceRoyalties(
+                oriumMarketplaceRoyalties
+            ).royaltyInfoOf(_tokenAddress);
+
+            uint256 royaltyAmount = LibNftRentalMarketplace.getAmountFromPercentage(
+                totalFeeAmount,
+                royaltyInfo.royaltyPercentageInWei
+            );
+            uint256 lenderAmount = totalFeeAmount - marketplaceFeeAmount - royaltyAmount;
+
+            payable(owner()).transfer(marketplaceFeeAmount);
+            payable(royaltyInfo.treasury).transfer(royaltyAmount);
+            payable(_lenderAddress).transfer(lenderAmount);
+        } else {
+            LibNftRentalMarketplace.transferFees(
+                _feeTokenAddress,
+                owner(),
+                _lenderAddress,
+                oriumMarketplaceRoyalties,
+                _tokenAddress,
+                _feeAmountPerSecond,
+                _duration
+            );
+        }
     }
 
     /** ============================ Core Functions  ================================== **/
