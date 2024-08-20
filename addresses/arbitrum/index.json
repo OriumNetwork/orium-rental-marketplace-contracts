@@ -1,0 +1,24 @@
+{
+	"KMSDeployer": {
+		"address": "0x04c8c6c56dab836f8bd62cb6884371507e706806"
+	},
+	"ERC7432ImmutableRegistry": {
+		"address": "0x48c769f6a8de57d824f0e7330d7A27dee53a43cD"
+	},
+	"OriumMarketplaceRoyalties": {
+		"address": "0x5E053177c73636d4378cfB4D095cFb374eBb3Da6",
+		"operator": "0x04c8c6c56dab836f8bd62cb6884371507e706806",
+		"implementation": "0x75EAcd67D71Aba6039bcC863E14dCe1f5263D93C",
+		"proxyAdmin": "0x1088a4fA9c6eb2D890AC94d006C70c43841Cff9b"
+	},
+	"NftRentalMarketplace": {
+		"address": "0xC3154ccAC181eb9d71ccd53f29F425BDdD52d983",
+		"operator": "0x04c8c6c56dab836f8bd62cb6884371507e706806",
+		"implementation": "0xAb8E668acD4FEF935D5DfD869410bf8704688a53",
+		"proxyAdmin": "0x093b4Cb64E80560B0aA8d754cfc170EEEb6eAa5B",
+		"libraries": {
+			"LibNftRentalMarketplace": "0xF5D38eF4aFB1520514ECCC258F89EAC4898c83dF"
+		}
+		
+	}
+}
