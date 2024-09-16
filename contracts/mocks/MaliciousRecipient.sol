@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CC0-1.0
 
-// contracts/MaliciousRecipient.sol
-pragma solidity ^0.8.0;
+
+pragma solidity ^0.8.9;
 
 contract MaliciousRecipient {
     // Fallback function that reverts when receiving Ether
