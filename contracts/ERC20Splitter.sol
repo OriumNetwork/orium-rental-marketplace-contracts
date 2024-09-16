@@ -1,13 +1,16 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: CC0-1.0
+pragma solidity 0.8.9;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
 contract ERC20Splitter is ReentrancyGuard {
+    // tokenAddress => userAddress => balance
     mapping(address => mapping(address => uint256)) public balances;
-    mapping(address => address[]) private _userTokens;
-    mapping(address => mapping(address => bool)) private _hasToken;
+    // userAddress => tokenAddress[]
+    mapping(address => address[]) private userTokens;
+    // tokenAddress => boolean
+    mapping(address => mapping(address => bool)) private hasToken;
 
     /** Events **/
 
@@ -15,12 +18,12 @@ contract ERC20Splitter is ReentrancyGuard {
         address indexed depositor,
         address[] tokenAddresses,
         uint256[] amounts,
-        uint256[][] shares,
+        uint16[][] shares,
         address[][] recipients
     );
-    event Withdraw(address indexed user, address[] tokenAddresses, uint256[] amounts);
+    event Withdraw(address indexed user, uint256[] amounts);
 
-    uint256 public constant MAX_SHARES = 10000;
+    uint16 public constant MAX_SHARES = 10000;
 
     /** External Functions **/
 
@@ -32,7 +35,7 @@ contract ERC20Splitter is ReentrancyGuard {
     function deposit(
         address[] calldata tokenAddresses,
         uint256[] calldata amounts,
-        uint256[][] calldata shares,
+        uint16[][] calldata shares,
         address[][] calldata recipients
     ) external payable nonReentrant {
         require(tokenAddresses.length == amounts.length, 'ERC20Splitter: Invalid input lengths');
@@ -58,41 +61,40 @@ contract ERC20Splitter is ReentrancyGuard {
     /// @notice Withdraw all tokens that the caller is entitled to.
     /// Tokens are automatically determined based on previous deposits.
     function withdraw() external nonReentrant {
-        address[] storage userTokens = _userTokens[msg.sender];
-        require(userTokens.length > 0, 'ERC20Splitter: No tokens to withdraw');
+        address payable to = payable(msg.sender);
+        address[] storage senderTokens = userTokens[to];
 
-        address[] memory withdrawnTokens = new address[](userTokens.length);
-        uint256[] memory withdrawnAmounts = new uint256[](userTokens.length);
-
-        for (uint256 i = 0; i < userTokens.length; i++) {
-            address tokenAddress = userTokens[i];
-            uint256 amount = balances[tokenAddress][msg.sender];
-
-            if (amount > 0) {
-                balances[tokenAddress][msg.sender] = 0;
-
-                if (tokenAddress == address(0)) {
-                    (bool success, ) = msg.sender.call{ value: amount }('');
-                    require(success, 'ERC20Splitter: Failed to send Ether');
-                } else {
-                    require(tokenAddress != address(0), 'ERC20Splitter: Invalid token address');
-
-                    require(
-                        IERC20(tokenAddress).transferFrom(address(this), msg.sender, amount),
-                        'ERC20Splitter: TransferFrom failed'
-                    );
-                }
-
-                withdrawnTokens[i] = tokenAddress;
-                withdrawnAmounts[i] = amount;
-            }
-
-            delete _hasToken[msg.sender][tokenAddress];
+        if (senderTokens.length == 0) {
+            return;
         }
 
-        delete _userTokens[msg.sender];
+        uint256[] memory withdrawnAmounts = new uint256[](senderTokens.length);
 
-        emit Withdraw(msg.sender, withdrawnTokens, withdrawnAmounts);
+        for (uint256 i = 0; i < senderTokens.length; i++) {
+            address tokenAddress = senderTokens[i];
+            uint256 amount = balances[tokenAddress][to];
+
+            require(amount > 0, 'ERC20Splitter: Amount to withdraw must be greater than zero');
+            balances[tokenAddress][to] = 0;
+
+            if (tokenAddress == address(0)) {
+                (bool success, ) = to.call{ value: amount }('');
+                require(success, 'ERC20Splitter: Failed to send Ether');
+            } else {
+                require(
+                    IERC20(tokenAddress).transferFrom(address(this), to, amount),
+                    'ERC20Splitter: TransferFrom failed'
+                );
+            }
+
+            withdrawnAmounts[i] = amount;
+
+            delete hasToken[to][tokenAddress];
+        }
+
+        delete userTokens[to];
+
+        emit Withdraw(to, withdrawnAmounts);
     }
 
     /** Internal Functions **/
@@ -105,7 +107,7 @@ contract ERC20Splitter is ReentrancyGuard {
     function _splitTokens(
         address tokenAddress,
         uint256 amount,
-        uint256[] calldata shares,
+        uint16[] calldata shares,
         address[] calldata recipients
     ) internal {
         require(shares.length == recipients.length, 'ERC20Splitter: Shares and recipients length mismatch');
@@ -138,9 +140,9 @@ contract ERC20Splitter is ReentrancyGuard {
     /// @param recipient The recipient of the token.
     /// @param tokenAddress The address of the token.
     function _addTokenForUser(address recipient, address tokenAddress) internal {
-        if (!_hasToken[recipient][tokenAddress]) {
-            _userTokens[recipient].push(tokenAddress);
-            _hasToken[recipient][tokenAddress] = true;
+        if (!hasToken[recipient][tokenAddress]) {
+            userTokens[recipient].push(tokenAddress);
+            hasToken[recipient][tokenAddress] = true;
         }
     }
 }
