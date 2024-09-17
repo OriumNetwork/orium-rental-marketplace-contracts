@@ -21,7 +21,7 @@ contract ERC20Splitter is ReentrancyGuard {
         uint16[][] shares,
         address[][] recipients
     );
-    event Withdraw(address indexed user, uint256[] amounts);
+    event Withdraw(address indexed user, address[] tokenAddresses, uint256[] amounts);
 
     uint16 public constant MAX_SHARES = 10000;
 
@@ -62,7 +62,7 @@ contract ERC20Splitter is ReentrancyGuard {
     /// Tokens are automatically determined based on previous deposits.
     function withdraw() external nonReentrant {
         address payable to = payable(msg.sender);
-        address[] storage senderTokens = userTokens[to];
+        address[] storage senderTokens = userTokens[msg.sender];
 
         if (senderTokens.length == 0) {
             return;
@@ -77,8 +77,7 @@ contract ERC20Splitter is ReentrancyGuard {
             balances[tokenAddress][to] = 0;
 
             if (tokenAddress == address(0)) {
-                (bool success, ) = to.call{ value: amount }('');
-                require(success, 'ERC20Splitter: Failed to send Ether');
+                to.transfer(amount);
             } else {
                 require(
                     IERC20(tokenAddress).transferFrom(address(this), to, amount),
@@ -90,10 +89,9 @@ contract ERC20Splitter is ReentrancyGuard {
 
             delete hasToken[to][tokenAddress];
         }
+        emit Withdraw(to, userTokens[msg.sender], withdrawnAmounts);
 
         delete userTokens[to];
-
-        emit Withdraw(to, withdrawnAmounts);
     }
 
     /** Internal Functions **/
