@@ -74,7 +74,6 @@ contract ERC20Splitter is ReentrancyGuard {
             address tokenAddress = senderTokens[i];
             uint256 amount = balances[tokenAddress][to];
 
-            require(amount > 0, 'ERC20Splitter: Amount to withdraw must be greater than zero');
             balances[tokenAddress][to] = 0;
 
             if (tokenAddress == address(0)) {
