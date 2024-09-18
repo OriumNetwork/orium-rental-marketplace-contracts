@@ -9,7 +9,7 @@ contract ERC20Splitter is ReentrancyGuard {
     mapping(address => mapping(address => uint256)) public balances;
     // userAddress => tokenAddress[]
     mapping(address => address[]) private userTokens;
-    // tokenAddress => boolean
+    // tokenAddress => userAddress => boolean
     mapping(address => mapping(address => bool)) private hasToken;
 
     /** Events **/
@@ -22,6 +22,14 @@ contract ERC20Splitter is ReentrancyGuard {
         address[][] recipients
     );
     event Withdraw(address indexed user, address[] tokenAddresses, uint256[] amounts);
+
+    event RecipientSplit(
+        address indexed depositor,
+        address indexed tokenAddress,
+        address indexed recipient,
+        uint256 amount,
+        uint16 sharePercentage
+    );
 
     uint16 public constant MAX_SHARES = 10000;
 
@@ -61,8 +69,8 @@ contract ERC20Splitter is ReentrancyGuard {
     /// @notice Withdraw all tokens that the caller is entitled to.
     /// Tokens are automatically determined based on previous deposits.
     function withdraw() external nonReentrant {
-        address payable to = payable(msg.sender);
-        address[] storage senderTokens = userTokens[msg.sender];
+        address recipient = msg.sender;
+        address[] storage senderTokens = userTokens[recipient];
 
         if (senderTokens.length == 0) {
             return;
@@ -72,26 +80,26 @@ contract ERC20Splitter is ReentrancyGuard {
 
         for (uint256 i = 0; i < senderTokens.length; i++) {
             address tokenAddress = senderTokens[i];
-            uint256 amount = balances[tokenAddress][to];
+            uint256 amount = balances[tokenAddress][recipient];
 
-            balances[tokenAddress][to] = 0;
+            balances[tokenAddress][recipient] = 0;
 
             if (tokenAddress == address(0)) {
-                to.transfer(amount);
+                payable(msg.sender).transfer(amount);
             } else {
                 require(
-                    IERC20(tokenAddress).transferFrom(address(this), to, amount),
+                    IERC20(tokenAddress).transferFrom(address(this), recipient, amount),
                     'ERC20Splitter: TransferFrom failed'
                 );
             }
 
             withdrawnAmounts[i] = amount;
 
-            delete hasToken[to][tokenAddress];
+            delete hasToken[recipient][tokenAddress];
         }
-        emit Withdraw(to, userTokens[msg.sender], withdrawnAmounts);
+        emit Withdraw(recipient, userTokens[recipient], withdrawnAmounts);
 
-        delete userTokens[to];
+        delete userTokens[recipient];
     }
 
     /** Internal Functions **/
@@ -130,6 +138,8 @@ contract ERC20Splitter is ReentrancyGuard {
             balances[tokenAddress][recipients[i]] += recipientAmount;
 
             _addTokenForUser(recipients[i], tokenAddress);
+
+            emit RecipientSplit(msg.sender, tokenAddress, recipients[i], recipientAmount, shares[i]);
         }
     }
 

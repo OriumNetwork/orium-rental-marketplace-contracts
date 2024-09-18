@@ -264,6 +264,46 @@ describe('ERC20Splitter', () => {
         // Check balances for recipient3 (40% of 100 ERC-20 tokens = 40 tokens)
         expect(await splitter.balances(mockERC20.getAddress(), recipient3.address)).to.equal(ethers.parseEther('40'))
       })
+      it('Should emit RecipientSplit events for each recipient on deposit', async function () {
+        const mockAddress = await mockERC20.getAddress()
+        const tokenAmount = ethers.parseEther('100')
+        const ethAmount = ethers.parseEther('1')
+
+        const tokenAddresses = [await mockERC20.getAddress(), AddressZero]
+        const amounts = [tokenAmount, ethAmount]
+        const shares = [
+          [5000, 3000, 2000], // For ERC20 token
+          [7000, 2000, 1000], // For ETH
+        ]
+        const recipients = [
+          [recipient1.address, recipient2.address, recipient3.address],
+          [recipient1.address, recipient2.address, recipient3.address],
+        ]
+
+        await expect(splitter.connect(owner).deposit(tokenAddresses, amounts, shares, recipients, { value: ethAmount }))
+          .to.emit(splitter, 'Deposit')
+          .withArgs(owner.address, tokenAddresses, amounts, shares, recipients)
+          .and.to.emit(splitter, 'RecipientSplit')
+          .withArgs(owner.address, mockAddress, recipient1.address, ethers.parseEther('50'), 5000)
+          .and.to.emit(splitter, 'RecipientSplit')
+          .withArgs(owner.address, mockAddress, recipient2.address, ethers.parseEther('30'), 3000)
+          .and.to.emit(splitter, 'RecipientSplit')
+          .withArgs(owner.address, mockAddress, recipient3.address, ethers.parseEther('20'), 2000)
+          .and.to.emit(splitter, 'RecipientSplit')
+          .withArgs(owner.address, AddressZero, recipient1.address, ethers.parseEther('0.7'), 7000)
+          .and.to.emit(splitter, 'RecipientSplit')
+          .withArgs(owner.address, AddressZero, recipient2.address, ethers.parseEther('0.2'), 2000)
+          .and.to.emit(splitter, 'RecipientSplit')
+          .withArgs(owner.address, AddressZero, recipient3.address, ethers.parseEther('0.1'), 1000)
+
+        expect(await splitter.balances(mockAddress, recipient1.address)).to.equal(ethers.parseEther('50'))
+        expect(await splitter.balances(mockAddress, recipient2.address)).to.equal(ethers.parseEther('30'))
+        expect(await splitter.balances(mockAddress, recipient3.address)).to.equal(ethers.parseEther('20'))
+
+        expect(await splitter.balances(AddressZero, recipient1.address)).to.equal(ethers.parseEther('0.7'))
+        expect(await splitter.balances(AddressZero, recipient2.address)).to.equal(ethers.parseEther('0.2'))
+        expect(await splitter.balances(AddressZero, recipient3.address)).to.equal(ethers.parseEther('0.1'))
+      })
     })
 
     describe('Withdraw', async () => {
@@ -332,7 +372,6 @@ describe('ERC20Splitter', () => {
 
         await mockERC20.transferReverts(true, 0)
 
-        // Attempt to withdraw as the malicious recipient
         await expect(splitter.connect(recipient1).withdraw()).to.be.revertedWith('ERC20Splitter: TransferFrom failed')
       })
     })
