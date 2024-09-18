@@ -86,6 +86,7 @@ contract ERC20Splitter is ReentrancyGuard {
 
             withdrawnAmounts[i] = amount;
         }
+
         emit Withdraw(recipient, userTokens[recipient], withdrawnAmounts);
 
         delete userTokens[recipient];
@@ -125,6 +126,7 @@ contract ERC20Splitter is ReentrancyGuard {
         for (uint256 i = 0; i < recipients.length; i++) {
             uint256 recipientAmount = (amount * shares[i]) / MAX_SHARES;
             balances[tokenAddress][recipients[i]] += recipientAmount;
+            userTokens[recipients[i]].push(tokenAddress);
         }
     }
 }

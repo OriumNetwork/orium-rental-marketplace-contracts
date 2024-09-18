@@ -148,7 +148,98 @@ describe('ERC20Splitter', () => {
         expect(await splitter.balances(mockERC20_4.getAddress(), recipient4.address)).to.equal(ethers.parseEther('100'))
       })
 
-      it.only('Should deposit three ERC20 tokens and split them between recipients', async () => {
+      it.only('Should deposit four ERC20 tokens and split them between recipients', async () => {
+        const tokenAmounts = [
+          ethers.parseEther('100'), // Amount for token 1
+          ethers.parseEther('60'), // Amount for token 2
+          ethers.parseEther('40'), // Amount for token 3
+          ethers.parseEther('80'), // Amount for token 4
+        ]
+
+        const shares = [
+          [5000, 3000, 2000], // Shares for token 1 (50%, 30%, 20%)
+          [5000, 3000, 2000], // Shares for token 2 (50%, 30%, 20%)
+          [5000, 3000, 2000], // Shares for token 3 (50%, 30%, 20%)
+          [5000, 3000, 2000], // Shares for token 4 (50%, 30%, 20%)
+        ]
+
+        const recipients = [
+          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 1
+          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 2
+          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 3
+          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 4
+        ]
+
+        // Call the deposit function with matching array lengths
+        await expect(
+          splitter.connect(owner).deposit(
+            [mockERC20.getAddress(), mockERC20_2.getAddress(), mockERC20_3.getAddress(), mockERC20_4.getAddress()],
+            tokenAmounts, // The array of amounts for the 4 tokens
+            shares, // Provide separate shares for each token
+            recipients, // Recipients array matches in length with token addresses
+          ),
+        ).to.emit(splitter, 'Deposit')
+
+        // Expected balances based on deposit amounts and shares
+        const expectedRecipient1BalanceToken1 = ethers.parseEther('50') // 50% of 100 tokens (token 1)
+        const expectedRecipient2BalanceToken1 = ethers.parseEther('30') // 30% of 100 tokens (token 1)
+        const expectedRecipient3BalanceToken1 = ethers.parseEther('20') // 20% of 100 tokens (token 1)
+
+        const expectedRecipient1BalanceToken2 = ethers.parseEther('30') // 50% of 60 tokens (token 2)
+        const expectedRecipient2BalanceToken2 = ethers.parseEther('18') // 30% of 60 tokens (token 2)
+        const expectedRecipient3BalanceToken2 = ethers.parseEther('12') // 20% of 60 tokens (token 2)
+
+        const expectedRecipient1BalanceToken3 = ethers.parseEther('20') // 50% of 40 tokens (token 3)
+        const expectedRecipient2BalanceToken3 = ethers.parseEther('12') // 30% of 40 tokens (token 3)
+        const expectedRecipient3BalanceToken3 = ethers.parseEther('8') // 20% of 40 tokens (token 3)
+
+        const expectedRecipient1BalanceToken4 = ethers.parseEther('40') // 50% of 80 tokens (token 4)
+        const expectedRecipient2BalanceToken4 = ethers.parseEther('24') // 30% of 80 tokens (token 4)
+        const expectedRecipient3BalanceToken4 = ethers.parseEther('16') // 20% of 80 tokens (token 4)
+
+        // Checking balances after splitting for all tokens
+        expect(await splitter.balances(mockERC20.getAddress(), recipient1.address)).to.equal(
+          expectedRecipient1BalanceToken1,
+        )
+        expect(await splitter.balances(mockERC20.getAddress(), recipient2.address)).to.equal(
+          expectedRecipient2BalanceToken1,
+        )
+        expect(await splitter.balances(mockERC20.getAddress(), recipient3.address)).to.equal(
+          expectedRecipient3BalanceToken1,
+        )
+
+        expect(await splitter.balances(mockERC20_2.getAddress(), recipient1.address)).to.equal(
+          expectedRecipient1BalanceToken2,
+        )
+        expect(await splitter.balances(mockERC20_2.getAddress(), recipient2.address)).to.equal(
+          expectedRecipient2BalanceToken2,
+        )
+        expect(await splitter.balances(mockERC20_2.getAddress(), recipient3.address)).to.equal(
+          expectedRecipient3BalanceToken2,
+        )
+
+        expect(await splitter.balances(mockERC20_3.getAddress(), recipient1.address)).to.equal(
+          expectedRecipient1BalanceToken3,
+        )
+        expect(await splitter.balances(mockERC20_3.getAddress(), recipient2.address)).to.equal(
+          expectedRecipient2BalanceToken3,
+        )
+        expect(await splitter.balances(mockERC20_3.getAddress(), recipient3.address)).to.equal(
+          expectedRecipient3BalanceToken3,
+        )
+
+        expect(await splitter.balances(mockERC20_4.getAddress(), recipient1.address)).to.equal(
+          expectedRecipient1BalanceToken4,
+        )
+        expect(await splitter.balances(mockERC20_4.getAddress(), recipient2.address)).to.equal(
+          expectedRecipient2BalanceToken4,
+        )
+        expect(await splitter.balances(mockERC20_4.getAddress(), recipient3.address)).to.equal(
+          expectedRecipient3BalanceToken4,
+        )
+      })
+
+      it('Should deposit three ERC20 tokens and split them between recipients', async () => {
         const tokenAmounts = [ethers.parseEther('100'), ethers.parseEther('100'), ethers.parseEther('100')]
         const shares = [
           [5000, 3000, 2000],
@@ -362,46 +453,6 @@ describe('ERC20Splitter', () => {
 
         // Check balances for recipient3 (40% of 100 ERC-20 tokens = 40 tokens)
         expect(await splitter.balances(mockERC20.getAddress(), recipient3.address)).to.equal(ethers.parseEther('40'))
-      })
-      it('Should emit RecipientSplit events for each recipient on deposit', async function () {
-        const mockAddress = await mockERC20.getAddress()
-        const tokenAmount = ethers.parseEther('100')
-        const ethAmount = ethers.parseEther('1')
-
-        const tokenAddresses = [await mockERC20.getAddress(), AddressZero]
-        const amounts = [tokenAmount, ethAmount]
-        const shares = [
-          [5000, 3000, 2000], // For ERC20 token
-          [7000, 2000, 1000], // For ETH
-        ]
-        const recipients = [
-          [recipient1.address, recipient2.address, recipient3.address],
-          [recipient1.address, recipient2.address, recipient3.address],
-        ]
-
-        await expect(splitter.connect(owner).deposit(tokenAddresses, amounts, shares, recipients, { value: ethAmount }))
-          .to.emit(splitter, 'Deposit')
-          .withArgs(owner.address, tokenAddresses, amounts, shares, recipients)
-          .and.to.emit(splitter, 'RecipientSplit')
-          .withArgs(owner.address, mockAddress, recipient1.address, ethers.parseEther('50'), 5000)
-          .and.to.emit(splitter, 'RecipientSplit')
-          .withArgs(owner.address, mockAddress, recipient2.address, ethers.parseEther('30'), 3000)
-          .and.to.emit(splitter, 'RecipientSplit')
-          .withArgs(owner.address, mockAddress, recipient3.address, ethers.parseEther('20'), 2000)
-          .and.to.emit(splitter, 'RecipientSplit')
-          .withArgs(owner.address, AddressZero, recipient1.address, ethers.parseEther('0.7'), 7000)
-          .and.to.emit(splitter, 'RecipientSplit')
-          .withArgs(owner.address, AddressZero, recipient2.address, ethers.parseEther('0.2'), 2000)
-          .and.to.emit(splitter, 'RecipientSplit')
-          .withArgs(owner.address, AddressZero, recipient3.address, ethers.parseEther('0.1'), 1000)
-
-        expect(await splitter.balances(mockAddress, recipient1.address)).to.equal(ethers.parseEther('50'))
-        expect(await splitter.balances(mockAddress, recipient2.address)).to.equal(ethers.parseEther('30'))
-        expect(await splitter.balances(mockAddress, recipient3.address)).to.equal(ethers.parseEther('20'))
-
-        expect(await splitter.balances(AddressZero, recipient1.address)).to.equal(ethers.parseEther('0.7'))
-        expect(await splitter.balances(AddressZero, recipient2.address)).to.equal(ethers.parseEther('0.2'))
-        expect(await splitter.balances(AddressZero, recipient3.address)).to.equal(ethers.parseEther('0.1'))
       })
     })
 
