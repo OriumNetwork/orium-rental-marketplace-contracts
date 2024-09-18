@@ -9,13 +9,11 @@ contract ERC20Splitter is ReentrancyGuard {
     mapping(address => mapping(address => uint256)) public balances;
     // userAddress => tokenAddress[]
     mapping(address => address[]) private userTokens;
-    // tokenAddress => userAddress => boolean
-    mapping(address => mapping(address => bool)) private hasToken;
 
     /** Events **/
 
     event Deposit(
-        address indexed depositor,
+        address indexed user,
         address[] tokenAddresses,
         uint256[] amounts,
         uint16[][] shares,
@@ -23,14 +21,6 @@ contract ERC20Splitter is ReentrancyGuard {
     );
 
     event Withdraw(address indexed user, address[] tokenAddresses, uint256[] amounts);
-
-    event RecipientSplit(
-        address indexed depositor,
-        address indexed tokenAddress,
-        address indexed recipient,
-        uint256 amount,
-        uint16 sharePercentage
-    );
 
     uint16 public constant MAX_SHARES = 10000;
 
@@ -95,8 +85,6 @@ contract ERC20Splitter is ReentrancyGuard {
             }
 
             withdrawnAmounts[i] = amount;
-
-            delete hasToken[recipient][tokenAddress];
         }
         emit Withdraw(recipient, userTokens[recipient], withdrawnAmounts);
 
@@ -137,20 +125,6 @@ contract ERC20Splitter is ReentrancyGuard {
         for (uint256 i = 0; i < recipients.length; i++) {
             uint256 recipientAmount = (amount * shares[i]) / MAX_SHARES;
             balances[tokenAddress][recipients[i]] += recipientAmount;
-
-            _addTokenForUser(recipients[i], tokenAddress);
-
-            emit RecipientSplit(msg.sender, tokenAddress, recipients[i], recipientAmount, shares[i]);
-        }
-    }
-
-    /// @notice Adds a token to the list of tokens a user has received (for automatic withdrawals).
-    /// @param recipient The recipient of the token.
-    /// @param tokenAddress The address of the token.
-    function _addTokenForUser(address recipient, address tokenAddress) internal {
-        if (!hasToken[recipient][tokenAddress]) {
-            userTokens[recipient].push(tokenAddress);
-            hasToken[recipient][tokenAddress] = true;
         }
     }
 }
