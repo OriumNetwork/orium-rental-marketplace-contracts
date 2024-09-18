@@ -21,6 +21,7 @@ contract ERC20Splitter is ReentrancyGuard {
         uint16[][] shares,
         address[][] recipients
     );
+
     event Withdraw(address indexed user, address[] tokenAddresses, uint256[] amounts);
 
     event RecipientSplit(
