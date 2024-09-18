@@ -150,93 +150,50 @@ describe('ERC20Splitter', () => {
 
       it.only('Should deposit four ERC20 tokens and split them between recipients', async () => {
         const tokenAmounts = [
-          ethers.parseEther('100'), // Amount for token 1
-          ethers.parseEther('60'), // Amount for token 2
-          ethers.parseEther('40'), // Amount for token 3
-          ethers.parseEther('80'), // Amount for token 4
+          ethers.parseEther('100'),
+          ethers.parseEther('60'),
+          ethers.parseEther('40'),
+          ethers.parseEther('80'),
         ]
 
         const shares = [
-          [5000, 3000, 2000], // Shares for token 1 (50%, 30%, 20%)
-          [5000, 3000, 2000], // Shares for token 2 (50%, 30%, 20%)
-          [5000, 3000, 2000], // Shares for token 3 (50%, 30%, 20%)
-          [5000, 3000, 2000], // Shares for token 4 (50%, 30%, 20%)
+          [5000, 3000, 2000],
+          [5000, 3000, 2000],
+          [5000, 3000, 2000],
+          [5000, 3000, 2000],
         ]
 
         const recipients = [
-          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 1
-          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 2
-          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 3
-          [recipient1.address, recipient2.address, recipient3.address], // Recipients for token 4
+          [recipient1.address, recipient2.address, recipient3.address],
+          [recipient1.address, recipient2.address, recipient3.address],
+          [recipient1.address, recipient2.address, recipient3.address],
+          [recipient1.address, recipient2.address, recipient3.address],
         ]
 
-        // Call the deposit function with matching array lengths
         await expect(
-          splitter.connect(owner).deposit(
-            [mockERC20.getAddress(), mockERC20_2.getAddress(), mockERC20_3.getAddress(), mockERC20_4.getAddress()],
-            tokenAmounts, // The array of amounts for the 4 tokens
-            shares, // Provide separate shares for each token
-            recipients, // Recipients array matches in length with token addresses
-          ),
+          splitter
+            .connect(owner)
+            .deposit(
+              [mockERC20.getAddress(), mockERC20_2.getAddress(), mockERC20_3.getAddress(), mockERC20_4.getAddress()],
+              tokenAmounts,
+              shares,
+              recipients,
+            ),
         ).to.emit(splitter, 'Deposit')
 
-        // Expected balances based on deposit amounts and shares
-        const expectedRecipient1BalanceToken1 = ethers.parseEther('50') // 50% of 100 tokens (token 1)
-        const expectedRecipient2BalanceToken1 = ethers.parseEther('30') // 30% of 100 tokens (token 1)
-        const expectedRecipient3BalanceToken1 = ethers.parseEther('20') // 20% of 100 tokens (token 1)
+        expect(await splitter.balances(mockERC20.getAddress(), recipient1.address)).to.equal(ethers.parseEther('50'))
+        expect(await splitter.balances(mockERC20.getAddress(), recipient2.address)).to.equal(ethers.parseEther('30'))
+        expect(await splitter.balances(mockERC20.getAddress(), recipient3.address)).to.equal(ethers.parseEther('20'))
 
-        const expectedRecipient1BalanceToken2 = ethers.parseEther('30') // 50% of 60 tokens (token 2)
-        const expectedRecipient2BalanceToken2 = ethers.parseEther('18') // 30% of 60 tokens (token 2)
-        const expectedRecipient3BalanceToken2 = ethers.parseEther('12') // 20% of 60 tokens (token 2)
-
-        const expectedRecipient1BalanceToken3 = ethers.parseEther('20') // 50% of 40 tokens (token 3)
-        const expectedRecipient2BalanceToken3 = ethers.parseEther('12') // 30% of 40 tokens (token 3)
-        const expectedRecipient3BalanceToken3 = ethers.parseEther('8') // 20% of 40 tokens (token 3)
-
-        const expectedRecipient1BalanceToken4 = ethers.parseEther('40') // 50% of 80 tokens (token 4)
-        const expectedRecipient2BalanceToken4 = ethers.parseEther('24') // 30% of 80 tokens (token 4)
-        const expectedRecipient3BalanceToken4 = ethers.parseEther('16') // 20% of 80 tokens (token 4)
-
-        // Checking balances after splitting for all tokens
-        expect(await splitter.balances(mockERC20.getAddress(), recipient1.address)).to.equal(
-          expectedRecipient1BalanceToken1,
-        )
-        expect(await splitter.balances(mockERC20.getAddress(), recipient2.address)).to.equal(
-          expectedRecipient2BalanceToken1,
-        )
-        expect(await splitter.balances(mockERC20.getAddress(), recipient3.address)).to.equal(
-          expectedRecipient3BalanceToken1,
-        )
-
-        expect(await splitter.balances(mockERC20_2.getAddress(), recipient1.address)).to.equal(
-          expectedRecipient1BalanceToken2,
-        )
-        expect(await splitter.balances(mockERC20_2.getAddress(), recipient2.address)).to.equal(
-          expectedRecipient2BalanceToken2,
-        )
-        expect(await splitter.balances(mockERC20_2.getAddress(), recipient3.address)).to.equal(
-          expectedRecipient3BalanceToken2,
-        )
-
-        expect(await splitter.balances(mockERC20_3.getAddress(), recipient1.address)).to.equal(
-          expectedRecipient1BalanceToken3,
-        )
-        expect(await splitter.balances(mockERC20_3.getAddress(), recipient2.address)).to.equal(
-          expectedRecipient2BalanceToken3,
-        )
-        expect(await splitter.balances(mockERC20_3.getAddress(), recipient3.address)).to.equal(
-          expectedRecipient3BalanceToken3,
-        )
-
-        expect(await splitter.balances(mockERC20_4.getAddress(), recipient1.address)).to.equal(
-          expectedRecipient1BalanceToken4,
-        )
-        expect(await splitter.balances(mockERC20_4.getAddress(), recipient2.address)).to.equal(
-          expectedRecipient2BalanceToken4,
-        )
-        expect(await splitter.balances(mockERC20_4.getAddress(), recipient3.address)).to.equal(
-          expectedRecipient3BalanceToken4,
-        )
+        expect(await splitter.balances(mockERC20_2.getAddress(), recipient1.address)).to.equal(ethers.parseEther('30'))
+        expect(await splitter.balances(mockERC20_2.getAddress(), recipient2.address)).to.equal(ethers.parseEther('18'))
+        expect(await splitter.balances(mockERC20_2.getAddress(), recipient3.address)).to.equal(ethers.parseEther('12'))
+        expect(await splitter.balances(mockERC20_3.getAddress(), recipient1.address)).to.equal(ethers.parseEther('20'))
+        expect(await splitter.balances(mockERC20_3.getAddress(), recipient2.address)).to.equal(ethers.parseEther('12'))
+        expect(await splitter.balances(mockERC20_3.getAddress(), recipient3.address)).to.equal(ethers.parseEther('8'))
+        expect(await splitter.balances(mockERC20_4.getAddress(), recipient1.address)).to.equal(ethers.parseEther('40'))
+        expect(await splitter.balances(mockERC20_4.getAddress(), recipient2.address)).to.equal(ethers.parseEther('24'))
+        expect(await splitter.balances(mockERC20_4.getAddress(), recipient3.address)).to.equal(ethers.parseEther('16'))
       })
 
       it('Should deposit three ERC20 tokens and split them between recipients', async () => {
