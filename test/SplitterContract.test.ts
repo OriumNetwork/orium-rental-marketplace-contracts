@@ -148,7 +148,7 @@ describe('ERC20Splitter', () => {
         expect(await splitter.balances(mockERC20_4.getAddress(), recipient4.address)).to.equal(ethers.parseEther('100'))
       })
 
-      it.only('Should deposit four ERC20 tokens and split them between recipients', async () => {
+      it('Should deposit four ERC20 tokens and split them between recipients', async () => {
         const tokenAmounts = [
           ethers.parseEther('100'),
           ethers.parseEther('60'),
