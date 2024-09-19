@@ -4,6 +4,7 @@ import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import { expect } from 'chai'
 import { MockERC20, ERC20Splitter, MaliciousRecipient } from '../typechain-types'
 import { AddressZero } from '../utils/constants'
+import { AddressLike, Typed } from 'ethers'
 
 describe('ERC20Splitter', () => {
   let splitter: ERC20Splitter
@@ -271,6 +272,17 @@ describe('ERC20Splitter', () => {
         ).to.be.revertedWith('ERC20Splitter: Shares and recipients length mismatch')
       })
 
+      it('Should revert if shares do not sum to 100%', async () => {
+        const invalidShares = [[4000, 4000, 2000]] // Sums to 90%
+        const recipients = [[recipient1.address, recipient2.address, recipient3.address]]
+
+        await mockERC20.transferReverts(true, 0)
+
+        await expect(
+          splitter.connect(owner).deposit([mockERC20.getAddress()], [tokenAmount], invalidShares, recipients),
+        ).to.be.revertedWith('ERC20Splitter: Transfer failed')
+      })
+
       it('Should revert when msg.value does not match the expected Ether amount', async () => {
         const incorrectMsgValue = ethers.parseEther('1') // Incorrect Ether amount
         const correctEtherAmount = ethers.parseEther('2') // Correct Ether amount to be split
@@ -484,6 +496,26 @@ describe('ERC20Splitter', () => {
         await mockERC20.transferReverts(true, 0)
 
         await expect(splitter.connect(recipient1).withdraw(tokens)).to.be.revertedWith('ERC20Splitter: Transfer failed')
+      })
+
+      it('Should revert when ERC20 transferFrom fails during withdraw', async () => {
+        const tokens: AddressLike[] | Typed = []
+
+        const ethAmount = ethers.parseEther('1')
+        const tokenAddresses = [ethers.ZeroAddress] // Ether represented by address zero
+        const amounts = [ethAmount]
+        const shares = [[10000]] // 100% share
+        const recipients = [[recipient1.getAddress()]]
+
+        await splitter.connect(owner).deposit(tokenAddresses, amounts, shares, recipients, {
+          value: ethAmount,
+        })
+
+        await mockERC20.transferReverts(true, 0)
+
+        await expect(splitter.connect(recipient1).withdraw(tokens)).to.be.revertedWith(
+          'ERC20Splitter: No tokens specified',
+        )
       })
     })
 
