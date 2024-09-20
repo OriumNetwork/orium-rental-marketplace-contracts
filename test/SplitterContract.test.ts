@@ -122,6 +122,12 @@ describe('ERC20Splitter', () => {
         expect(await splitter.balances(mockERC20.getAddress(), recipient1.address)).to.equal(ethers.parseEther('100'))
       })
 
+      it('Should handle deposit when user has no tokens', async () => {
+        const recipients = [[recipient1.address]]
+        const shares = [[10000]]
+        await splitter.connect(owner).deposit([mockERC20.getAddress()], [0], shares, recipients)
+      })
+
       it('Should deposit four ERC20 tokens and split them between recipients', async () => {
         const tokenAmounts = [
           ethers.parseEther('100'),
@@ -238,7 +244,6 @@ describe('ERC20Splitter', () => {
         expect(await splitter.balances(mockERC20.getAddress(), recipient2.address)).to.equal(ethers.parseEther('30'))
         expect(await splitter.balances(mockERC20.getAddress(), recipient3.address)).to.equal(ethers.parseEther('20'))
       })
-
       it('Should deposit native tokens (ETH) and split them between recipients', async () => {
         const shares = [[5000, 3000, 2000]]
         const recipients = [[recipient1.address, recipient2.address, recipient3.address]]
@@ -297,21 +302,6 @@ describe('ERC20Splitter', () => {
           }),
         ).to.be.revertedWith('ERC20Splitter: Incorrect native token amount sent')
       })
-      it('Should revert when amount is 0', async () => {
-        const incorrectMsgValue = ethers.parseEther('1') // Incorrect Ether amount
-        const correctEtherAmount = ethers.parseEther('2') // Correct Ether amount to be split
-        const tokenAddresses = [ethers.ZeroAddress] // Using address(0) for Ether
-        const amounts = [correctEtherAmount] // Amount to split among recipients
-        const shares = [[5000, 3000, 2000]] // Shares summing up to 100%
-        const recipients = [[recipient1.address, recipient2.address, recipient3.address]]
-
-        await expect(
-          splitter.connect(owner).deposit(tokenAddresses, [0], shares, recipients, {
-            value: incorrectMsgValue, // Sending incorrect msg.value
-          }),
-        ).to.be.revertedWith('ERC20Splitter: Amount must be greater than zero')
-      })
-
       it('Should revert when tokenAddresses and amounts lengths mismatch', async () => {
         const tokenAddresses = [mockERC20.getAddress(), ethers.ZeroAddress]
         const amounts = [ethers.parseEther('100')] // Length 1, intentional mismatch

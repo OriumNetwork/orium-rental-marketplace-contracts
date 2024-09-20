@@ -57,6 +57,7 @@ contract ERC20Splitter is ReentrancyGuard {
 
     /// @notice Withdraw all tokens that the caller is entitled to.
     /// Tokens are automatically determined based on previous deposits.
+    /// @param tokenAddresses Array of token addresses (use address(0) for native tokens).
     function withdraw(address[] calldata tokenAddresses) external nonReentrant {
         uint256 tokenCount = tokenAddresses.length;
         require(tokenCount > 0, 'ERC20Splitter: No tokens specified');
@@ -68,7 +69,7 @@ contract ERC20Splitter is ReentrancyGuard {
             uint256 amount = balances[tokenAddress][msg.sender];
 
             if (amount == 0) {
-                continue;
+                return;
             }
 
             delete balances[tokenAddress][msg.sender];
@@ -102,7 +103,9 @@ contract ERC20Splitter is ReentrancyGuard {
         address[] calldata recipients
     ) internal {
         require(shares.length == recipients.length, 'ERC20Splitter: Shares and recipients length mismatch');
-        require(amount > 0, 'ERC20Splitter: Amount must be greater than zero');
+        if(amount == 0 ) {
+            return;
+        }
 
         uint256 totalSharePercentage = 0;
 

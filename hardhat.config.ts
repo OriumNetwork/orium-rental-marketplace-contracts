@@ -67,7 +67,7 @@ const BASE_CONFIG = {
       forking: {
         url: POLYGON_PROVIDER_URL,
         blockNumber: 55899875,
-        timeout: 9999900,
+        timeout: 20000,
       },
     },
   },
