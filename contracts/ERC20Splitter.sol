@@ -68,6 +68,7 @@ contract ERC20Splitter is ReentrancyGuard {
             address tokenAddress = tokenAddresses[i];
             uint256 amount = balances[tokenAddress][msg.sender];
             withdrawnAmounts[i] = amount;
+            
             if (amount == 0) {
                 continue;
             }
