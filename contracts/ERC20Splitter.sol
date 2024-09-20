@@ -67,9 +67,9 @@ contract ERC20Splitter is ReentrancyGuard {
         for (uint256 i = 0; i < tokenCount; i++) {
             address tokenAddress = tokenAddresses[i];
             uint256 amount = balances[tokenAddress][msg.sender];
-
+            withdrawnAmounts[i] = amount;
             if (amount == 0) {
-                return;
+                continue;
             }
 
             delete balances[tokenAddress][msg.sender];
@@ -82,8 +82,6 @@ contract ERC20Splitter is ReentrancyGuard {
                     'ERC20Splitter: Transfer failed'
                 );
             }
-
-            withdrawnAmounts[i] = amount;
         }
 
         emit Withdraw(msg.sender, tokenAddresses, withdrawnAmounts);
