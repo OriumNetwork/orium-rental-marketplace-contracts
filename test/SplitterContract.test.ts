@@ -429,16 +429,16 @@ describe('ERC20Splitter', () => {
       })
 
       it('Should allow a recipient to withdraw their split ERC20 tokens without specifying token addresses', async () => {
-        const tokens = [await mockERC20Address]
+        const tokens = [mockERC20Address]
         await expect(splitter.connect(recipient1).withdraw(tokens))
           .to.emit(splitter, 'Withdraw')
-          .withArgs(recipient1.address, [await mockERC20Address], [ethers.parseEther('50')])
+          .withArgs(recipient1.address, [mockERC20Address], [ethers.parseEther('50')])
 
         expect(await splitter.balances(mockERC20Address, recipient1.address)).to.equal(0)
       })
 
       it('Should allow a recipient to withdraw their split native tokens (ETH) and ERC20 tokens', async () => {
-        const tokens = [await mockERC20Address, AddressZero]
+        const tokens = [mockERC20Address, AddressZero]
         const shares = [[5000, 3000, 2000]]
         const recipients = [[recipient1.address, recipient2.address, recipient3.address]]
 
@@ -450,22 +450,22 @@ describe('ERC20Splitter', () => {
           .to.emit(splitter, 'Withdraw')
           .withArgs(
             recipient1.address,
-            [await mockERC20Address, AddressZero],
+            [mockERC20Address, AddressZero],
             [ethers.parseEther('50'), ethers.parseEther('0.5')], // 50 ERC20 tokens and 0.5 ETH
           )
 
-        expect(await splitter.balances(await mockERC20Address, recipient1.address)).to.equal(0)
+        expect(await splitter.balances(mockERC20Address, recipient1.address)).to.equal(0)
         expect(await splitter.balances(AddressZero, recipient1.address)).to.equal(0)
       })
 
       it('Should handle withdraw() when user has no tokens', async () => {
-        const tokens = [await mockERC20Address, AddressZero]
+        const tokens = [mockERC20Address, AddressZero]
         await splitter.connect(anotherUser).withdraw(tokens)
       })
 
       it('Should revert when ERC20 transferFrom fails during withdraw', async () => {
-        const tokens = [await mockERC20Address]
-        const mockERC20false = await mockERC20Address
+        const tokens = [mockERC20Address]
+        const mockERC20false = mockERC20Address
 
         await network.provider.request({
           method: 'hardhat_impersonateAccount',
@@ -519,20 +519,20 @@ describe('ERC20Splitter', () => {
         const recipients = [[recipient1.address, recipient2.address, recipient3.address]]
 
         await mockERC20.connect(owner).approve(splitter.getAddress(), tokenAmount)
-        await splitter.connect(owner).deposit([await mockERC20Address], [tokenAmount], shares, recipients)
+        await splitter.connect(owner).deposit([mockERC20Address], [tokenAmount], shares, recipients)
       })
 
       it('Should allow a recipient to withdraw their split ERC20 tokens without specifying token addresses', async () => {
-        const tokens = [await mockERC20Address]
+        const tokens = [mockERC20Address]
         await expect(splitter.connect(recipient1).withdraw(tokens))
           .to.emit(splitter, 'Withdraw')
-          .withArgs(recipient1.address, [await mockERC20Address], [ethers.parseEther('50')])
+          .withArgs(recipient1.address, [mockERC20Address], [ethers.parseEther('50')])
 
         expect(await splitter.balances(mockERC20Address, recipient1.address)).to.equal(0)
       })
 
       it('Should allow a recipient to withdraw their split native tokens (ETH) and ERC20 tokens', async () => {
-        const tokens = [await mockERC20Address, AddressZero]
+        const tokens = [mockERC20Address, AddressZero]
         const shares = [[5000, 3000, 2000]]
         const recipients = [[recipient1.address, recipient2.address, recipient3.address]]
 
@@ -544,7 +544,7 @@ describe('ERC20Splitter', () => {
           .to.emit(splitter, 'Withdraw')
           .withArgs(
             recipient1.address, // Expect both ERC-20 and native token
-            [await mockERC20Address, AddressZero],
+            [mockERC20Address, AddressZero],
             [ethers.parseEther('50'), ethers.parseEther('0.5')], // 50 ERC20 tokens and 0.5 ETH
           )
 
@@ -591,12 +591,12 @@ describe('ERC20Splitter', () => {
 
         // Then, deposit ERC-20 tokens for recipient2 and recipient3
         await mockERC20.connect(owner).approve(splitter.getAddress(), tokenAmount)
-        await splitter.connect(owner).deposit([await mockERC20Address], [tokenAmount], erc20Shares, erc20Recipients)
+        await splitter.connect(owner).deposit([mockERC20Address], [tokenAmount], erc20Shares, erc20Recipients)
       })
 
       it('Should allow recipient1 to withdraw only their ETH and other recipients to withdraw their ERC-20 tokens', async () => {
         const tokenEth = [AddressZero]
-        const tokenErc20 = [await mockERC20Address]
+        const tokenErc20 = [mockERC20Address]
         await expect(splitter.connect(recipient1).withdraw(tokenEth))
           .to.emit(splitter, 'Withdraw')
           .withArgs(
@@ -611,7 +611,7 @@ describe('ERC20Splitter', () => {
           .to.emit(splitter, 'Withdraw')
           .withArgs(
             recipient2.address,
-            [await mockERC20Address],
+            [mockERC20Address],
             [ethers.parseEther('50')], // 50% of ERC-20 tokens
           )
 
@@ -621,7 +621,7 @@ describe('ERC20Splitter', () => {
           .to.emit(splitter, 'Withdraw')
           .withArgs(
             recipient3.address,
-            [await mockERC20Address],
+            [mockERC20Address],
             [ethers.parseEther('50')], // 50% of ERC-20 tokens
           )
 
@@ -671,12 +671,12 @@ describe('ERC20Splitter', () => {
       })
 
       it('Should allow recipient2 to withdraw both ETH and ERC-20 tokens', async () => {
-        const tokens = [AddressZero, await mockERC20Address]
+        const tokens = [AddressZero, mockERC20Address]
         await expect(splitter.connect(recipient2).withdraw(tokens))
           .to.emit(splitter, 'Withdraw')
           .withArgs(
             recipient2.address,
-            [AddressZero, await mockERC20Address],
+            [AddressZero, mockERC20Address],
             [ethers.parseEther('0.5'), ethers.parseEther('60')], // 50% of 1 ETH and 60 ERC-20 tokens
           )
 
@@ -685,10 +685,10 @@ describe('ERC20Splitter', () => {
       })
 
       it('Should allow recipient3 to withdraw only ERC-20 tokens', async () => {
-        const tokens = [await mockERC20Address]
+        const tokens = [mockERC20Address]
         await expect(splitter.connect(recipient3).withdraw(tokens))
           .to.emit(splitter, 'Withdraw')
-          .withArgs(recipient3.address, [await mockERC20Address], [ethers.parseEther('40')])
+          .withArgs(recipient3.address, [mockERC20Address], [ethers.parseEther('40')])
 
         expect(await splitter.balances(mockERC20Address, recipient3.address)).to.equal(0)
       })

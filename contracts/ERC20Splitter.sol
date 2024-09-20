@@ -56,7 +56,6 @@ contract ERC20Splitter is ReentrancyGuard {
     }
 
     /// @notice Withdraw all tokens that the caller is entitled to.
-    /// Tokens are automatically determined based on previous deposits.
     /// @param tokenAddresses Array of token addresses (use address(0) for native tokens).
     function withdraw(address[] calldata tokenAddresses) external nonReentrant {
         uint256 tokenCount = tokenAddresses.length;
@@ -68,7 +67,7 @@ contract ERC20Splitter is ReentrancyGuard {
             address tokenAddress = tokenAddresses[i];
             uint256 amount = balances[tokenAddress][msg.sender];
             withdrawnAmounts[i] = amount;
-            
+
             if (amount == 0) {
                 continue;
             }
